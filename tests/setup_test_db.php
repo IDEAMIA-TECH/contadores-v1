@@ -110,9 +110,55 @@ try {
     ");
     
     // Insertar datos de prueba
+    // 1. Insertar usuario contador de prueba
     $pdo->exec("
-        INSERT INTO users_test (username, password, email, role) VALUES 
-        ('contador_test', '" . password_hash('test123', PASSWORD_ARGON2ID) . "', 'contador@test.com', 'contador')
+        INSERT INTO users_test (id, username, password, email, role) VALUES 
+        (1, 'contador_test', '" . password_hash('test123', PASSWORD_ARGON2ID) . "', 'contador@test.com', 'contador')
+    ");
+    
+    // 2. Insertar registro de contador
+    $pdo->exec("
+        INSERT INTO accountants_test (id, user_id) VALUES 
+        (1, 1)
+    ");
+    
+    // 3. Insertar cliente de prueba base
+    $pdo->exec("
+        INSERT INTO clients_test (
+            id, rfc, business_name, legal_name, fiscal_regime, 
+            address, email, phone, status
+        ) VALUES (
+            1,
+            'BASE123456ABC',
+            'Empresa Base SA de CV',
+            'Empresa Base',
+            '601 - General de Ley',
+            'Calle Base 123',
+            'base@test.com',
+            '5555555555',
+            'active'
+        )
+    ");
+    
+    // 4. Insertar relación contador-cliente
+    $pdo->exec("
+        INSERT INTO accountant_clients_test (
+            accountant_id, client_id
+        ) VALUES (
+            1, 1
+        )
+    ");
+    
+    // 5. Insertar contacto de prueba
+    $pdo->exec("
+        INSERT INTO client_contacts_test (
+            client_id, name, email, phone
+        ) VALUES (
+            1,
+            'Contacto Base',
+            'contacto@test.com',
+            '5555555555'
+        )
     ");
     
     echo "Tablas de prueba creadas correctamente\n";

@@ -17,12 +17,12 @@ class ClientTest extends TestCase {
         $this->setUp();
         
         $clientData = [
-            'rfc' => 'TEST123456ABC',
+            'rfc' => 'TEST' . time() . 'ABC',
             'business_name' => 'Empresa de Prueba SA de CV',
             'legal_name' => 'Empresa de Prueba',
             'fiscal_regime' => '601 - General de Ley',
             'address' => 'Calle Test 123',
-            'email' => 'test@empresa.com',
+            'email' => 'test' . time() . '@empresa.com',
             'phone' => '5555555555',
             'accountant_id' => 1
         ];
@@ -51,10 +51,15 @@ class ClientTest extends TestCase {
         $this->setUp();
         
         $clientData = [
-            'rfc' => 'TEST789012XYZ',
+            'rfc' => 'TEST' . time() . 'XYZ',
             'business_name' => 'Otra Empresa SA de CV',
+            'legal_name' => 'Otra Empresa',
+            'fiscal_regime' => '601 - General de Ley',
+            'address' => 'Calle Otra 123',
+            'email' => 'otra' . time() . '@empresa.com',
+            'phone' => '5555555555',
             'contact_name' => 'Juan Prueba',
-            'contact_email' => 'juan@test.com',
+            'contact_email' => 'juan' . time() . '@test.com',
             'contact_phone' => '5555555555',
             'accountant_id' => 1
         ];
