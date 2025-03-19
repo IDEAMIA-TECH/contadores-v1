@@ -43,7 +43,7 @@
             <form id="upload-form" action="<?php echo BASE_URL; ?>/clients/upload-xml" method="POST" enctype="multipart/form-data">
                 <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($_SESSION['csrf_token']); ?>">
                 <input type="hidden" name="client_id" value="<?php echo htmlspecialchars($client['id']); ?>">
-                <input type="file" id="xml_files" name="xml_file[]" accept=".xml" multiple class="hidden">
+                <input type="file" id="xml_files" name="xml_files[]" accept=".xml" multiple class="hidden">
 
                 <!-- Barra de progreso -->
                 <div class="relative pt-1 hidden mb-4" id="progress-container">
