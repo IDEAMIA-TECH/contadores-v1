@@ -191,8 +191,15 @@
             }
 
             const formData = new FormData(form);
+            const submitBtn = form.querySelector('button[type="submit"]');
+            const progressContainer = document.getElementById('progress-container');
+            const progressBar = document.getElementById('progress-bar');
             
             try {
+                // Deshabilitar botón y mostrar progreso
+                submitBtn.disabled = true;
+                progressContainer.classList.remove('hidden');
+                
                 const response = await fetch(form.action, {
                     method: 'POST',
                     body: formData
@@ -201,13 +208,24 @@
                 const result = await response.json();
                 
                 if (result.success) {
+                    if (result.files_with_errors > 0) {
+                        // Mostrar mensaje con errores pero continuar
+                        const errorMessage = `Se procesaron ${result.files_processed} archivos, pero hubo ${result.files_with_errors} errores:\n\n${result.errors.join('\n')}`;
+                        alert(errorMessage);
+                    }
+                    // Redirigir a la vista del cliente
                     window.location.href = `${BASE_URL}/clients/view/${formData.get('client_id')}`;
                 } else {
+                    // Mostrar error y permitir reintentar
                     alert(result.message || 'Error al procesar los archivos');
+                    submitBtn.disabled = false;
+                    progressContainer.classList.add('hidden');
                 }
             } catch (error) {
                 console.error('Error:', error);
-                alert('Error al subir los archivos');
+                alert('Error al subir los archivos. Por favor, intente nuevamente.');
+                submitBtn.disabled = false;
+                progressContainer.classList.add('hidden');
             }
         });
     });
