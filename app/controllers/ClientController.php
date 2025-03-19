@@ -258,14 +258,81 @@ class ClientController {
                             
                             // Registrar los namespaces
                             $namespaces = $xml->getNamespaces(true);
-                            $cfdi = $xml->children($namespaces['cfdi']);
+                            error_log("Namespaces encontrados: " . print_r($namespaces, true));
                             
+                            // Registrar todos los namespaces necesarios
+                            foreach ($namespaces as $prefix => $ns) {
+                                $xml->registerXPathNamespace($prefix ?: 'cfdi', $ns);
+                            }
+                            
+                            // Buscar el TimbreFiscalDigital
+                            $tfd = null;
+                            $complemento = $xml->xpath('//cfdi:Complemento')[0] ?? null;
+                            if ($complemento) {
+                                foreach ($complemento->children() as $child) {
+                                    if (strpos($child->getName(), 'TimbreFiscalDigital') !== false) {
+                                        $tfd = $child;
+                                        break;
+                                    }
+                                }
+                            }
+                            
+                            if (!$tfd) {
+                                throw new Exception("No se encontró el TimbreFiscalDigital en el XML $fileName");
+                            }
+
+                            error_log("TFD encontrado: " . print_r($tfd, true));
+
                             // Extraer datos del XML
                             $xmlData = [
                                 'client_id' => $clientId,
                                 'xml_path' => 'xml/' . $newFileName,
-                                // ... resto de la extracción de datos ...
+                                'uuid' => (string)$tfd['UUID'],
+                                'serie' => (string)$xml['Serie'],
+                                'folio' => (string)$xml['Folio'],
+                                'fecha' => (string)$xml['Fecha'],
+                                'fecha_timbrado' => (string)$tfd['FechaTimbrado'],
+                                'subtotal' => (float)$xml['SubTotal'],
+                                'total' => (float)$xml['Total'],
+                                'tipo_comprobante' => (string)$xml['TipoDeComprobante'],
+                                'forma_pago' => (string)$xml['FormaPago'],
+                                'metodo_pago' => (string)$xml['MetodoPago'],
+                                'moneda' => (string)$xml['Moneda'],
+                                'lugar_expedicion' => (string)$xml['LugarExpedicion']
                             ];
+
+                            // Extraer datos del emisor y receptor
+                            $emisor = $xml->xpath('//cfdi:Emisor')[0] ?? null;
+                            $receptor = $xml->xpath('//cfdi:Receptor')[0] ?? null;
+
+                            if (!$emisor || !$receptor) {
+                                throw new Exception("No se encontraron datos de emisor o receptor en el XML $fileName");
+                            }
+
+                            // Agregar datos del emisor y receptor
+                            $xmlData = array_merge($xmlData, [
+                                'emisor_rfc' => (string)$emisor['Rfc'],
+                                'emisor_nombre' => (string)$emisor['Nombre'],
+                                'emisor_regimen_fiscal' => (string)$emisor['RegimenFiscal'],
+                                'receptor_rfc' => (string)$receptor['Rfc'],
+                                'receptor_nombre' => (string)$receptor['Nombre'],
+                                'receptor_regimen_fiscal' => (string)$receptor['RegimenFiscalReceptor'],
+                                'receptor_domicilio_fiscal' => (string)$receptor['DomicilioFiscalReceptor'],
+                                'receptor_uso_cfdi' => (string)$receptor['UsoCFDI']
+                            ]);
+
+                            // Extraer datos de impuestos
+                            $traslados = $xml->xpath('//cfdi:Impuestos/cfdi:Traslados/cfdi:Traslado')[0] ?? null;
+                            if ($traslados) {
+                                $xmlData = array_merge($xmlData, [
+                                    'total_impuestos_trasladados' => (float)($xml->xpath('//cfdi:Impuestos')[0]['TotalImpuestosTrasladados'] ?? 0),
+                                    'impuesto' => (string)$traslados['Impuesto'],
+                                    'tasa_o_cuota' => (float)$traslados['TasaOCuota'],
+                                    'tipo_factor' => (string)$traslados['TipoFactor']
+                                ]);
+                            }
+
+                            error_log("Datos extraídos del XML: " . print_r($xmlData, true));
 
                             // Guardar en la base de datos
                             $xmlModel = new ClientXml($this->db);
