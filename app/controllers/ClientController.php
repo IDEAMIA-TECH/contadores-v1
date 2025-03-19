@@ -216,25 +216,31 @@ class ClientController {
                 throw new Exception('Error al guardar el archivo');
             }
 
-            // Aquí iría la lógica para extraer datos del PDF
-            // Por ahora retornamos datos de ejemplo
+            // Usar PdfParser para extraer los datos
+            $parser = new PdfParser();
+            $extractedData = $parser->parseCSF($targetFile);
+
+            // Formatear la respuesta
             $data = [
                 'success' => true,
                 'data' => [
-                    'rfc' => 'XXXX999999XX9',
-                    'business_name' => 'Empresa de Ejemplo',
-                    'legal_name' => 'Razón Social de Ejemplo',
-                    'fiscal_regime' => '601',
-                    'street' => 'Calle Ejemplo',
-                    'exterior_number' => '123',
-                    'interior_number' => 'A',
-                    'neighborhood' => 'Colonia Ejemplo',
-                    'city' => 'Ciudad Ejemplo',
-                    'state' => 'Estado Ejemplo',
-                    'zip_code' => '12345',
+                    'rfc' => $extractedData['rfc'] ?? '',
+                    'business_name' => $extractedData['razon_social'] ?? '',
+                    'legal_name' => $extractedData['nombre_legal'] ?? '',
+                    'fiscal_regime' => $extractedData['regimen_fiscal'] ?? '',
+                    'street' => $extractedData['calle'] ?? '',
+                    'exterior_number' => $extractedData['numero_exterior'] ?? '',
+                    'interior_number' => $extractedData['numero_interior'] ?? '',
+                    'neighborhood' => $extractedData['colonia'] ?? '',
+                    'city' => $extractedData['municipio'] ?? '',
+                    'state' => $extractedData['estado'] ?? '',
+                    'zip_code' => $extractedData['codigo_postal'] ?? '',
                     'csf_path' => $fileName
                 ]
             ];
+
+            error_log("Datos extraídos del PDF: " . print_r($extractedData, true));
+            error_log("Datos formateados: " . print_r($data, true));
 
             header('Content-Type: application/json');
             echo json_encode($data);
