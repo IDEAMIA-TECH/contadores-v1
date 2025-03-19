@@ -60,7 +60,10 @@ try {
     $parts = explode('/', $route);
     $controllerName = ucfirst($parts[0] ?? 'Dashboard');
     $action = $parts[1] ?? 'index';
-    $id = $parts[2] ?? null; // Agregar soporte para el ID
+    $id = $parts[2] ?? null;
+
+    // Convertir action con guiones a camelCase
+    $action = lcfirst(str_replace(' ', '', ucwords(str_replace('-', ' ', $action))));
     
     // Mapear rutas a controladores
     $controllerMap = [

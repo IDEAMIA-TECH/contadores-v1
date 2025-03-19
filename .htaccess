@@ -53,4 +53,10 @@ RewriteBase /contadores-v1/
 # Permitir acceso directo a archivos y directorios existentes
 RewriteCond %{REQUEST_FILENAME} !-f
 RewriteCond %{REQUEST_FILENAME} !-d
-RewriteRule ^(.*)$ index.php [QSA,L] 
+RewriteRule ^(.*)$ index.php [QSA,L]
+
+# Permitir acceso a archivos PDF en uploads
+<FilesMatch "\.pdf$">
+    Order allow,deny
+    Allow from all
+</FilesMatch> 

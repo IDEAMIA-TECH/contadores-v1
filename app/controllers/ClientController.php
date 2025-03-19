@@ -214,111 +214,58 @@ class ClientController {
         throw new Exception('Error al guardar el archivo XML');
     }
 
-    public function processCSF() {
+    public function processCsf() {
         try {
-            // Asegurarnos de que no haya salida antes
-            ob_clean();
-            
             if (!$this->security->isAuthenticated()) {
                 throw new Exception('No autorizado');
             }
 
-            // Validar token CSRF
+            if (!isset($_FILES['csf_file']) || $_FILES['csf_file']['error'] !== UPLOAD_ERR_OK) {
+                throw new Exception('No se recibió el archivo correctamente');
+            }
+
+            // Validar el token CSRF
             if (!$this->security->validateCsrfToken($_POST['csrf_token'] ?? '')) {
                 throw new Exception('Token de seguridad inválido');
             }
 
-            // Validar archivo
-            if (!isset($_FILES['csf_file']) || $_FILES['csf_file']['error'] !== UPLOAD_ERR_OK) {
-                throw new Exception('Error al subir el archivo');
+            // Validar el tipo de archivo
+            $fileType = mime_content_type($_FILES['csf_file']['tmp_name']);
+            if ($fileType !== 'application/pdf') {
+                throw new Exception('El archivo debe ser un PDF');
             }
 
-            $file = $_FILES['csf_file'];
-            
-            // Validar tipo de archivo
-            $finfo = finfo_open(FILEINFO_MIME_TYPE);
-            $mimeType = finfo_file($finfo, $file['tmp_name']);
-            finfo_close($finfo);
+            // Procesar el PDF
+            $pdfParser = new PdfParser();
+            $data = $pdfParser->parseCSF($_FILES['csf_file']['tmp_name']);
 
-            if ($mimeType !== 'application/pdf') {
-                throw new Exception('El archivo debe ser PDF. Tipo detectado: ' . $mimeType);
+            // Mover el archivo a una ubicación permanente
+            $uploadDir = ROOT_PATH . '/uploads/csf/';
+            if (!is_dir($uploadDir)) {
+                mkdir($uploadDir, 0755, true);
             }
 
-            // Procesar el archivo
-            $targetDir = UPLOAD_PATH . '/csf/';
-            if (!file_exists($targetDir)) {
-                if (!mkdir($targetDir, 0777, true)) {
-                    throw new Exception('Error al crear el directorio para CSF');
-                }
+            $fileName = uniqid('csf_') . '.pdf';
+            $filePath = $uploadDir . $fileName;
+
+            if (!move_uploaded_file($_FILES['csf_file']['tmp_name'], $filePath)) {
+                throw new Exception('Error al guardar el archivo');
             }
 
-            if (!is_writable($targetDir)) {
-                throw new Exception('El directorio CSF no tiene permisos de escritura');
-            }
+            // Agregar la ruta del archivo a los datos
+            $data['csf_path'] = 'csf/' . $fileName;
 
-            $fileName = uniqid() . '_' . basename($file['name']);
-            $targetFile = $targetDir . $fileName;
-
-            error_log("Intentando mover archivo a: " . $targetFile);
-            
-            if (!move_uploaded_file($file['tmp_name'], $targetFile)) {
-                throw new Exception('Error al guardar el archivo. Código: ' . $file['error']);
-            }
-
-            // Verificar que el archivo existe y es legible
-            if (!file_exists($targetFile) || !is_readable($targetFile)) {
-                throw new Exception('El archivo guardado no es accesible');
-            }
-
-            // Usar PdfParser para extraer los datos
-            $parser = new PdfParser();
-            $extractedData = $parser->parseCSF($targetFile);
-
-            if (empty($extractedData)) {
-                throw new Exception('No se pudieron extraer datos del PDF');
-            }
-
-            // Formatear la respuesta
-            $data = [
-                'success' => true,
-                'data' => [
-                    'rfc' => $extractedData['rfc'] ?? '',
-                    'business_name' => $extractedData['razon_social'] ?? '',
-                    'legal_name' => $extractedData['nombre_legal'] ?? '',
-                    'fiscal_regime' => $extractedData['regimen_fiscal'] ?? '',
-                    'street' => $extractedData['calle'] ?? '',
-                    'exterior_number' => $extractedData['numero_exterior'] ?? '',
-                    'interior_number' => $extractedData['numero_interior'] ?? '',
-                    'neighborhood' => $extractedData['colonia'] ?? '',
-                    'city' => $extractedData['municipio'] ?? '',
-                    'state' => $extractedData['estado'] ?? '',
-                    'zip_code' => $extractedData['codigo_postal'] ?? '',
-                    'csf_path' => $fileName
-                ]
-            ];
-
-            error_log("Datos extraídos del PDF: " . print_r($extractedData, true));
-            error_log("Datos formateados: " . print_r($data, true));
-
-            // Asegurar que no haya salida antes del JSON
-            if (headers_sent($file, $line)) {
-                error_log("Headers already sent in $file:$line");
-                throw new Exception('Error interno del servidor');
-            }
-
+            // Devolver respuesta
             header('Content-Type: application/json');
-            echo json_encode($data);
+            echo json_encode([
+                'success' => true,
+                'data' => $data
+            ]);
 
         } catch (Exception $e) {
-            error_log("Error en processCSF: " . $e->getMessage());
-            error_log("Stack trace: " . $e->getTraceAsString());
-            
-            // Asegurar que no haya salida antes del JSON de error
-            if (!headers_sent()) {
-                header('Content-Type: application/json');
-                http_response_code(400);
-            }
-            
+            error_log("Error en processCsf: " . $e->getMessage());
+            header('Content-Type: application/json');
+            http_response_code(400);
             echo json_encode([
                 'success' => false,
                 'message' => $e->getMessage()

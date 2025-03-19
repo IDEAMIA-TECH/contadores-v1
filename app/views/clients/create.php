@@ -252,6 +252,10 @@
                             input.classList.remove('border-red-500');
                         }
                     });
+                    
+                    // Actualizar el campo oculto con la ruta del archivo
+                    document.getElementById('csf_path').value = data.data.csf_path;
+                    
                     alert('Constancia procesada correctamente');
                 } else {
                     throw new Error(data.message || 'Error al procesar el archivo');
