@@ -69,12 +69,13 @@ class AuthController {
                 exit;
             }
             
-            $username = filter_input(INPUT_POST, 'username', FILTER_SANITIZE_STRING);
+            // Usar htmlspecialchars en lugar de FILTER_SANITIZE_STRING
+            $username = htmlspecialchars(trim($_POST['username'] ?? ''), ENT_QUOTES, 'UTF-8');
             $password = $_POST['password'] ?? '';
             
-            // Debug: Verificar los valores recibidos
-            error_log("Intento de login - Usuario: " . $username);
-            error_log("Password recibido (longitud): " . strlen($password));
+            // Debug: Verificar los valores exactos
+            error_log("Username exacto: '" . $username . "'");
+            error_log("Password exacto (primeros 3 caracteres): '" . substr($password, 0, 3) . "'");
             
             if (empty($username) || empty($password)) {
                 error_log("Campos vacíos - Username: " . (empty($username) ? 'vacío' : 'presente') . 

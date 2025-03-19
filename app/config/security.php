@@ -21,4 +21,16 @@ return [
             'threads' => 3
         ]
     ]
-]; 
+];
+
+// Función de ayuda para generar hash de prueba
+function generateTestHash($password) {
+    return password_hash($password, PASSWORD_ARGON2ID, [
+        'memory_cost' => 65536,
+        'time_cost' => 4,
+        'threads' => 3
+    ]);
+}
+
+// Ejemplo de uso:
+// echo generateTestHash('password123'); 

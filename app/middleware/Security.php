@@ -40,15 +40,32 @@ class Security {
     }
     
     public function verifyPassword($password, $hash) {
-        // Debug: Verificar los valores recibidos
+        // Debug: Verificar los valores exactos
         error_log("Verificando contraseña");
-        error_log("Password recibido (longitud): " . strlen($password));
-        error_log("Hash almacenado: " . $hash);
+        error_log("Password exacto (primeros 3 caracteres): '" . substr($password, 0, 3) . "'");
+        error_log("Hash exacto: '" . $hash . "'");
         
-        $result = password_verify($password, $hash);
-        error_log("Resultado de verificación: " . ($result ? "true" : "false"));
+        // Verificar que los valores no estén vacíos
+        if (empty($password) || empty($hash)) {
+            error_log("Password o hash vacíos");
+            return false;
+        }
         
-        return $result;
+        // Verificar que el hash tenga el formato correcto
+        if (!str_starts_with($hash, '$argon2id$')) {
+            error_log("Hash no tiene formato Argon2id");
+            return false;
+        }
+        
+        // Intentar verificar la contraseña
+        try {
+            $result = password_verify($password, $hash);
+            error_log("Resultado de verificación: " . ($result ? "true" : "false"));
+            return $result;
+        } catch (Exception $e) {
+            error_log("Error al verificar contraseña: " . $e->getMessage());
+            return false;
+        }
     }
     
     public function generateRandomToken($length = 32) {
