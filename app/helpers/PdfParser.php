@@ -10,6 +10,26 @@ class PdfParser {
         $this->parser = new Parser();
     }
     
+    private function getLocationDataByZipCode($zipCode) {
+        try {
+            // Usar la API de Códigos Postales de México
+            $url = "https://api.copomex.com/query/info_cp/{$zipCode}?token=pruebas";
+            $response = file_get_contents($url);
+            $data = json_decode($response, true);
+            
+            if (isset($data[0])) {
+                return [
+                    'estado' => $data[0]['estado'] ?? '',
+                    'municipio' => $data[0]['municipio'] ?? '',
+                    'colonia' => $data[0]['asentamiento'] ?? ''
+                ];
+            }
+        } catch (Exception $e) {
+            error_log("Error al obtener datos de ubicación: " . $e->getMessage());
+        }
+        return null;
+    }
+    
     public function parseCSF($filePath) {
         try {
             // Parsear el PDF
@@ -38,10 +58,29 @@ class PdfParser {
                 $data['regimen_fiscal'] = '621';
             }
             
-            // Dirección
-            // Código Postal
+            // Código Postal y datos de ubicación
             if (preg_match('/CódigoPostal:(\d{5})/', $text, $matches)) {
-                $data['codigo_postal'] = $matches[1];
+                $zipCode = $matches[1];
+                $data['codigo_postal'] = $zipCode;
+                
+                // Obtener datos de ubicación por CP
+                $locationData = $this->getLocationDataByZipCode($zipCode);
+                if ($locationData) {
+                    $data['estado'] = $locationData['estado'];
+                    $data['municipio'] = $locationData['municipio'];
+                    $data['colonia'] = $locationData['colonia'];
+                } else {
+                    // Si falla la API, usar los datos del PDF
+                    if (preg_match('/NombredelaColonia:([^N]+)/', $text, $matches)) {
+                        $data['colonia'] = trim($matches[1]);
+                    }
+                    if (preg_match('/NombredelMunicipiooDemarcaciónTerritorial:([^N]+)/', $text, $matches)) {
+                        $data['municipio'] = trim($matches[1]);
+                    }
+                    if (preg_match('/NombredelaEntidadFederativa:([^E]+)/', $text, $matches)) {
+                        $data['estado'] = trim($matches[1]);
+                    }
+                }
             }
             
             // Calle
@@ -57,21 +96,6 @@ class PdfParser {
             // Número Interior
             if (preg_match('/NúmeroInterior:(\d+)/', $text, $matches)) {
                 $data['numero_interior'] = $matches[1];
-            }
-            
-            // Colonia
-            if (preg_match('/NombredelaColonia:([^N]+)/', $text, $matches)) {
-                $data['colonia'] = trim($matches[1]);
-            }
-            
-            // Municipio
-            if (preg_match('/NombredelMunicipiooDemarcaciónTerritorial:([^N]+)/', $text, $matches)) {
-                $data['municipio'] = trim($matches[1]);
-            }
-            
-            // Estado
-            if (preg_match('/NombredelaEntidadFederativa:([^E]+)/', $text, $matches)) {
-                $data['estado'] = trim($matches[1]);
             }
             
             // Nombre Legal (compuesto por nombre y apellidos)
