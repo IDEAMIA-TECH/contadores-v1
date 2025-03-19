@@ -11,8 +11,8 @@ define('APP_PATH', __DIR__ . '/..');
 define('UPLOAD_PATH', BASE_PATH . '/uploads');
 
 // Configuración de la aplicación
-define('APP_ENV', getenv('APP_ENV') ?: 'production');
-define('APP_DEBUG', getenv('APP_DEBUG') ?: false);
+define('APP_ENV', getenv('APP_ENV') ?: 'development');
+define('APP_DEBUG', getenv('APP_DEBUG') ?: true);
 
 // Configuración de URLs
 define('APP_URL', getenv('APP_URL') ?: 'https://contadores.ideamia.dev');
