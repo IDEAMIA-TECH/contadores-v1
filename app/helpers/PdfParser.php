@@ -26,46 +26,67 @@ class PdfParser {
                 $data['rfc'] = $matches[1];
             }
             
-            // Razón Social
-            if (preg_match('/DENOMINACIÓN/RAZÓN SOCIAL:\s*([^\n]+)/', $text, $matches)) {
+            // Nombre/Razón Social
+            if (preg_match('/Nombre, denominación o razón\s+social\s+([^\n]+)/i', $text, $matches)) {
                 $data['razon_social'] = trim($matches[1]);
             }
             
             // Régimen Fiscal
-            if (preg_match('/RÉGIMEN\s+(\d{3})/', $text, $matches)) {
-                $data['regimen_fiscal'] = $matches[1];
+            if (preg_match('/Régimen de Sueldos y Salarios e Ingresos Asimilados a Salarios/', $text)) {
+                $data['regimen_fiscal'] = '605';
+            } elseif (preg_match('/Régimen de Incorporación Fiscal/', $text)) {
+                $data['regimen_fiscal'] = '621';
             }
             
             // Dirección
-            if (preg_match('/DOMICILIO:\s*([^\n]+)/', $text, $matches)) {
-                $direccion = $matches[1];
-                
-                // Calle y número
-                if (preg_match('/CALLE\s+([^,]+),?\s*(?:NO\.\s*(\d+))?(?:\s*INT\.\s*([^,]+))?/', $direccion, $matches)) {
-                    $data['calle'] = trim($matches[1]);
-                    $data['numero_exterior'] = $matches[2] ?? '';
-                    $data['numero_interior'] = $matches[3] ?? '';
-                }
-                
-                // Colonia
-                if (preg_match('/COLONIA\s+([^,]+)/', $direccion, $matches)) {
-                    $data['colonia'] = trim($matches[1]);
-                }
-                
-                // Municipio
-                if (preg_match('/(?:MUNICIPIO|ALCALDÍA)\s+([^,]+)/', $direccion, $matches)) {
-                    $data['municipio'] = trim($matches[1]);
-                }
-                
-                // Estado
-                if (preg_match('/ESTADO\s+([^,]+)/', $direccion, $matches)) {
-                    $data['estado'] = trim($matches[1]);
-                }
-                
-                // Código Postal
-                if (preg_match('/C\.P\.\s*(\d{5})/', $direccion, $matches)) {
-                    $data['codigo_postal'] = $matches[1];
-                }
+            // Código Postal
+            if (preg_match('/CódigoPostal:(\d{5})/', $text, $matches)) {
+                $data['codigo_postal'] = $matches[1];
+            }
+            
+            // Calle
+            if (preg_match('/NombredeVialidad:([^N]+)/', $text, $matches)) {
+                $data['calle'] = trim($matches[1]);
+            }
+            
+            // Número Exterior
+            if (preg_match('/NúmeroExterior:(\d+)/', $text, $matches)) {
+                $data['numero_exterior'] = $matches[1];
+            }
+            
+            // Número Interior
+            if (preg_match('/NúmeroInterior:(\d+)/', $text, $matches)) {
+                $data['numero_interior'] = $matches[1];
+            }
+            
+            // Colonia
+            if (preg_match('/NombredelaColonia:([^N]+)/', $text, $matches)) {
+                $data['colonia'] = trim($matches[1]);
+            }
+            
+            // Municipio
+            if (preg_match('/NombredelMunicipiooDemarcaciónTerritorial:([^N]+)/', $text, $matches)) {
+                $data['municipio'] = trim($matches[1]);
+            }
+            
+            // Estado
+            if (preg_match('/NombredelaEntidadFederativa:([^E]+)/', $text, $matches)) {
+                $data['estado'] = trim($matches[1]);
+            }
+            
+            // Nombre Legal (compuesto por nombre y apellidos)
+            $nombreCompleto = [];
+            if (preg_match('/Nombre\(s\):\s*([^\n]+)/', $text, $matches)) {
+                $nombreCompleto[] = trim($matches[1]);
+            }
+            if (preg_match('/PrimerApellido:\s*([^\n]+)/', $text, $matches)) {
+                $nombreCompleto[] = trim($matches[1]);
+            }
+            if (preg_match('/SegundoApellido:\s*([^\n]+)/', $text, $matches)) {
+                $nombreCompleto[] = trim($matches[1]);
+            }
+            if (!empty($nombreCompleto)) {
+                $data['nombre_legal'] = implode(' ', $nombreCompleto);
             }
             
             error_log("Datos extraídos: " . print_r($data, true));
