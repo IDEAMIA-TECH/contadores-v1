@@ -53,24 +53,42 @@ class ClientController {
                 throw new Exception('Token de seguridad inválido. Por favor, intente nuevamente.');
             }
             
-            // Validar y guardar el nuevo cliente
-            $data = [
-                'rfc' => $_POST['rfc'] ?? '',
-                'business_name' => $_POST['business_name'] ?? '',
-                'legal_name' => $_POST['legal_name'] ?? '',
-                'fiscal_regime' => $_POST['fiscal_regime'] ?? '',
-                'address' => $this->formatAddress($_POST),
-                'email' => $_POST['email'] ?? '',
-                'phone' => $_POST['phone'] ?? '',
-                'contact_name' => $_POST['contact_name'] ?? '',
-                'contact_email' => $_POST['contact_email'] ?? '',
-                'contact_phone' => $_POST['contact_phone'] ?? ''
+            // Validar datos requeridos
+            $requiredFields = [
+                'rfc', 'business_name', 'fiscal_regime',
+                'street', 'exterior_number', 'neighborhood',
+                'city', 'state', 'zip_code', 'email', 'phone'
             ];
             
-            // Validar datos
-            if (empty($data['rfc']) || empty($data['business_name']) || empty($data['email'])) {
-                throw new Exception('Por favor complete los campos obligatorios');
+            foreach ($requiredFields as $field) {
+                if (empty($_POST[$field])) {
+                    throw new Exception("El campo {$field} es obligatorio");
+                }
             }
+            
+            // Preparar datos para el modelo
+            $data = [
+                'rfc' => $_POST['rfc'],
+                'business_name' => $_POST['business_name'],
+                'legal_name' => $_POST['legal_name'] ?? null,
+                'fiscal_regime' => $_POST['fiscal_regime'],
+                'street' => $_POST['street'],
+                'exterior_number' => $_POST['exterior_number'],
+                'interior_number' => $_POST['interior_number'] ?? null,
+                'neighborhood' => $_POST['neighborhood'],
+                'city' => $_POST['city'],
+                'state' => $_POST['state'],
+                'zip_code' => $_POST['zip_code'],
+                'email' => $_POST['email'],
+                'phone' => $_POST['phone'],
+                'csf_path' => $_POST['csf_path'] ?? null,
+                'contact_name' => $_POST['contact_name'] ?? null,
+                'contact_email' => $_POST['contact_email'] ?? null,
+                'contact_phone' => $_POST['contact_phone'] ?? null,
+                'accountant_id' => $_SESSION['user_id'] // ID del contador actual
+            ];
+            
+            error_log("Datos a insertar: " . print_r($data, true));
             
             if ($this->client->create($data)) {
                 $_SESSION['success'] = 'Cliente creado exitosamente';
