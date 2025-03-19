@@ -9,6 +9,11 @@
 <body class="bg-gray-100">
     <?php include __DIR__ . '/../partials/navbar.php'; ?>
 
+    <?php 
+    $token = $_SESSION['csrf_token']; // Usar el token existente en lugar de generar uno nuevo
+    error_log("Token en formulario: " . $token);
+    ?>
+
     <div class="container mx-auto px-4 py-8">
         <div class="bg-white rounded-lg shadow-lg p-6">
             <div class="flex justify-between items-center mb-6">

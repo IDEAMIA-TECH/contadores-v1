@@ -34,31 +34,41 @@ class ClientController {
             exit;
         }
         
-        // Generar token CSRF para el formulario
-        $token = $this->security->generateCsrfToken();
+        // Usar el token existente en lugar de generar uno nuevo
+        $token = $_SESSION['csrf_token'];
+        error_log("Token en create: " . $token);
+        
         include __DIR__ . '/../views/clients/create.php';
     }
     
     public function store() {
-        if (!$this->security->isAuthenticated()) {
-            header('Location: ' . BASE_URL . '/login');
-            exit;
-        }
-        
-        if (!$this->security->validateCsrfToken($_POST['csrf_token'] ?? '')) {
-            $_SESSION['error'] = 'Token de seguridad inválido';
-            header('Location: ' . BASE_URL . '/clients/create');
-            exit;
-        }
-        
-        // Validar y guardar el nuevo cliente
         try {
+            if (!$this->security->isAuthenticated()) {
+                header('Location: ' . BASE_URL . '/login');
+                exit;
+            }
+            
+            // Debug de tokens
+            error_log("Token recibido en POST: " . ($_POST['csrf_token'] ?? 'no token'));
+            error_log("Token en sesión: " . ($_SESSION['csrf_token'] ?? 'no token'));
+            
+            if (!$this->security->validateCsrfToken($_POST['csrf_token'] ?? '')) {
+                throw new Exception('Token de seguridad inválido. Por favor, intente nuevamente.');
+            }
+            
+            // Validar y guardar el nuevo cliente
             $data = [
                 'rfc' => $_POST['rfc'] ?? '',
                 'business_name' => $_POST['business_name'] ?? '',
                 'legal_name' => $_POST['legal_name'] ?? '',
                 'fiscal_regime' => $_POST['fiscal_regime'] ?? '',
-                'address' => $_POST['address'] ?? '',
+                'street' => $_POST['street'] ?? '',
+                'exterior_number' => $_POST['exterior_number'] ?? '',
+                'interior_number' => $_POST['interior_number'] ?? '',
+                'neighborhood' => $_POST['neighborhood'] ?? '',
+                'city' => $_POST['city'] ?? '',
+                'state' => $_POST['state'] ?? '',
+                'zip_code' => $_POST['zip_code'] ?? '',
                 'email' => $_POST['email'] ?? '',
                 'phone' => $_POST['phone'] ?? '',
                 'contact_name' => $_POST['contact_name'] ?? '',
@@ -66,11 +76,15 @@ class ClientController {
                 'contact_phone' => $_POST['contact_phone'] ?? ''
             ];
             
-            // Validar datos
-            if (empty($data['rfc']) || empty($data['business_name']) || empty($data['email'])) {
-                throw new Exception('Por favor complete los campos obligatorios');
+            // Validar datos requeridos
+            $requiredFields = ['rfc', 'business_name', 'email'];
+            foreach ($requiredFields as $field) {
+                if (empty($data[$field])) {
+                    throw new Exception("El campo {$field} es obligatorio");
+                }
             }
             
+            // Crear el cliente
             if ($this->client->create($data)) {
                 $_SESSION['success'] = 'Cliente creado exitosamente';
                 header('Location: ' . BASE_URL . '/clients');
@@ -79,6 +93,7 @@ class ClientController {
             }
             
         } catch (Exception $e) {
+            error_log("Error en store: " . $e->getMessage());
             $_SESSION['error'] = $e->getMessage();
             header('Location: ' . BASE_URL . '/clients/create');
         }
