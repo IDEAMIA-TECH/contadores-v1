@@ -177,6 +177,57 @@
                     </div>
                 </div>
 
+                <!-- Agregar después de la sección de contacto y antes del botón de guardar -->
+                <div class="mb-8">
+                    <h2 class="text-lg font-semibold text-gray-900 mb-4">Credenciales SAT</h2>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <!-- Archivo .cer -->
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">
+                                Certificado (.cer)
+                            </label>
+                            <input type="file" 
+                                   name="cer_file" 
+                                   accept=".cer"
+                                   class="block w-full text-sm text-gray-500
+                                          file:mr-4 file:py-2 file:px-4
+                                          file:rounded-full file:border-0
+                                          file:text-sm file:font-semibold
+                                          file:bg-blue-50 file:text-blue-700
+                                          hover:file:bg-blue-100">
+                            <p class="mt-1 text-sm text-gray-500">Seleccione el archivo .cer del SAT</p>
+                        </div>
+
+                        <!-- Archivo .key -->
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">
+                                Llave privada (.key)
+                            </label>
+                            <input type="file" 
+                                   name="key_file" 
+                                   accept=".key"
+                                   class="block w-full text-sm text-gray-500
+                                          file:mr-4 file:py-2 file:px-4
+                                          file:rounded-full file:border-0
+                                          file:text-sm file:font-semibold
+                                          file:bg-blue-50 file:text-blue-700
+                                          hover:file:bg-blue-100">
+                            <p class="mt-1 text-sm text-gray-500">Seleccione el archivo .key del SAT</p>
+                        </div>
+
+                        <!-- Contraseña de la llave privada -->
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">
+                                Contraseña FIEL
+                            </label>
+                            <input type="password" 
+                                   name="key_password" 
+                                   class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500">
+                            <p class="mt-1 text-sm text-gray-500">Contraseña de la llave privada del SAT</p>
+                        </div>
+                    </div>
+                </div>
+
                 <div class="flex justify-end space-x-4">
                     <button type="submit" 
                             class="bg-blue-500 hover:bg-blue-600 text-white px-6 py-2 rounded-md">

@@ -5,6 +5,7 @@ require_once __DIR__ . '/../models/Client.php';
 require_once __DIR__ . '/../helpers/PdfParser.php';
 require_once __DIR__ . '/../models/ClientXml.php';
 require_once __DIR__ . '/../helpers/CfdiXmlParser.php';
+require_once __DIR__ . '/../services/SatService.php';
 
 class ClientController {
     private $db;
@@ -45,12 +46,8 @@ class ClientController {
                 throw new Exception('No autorizado');
             }
             
-            error_log("Token recibido en store: " . ($_POST['csrf_token'] ?? 'no token'));
-            error_log("Token en sesión: " . ($_SESSION['csrf_token'] ?? 'no token'));
-            
             if (!$this->security->validateCsrfToken($_POST['csrf_token'] ?? '')) {
-                error_log("Token CSRF inválido en store");
-                throw new Exception('Token de seguridad inválido. Por favor, intente nuevamente.');
+                throw new Exception('Token de seguridad inválido');
             }
             
             // Validar datos requeridos
@@ -81,14 +78,27 @@ class ClientController {
                 'zip_code' => $_POST['zip_code'],
                 'email' => $_POST['email'],
                 'phone' => $_POST['phone'],
-                'csf_path' => $_POST['csf_path'] ?? null,
                 'contact_name' => $_POST['contact_name'] ?? null,
                 'contact_email' => $_POST['contact_email'] ?? null,
                 'contact_phone' => $_POST['contact_phone'] ?? null,
-                'accountant_id' => $_SESSION['user_id'] // ID del contador actual
+                'accountant_id' => $_SESSION['user_id']
             ];
-            
-            error_log("Datos a insertar: " . print_r($data, true));
+
+            // Procesar archivos del SAT si se proporcionaron
+            if (isset($_FILES['cer_file']) && $_FILES['cer_file']['error'] === UPLOAD_ERR_OK) {
+                $cerFile = $this->processSatFile($_FILES['cer_file'], 'cer');
+                $data['cer_path'] = $cerFile;
+            }
+
+            if (isset($_FILES['key_file']) && $_FILES['key_file']['error'] === UPLOAD_ERR_OK) {
+                $keyFile = $this->processSatFile($_FILES['key_file'], 'key');
+                $data['key_path'] = $keyFile;
+            }
+
+            // Procesar contraseña de la FIEL si se proporcionó
+            if (!empty($_POST['key_password'])) {
+                $data['key_password'] = password_hash($_POST['key_password'], PASSWORD_DEFAULT);
+            }
             
             if ($this->client->create($data)) {
                 $_SESSION['success'] = 'Cliente creado exitosamente';
@@ -100,7 +110,7 @@ class ClientController {
         } catch (Exception $e) {
             error_log("Error en store: " . $e->getMessage());
             $_SESSION['error'] = $e->getMessage();
-            $_SESSION['form_data'] = $_POST; // Mantener los datos del formulario
+            $_SESSION['form_data'] = $_POST;
             header('Location: ' . BASE_URL . '/clients/create');
         }
         exit;
@@ -597,10 +607,26 @@ class ClientController {
                 'contact_email' => $_POST['contact_email'] ?? null,
                 'contact_phone' => $_POST['contact_phone'] ?? null
             ];
-            
+
+            // Procesar archivos del SAT si se proporcionaron
+            if (isset($_FILES['cer_file']) && $_FILES['cer_file']['error'] === UPLOAD_ERR_OK) {
+                $cerFile = $this->processSatFile($_FILES['cer_file'], 'cer');
+                $data['cer_path'] = $cerFile;
+            }
+
+            if (isset($_FILES['key_file']) && $_FILES['key_file']['error'] === UPLOAD_ERR_OK) {
+                $keyFile = $this->processSatFile($_FILES['key_file'], 'key');
+                $data['key_path'] = $keyFile;
+            }
+
+            // Actualizar contraseña solo si se proporcionó una nueva
+            if (!empty($_POST['key_password'])) {
+                $data['key_password'] = password_hash($_POST['key_password'], PASSWORD_DEFAULT);
+            }
+
             if ($this->client->update($data)) {
                 $_SESSION['success'] = 'Cliente actualizado exitosamente';
-                header('Location: ' . BASE_URL . '/clients');
+                header('Location: ' . BASE_URL . '/clients/view/' . $id);
             } else {
                 throw new Exception('Error al actualizar el cliente');
             }
@@ -608,10 +634,47 @@ class ClientController {
         } catch (Exception $e) {
             error_log("Error en update: " . $e->getMessage());
             $_SESSION['error'] = $e->getMessage();
-            $_SESSION['form_data'] = $_POST;
             header('Location: ' . BASE_URL . '/clients/edit/' . $id);
         }
         exit;
+    }
+
+    private function processSatFile($file, $type) {
+        try {
+            // Validar tipo de archivo
+            $allowedExtensions = [
+                'cer' => ['cer'],
+                'key' => ['key']
+            ];
+
+            $fileInfo = pathinfo($file['name']);
+            $extension = strtolower($fileInfo['extension']);
+
+            if (!in_array($extension, $allowedExtensions[$type])) {
+                throw new Exception("Tipo de archivo no válido para {$type}");
+            }
+
+            // Crear directorio si no existe
+            $uploadDir = ROOT_PATH . '/uploads/sat/';
+            if (!is_dir($uploadDir)) {
+                mkdir($uploadDir, 0755, true);
+            }
+
+            // Generar nombre único
+            $fileName = uniqid("sat_{$type}_") . '.' . $extension;
+            $filePath = $uploadDir . $fileName;
+
+            // Mover archivo
+            if (!move_uploaded_file($file['tmp_name'], $filePath)) {
+                throw new Exception("Error al guardar el archivo {$type}");
+            }
+
+            return 'sat/' . $fileName;
+
+        } catch (Exception $e) {
+            error_log("Error procesando archivo SAT: " . $e->getMessage());
+            throw $e;
+        }
     }
 
     public function view($id = null) {
@@ -674,39 +737,21 @@ class ClientController {
                 throw new Exception('Tipo de descarga inválido');
             }
 
-            // Obtener datos del cliente
-            $client = $this->client->getClientById($clientId);
-            if (!$client) {
-                throw new Exception('Cliente no encontrado');
-            }
-
-            // Crear un archivo ZIP temporal
-            $tempFile = tempnam(sys_get_temp_dir(), 'sat_');
-            $zip = new ZipArchive();
+            // Inicializar servicio SAT
+            $satService = new SatService($this->db);
             
-            if ($zip->open($tempFile, ZipArchive::CREATE) !== TRUE) {
-                throw new Exception('No se pudo crear el archivo ZIP');
-            }
-
-            // Aquí implementarías la lógica real de conexión con el SAT
-            // Por ahora, creamos un archivo de ejemplo
-            $dummyContent = "Simulación de XML {$tipo} para el cliente {$client['business_name']}\n";
-            $dummyContent .= "Fecha Inicio: {$fechaInicio}\n";
-            $dummyContent .= "Fecha Fin: {$fechaFin}\n";
+            // Descargar XMLs
+            $zipFile = $satService->downloadXmls($clientId, $tipo, $fechaInicio, $fechaFin);
             
-            // Agregar archivo de ejemplo al ZIP
-            $zip->addFromString("ejemplo_{$tipo}.txt", $dummyContent);
-            $zip->close();
-
-            // Enviar el archivo
+            // Enviar archivo
             header('Content-Type: application/zip');
             header('Content-Disposition: attachment; filename="facturas_' . $tipo . '_' . date('Y-m-d') . '.zip"');
-            header('Content-Length: ' . filesize($tempFile));
+            header('Content-Length: ' . filesize($zipFile));
             header('Pragma: no-cache');
             header('Expires: 0');
             
-            readfile($tempFile);
-            unlink($tempFile); // Eliminar archivo temporal
+            readfile($zipFile);
+            unlink($zipFile);
             exit;
 
         } catch (Exception $e) {

@@ -26,27 +26,44 @@ class Client {
         try {
             $this->db->beginTransaction();
             
-            // Insertar en la tabla clients
-            $stmt = $this->db->prepare("
-                INSERT INTO clients (
-                    rfc, business_name, legal_name, fiscal_regime,
-                    street, exterior_number, interior_number, neighborhood,
-                    city, state, zip_code, email, phone, csf_path
-                ) VALUES (
-                    :rfc, :business_name, :legal_name, :fiscal_regime,
-                    :street, :exterior_number, :interior_number, :neighborhood,
-                    :city, :state, :zip_code, :email, :phone, :csf_path
-                )
-            ");
+            // Preparar la consulta SQL base
+            $sql = "INSERT INTO clients (
+                rfc, business_name, legal_name, fiscal_regime,
+                street, exterior_number, interior_number, neighborhood,
+                city, state, zip_code, email, phone, csf_path";
             
-            $clientData = [
+            $values = "VALUES (
+                :rfc, :business_name, :legal_name, :fiscal_regime,
+                :street, :exterior_number, :interior_number, :neighborhood,
+                :city, :state, :zip_code, :email, :phone, :csf_path";
+            
+            // Agregar campos de SAT si están presentes
+            if (isset($data['cer_path'])) {
+                $sql .= ", cer_path";
+                $values .= ", :cer_path";
+            }
+            if (isset($data['key_path'])) {
+                $sql .= ", key_path";
+                $values .= ", :key_path";
+            }
+            if (isset($data['key_password'])) {
+                $sql .= ", key_password";
+                $values .= ", :key_password";
+            }
+            
+            $sql .= ") " . $values . ")";
+            
+            $stmt = $this->db->prepare($sql);
+            
+            // Preparar parámetros base
+            $params = [
                 ':rfc' => $data['rfc'],
                 ':business_name' => $data['business_name'],
-                ':legal_name' => $data['legal_name'] ?? null,
+                ':legal_name' => $data['legal_name'],
                 ':fiscal_regime' => $data['fiscal_regime'],
                 ':street' => $data['street'],
                 ':exterior_number' => $data['exterior_number'],
-                ':interior_number' => $data['interior_number'] ?? null,
+                ':interior_number' => $data['interior_number'],
                 ':neighborhood' => $data['neighborhood'],
                 ':city' => $data['city'],
                 ':state' => $data['state'],
@@ -56,7 +73,18 @@ class Client {
                 ':csf_path' => $data['csf_path'] ?? null
             ];
             
-            $stmt->execute($clientData);
+            // Agregar parámetros de SAT si están presentes
+            if (isset($data['cer_path'])) {
+                $params[':cer_path'] = $data['cer_path'];
+            }
+            if (isset($data['key_path'])) {
+                $params[':key_path'] = $data['key_path'];
+            }
+            if (isset($data['key_password'])) {
+                $params[':key_password'] = $data['key_password'];
+            }
+            
+            $stmt->execute($params);
             $clientId = $this->db->lastInsertId();
             
             // Insertar en la tabla client_contacts si hay datos de contacto
@@ -165,73 +193,62 @@ class Client {
 
     public function update($data) {
         try {
-            $this->db->beginTransaction();
+            $sql = "UPDATE clients SET 
+                    rfc = ?,
+                    business_name = ?,
+                    legal_name = ?,
+                    fiscal_regime = ?,
+                    street = ?,
+                    exterior_number = ?,
+                    interior_number = ?,
+                    neighborhood = ?,
+                    city = ?,
+                    state = ?,
+                    zip_code = ?,
+                    email = ?,
+                    phone = ?";
             
-            // Actualizar datos del cliente
-            $stmt = $this->db->prepare("
-                UPDATE clients SET
-                    rfc = :rfc,
-                    business_name = :business_name,
-                    legal_name = :legal_name,
-                    fiscal_regime = :fiscal_regime,
-                    street = :street,
-                    exterior_number = :exterior_number,
-                    interior_number = :interior_number,
-                    neighborhood = :neighborhood,
-                    city = :city,
-                    state = :state,
-                    zip_code = :zip_code,
-                    email = :email,
-                    phone = :phone,
-                    updated_at = CURRENT_TIMESTAMP
-                WHERE id = :id
-            ");
-            
-            $stmt->execute([
-                ':id' => $data['id'],
-                ':rfc' => $data['rfc'],
-                ':business_name' => $data['business_name'],
-                ':legal_name' => $data['legal_name'],
-                ':fiscal_regime' => $data['fiscal_regime'],
-                ':street' => $data['street'],
-                ':exterior_number' => $data['exterior_number'],
-                ':interior_number' => $data['interior_number'],
-                ':neighborhood' => $data['neighborhood'],
-                ':city' => $data['city'],
-                ':state' => $data['state'],
-                ':zip_code' => $data['zip_code'],
-                ':email' => $data['email'],
-                ':phone' => $data['phone']
-            ]);
-            
-            // Actualizar o insertar datos de contacto
-            if (!empty($data['contact_name']) || !empty($data['contact_email']) || !empty($data['contact_phone'])) {
-                $stmt = $this->db->prepare("
-                    INSERT INTO client_contacts (
-                        client_id, contact_name, contact_email, contact_phone
-                    ) VALUES (
-                        :client_id, :contact_name, :contact_email, :contact_phone
-                    ) ON DUPLICATE KEY UPDATE
-                        contact_name = VALUES(contact_name),
-                        contact_email = VALUES(contact_email),
-                        contact_phone = VALUES(contact_phone)
-                ");
-                
-                $stmt->execute([
-                    ':client_id' => $data['id'],
-                    ':contact_name' => $data['contact_name'],
-                    ':contact_email' => $data['contact_email'],
-                    ':contact_phone' => $data['contact_phone']
-                ]);
+            $params = [
+                $data['rfc'],
+                $data['business_name'],
+                $data['legal_name'],
+                $data['fiscal_regime'],
+                $data['street'],
+                $data['exterior_number'],
+                $data['interior_number'],
+                $data['neighborhood'],
+                $data['city'],
+                $data['state'],
+                $data['zip_code'],
+                $data['email'],
+                $data['phone']
+            ];
+
+            // Agregar campos de SAT si están presentes
+            if (isset($data['cer_path'])) {
+                $sql .= ", cer_path = ?";
+                $params[] = $data['cer_path'];
             }
             
-            $this->db->commit();
-            return true;
+            if (isset($data['key_path'])) {
+                $sql .= ", key_path = ?";
+                $params[] = $data['key_path'];
+            }
+            
+            if (isset($data['key_password'])) {
+                $sql .= ", key_password = ?";
+                $params[] = $data['key_password'];
+            }
+
+            $sql .= " WHERE id = ?";
+            $params[] = $data['id'];
+
+            $stmt = $this->db->prepare($sql);
+            return $stmt->execute($params);
             
         } catch (PDOException $e) {
-            $this->db->rollBack();
-            error_log("Error en update: " . $e->getMessage());
-            throw new Exception("Error al actualizar el cliente");
+            error_log("Error en Client::update: " . $e->getMessage());
+            return false;
         }
     }
 } 
