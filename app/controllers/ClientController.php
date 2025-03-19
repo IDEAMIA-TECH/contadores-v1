@@ -11,7 +11,17 @@ class ClientController {
         $this->db = Database::getInstance()->getConnection();
         $this->client = new Client($this->db);
         $this->security = new Security();
-        $this->security->initSession();
+    }
+    
+    public function index() {
+        if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'contador') {
+            header('Location: /login');
+            exit;
+        }
+        
+        // Obtener lista de clientes del contador actual
+        $clients = $this->client->getByAccountant($_SESSION['user_id']);
+        require_once __DIR__ . '/../views/clients/index.php';
     }
     
     public function showCreateForm() {
@@ -31,91 +41,65 @@ class ClientController {
             exit;
         }
         
-        // Validar datos básicos
+        // Procesar archivo CSF si fue enviado
+        $csfPath = '';
+        if (isset($_FILES['csf']) && $_FILES['csf']['error'] === UPLOAD_ERR_OK) {
+            $csfPath = $this->processCsfFile($_FILES['csf']);
+        }
+        
         $clientData = [
-            'rfc' => filter_input(INPUT_POST, 'rfc', FILTER_SANITIZE_STRING),
-            'business_name' => filter_input(INPUT_POST, 'business_name', FILTER_SANITIZE_STRING),
-            'legal_name' => filter_input(INPUT_POST, 'legal_name', FILTER_SANITIZE_STRING),
-            'fiscal_regime' => filter_input(INPUT_POST, 'fiscal_regime', FILTER_SANITIZE_STRING),
-            'address' => filter_input(INPUT_POST, 'address', FILTER_SANITIZE_STRING),
-            'email' => filter_input(INPUT_POST, 'email', FILTER_SANITIZE_EMAIL),
-            'phone' => filter_input(INPUT_POST, 'phone', FILTER_SANITIZE_STRING),
-            'contact_name' => filter_input(INPUT_POST, 'contact_name', FILTER_SANITIZE_STRING),
-            'contact_phone' => filter_input(INPUT_POST, 'contact_phone', FILTER_SANITIZE_STRING),
-            'contact_email' => filter_input(INPUT_POST, 'contact_email', FILTER_SANITIZE_EMAIL),
-            'accountant_id' => $_SESSION['user_id']
+            'rfc' => $_POST['rfc'],
+            'business_name' => $_POST['business_name'],
+            'legal_name' => $_POST['legal_name'],
+            'fiscal_regime' => $_POST['fiscal_regime'],
+            'address' => $_POST['address'],
+            'email' => $_POST['email'],
+            'phone' => $_POST['phone'],
+            'contact_name' => $_POST['contact_name'] ?? '',
+            'contact_email' => $_POST['contact_email'] ?? '',
+            'contact_phone' => $_POST['contact_phone'] ?? '',
+            'accountant_id' => $_SESSION['user_id'],
+            'csf_path' => $csfPath
         ];
         
-        // Validar campos requeridos
-        if (empty($clientData['rfc']) || empty($clientData['business_name'])) {
-            $_SESSION['error'] = 'Los campos RFC y Razón Social son obligatorios';
-            $_SESSION['form_data'] = $clientData;
-            header('Location: /clients/create');
-            exit;
-        }
-        
-        // Validar formato de RFC
-        if (!preg_match('/^[A-Z&Ñ]{3,4}[0-9]{6}[A-Z0-9]{3}$/', $clientData['rfc'])) {
-            $_SESSION['error'] = 'El formato del RFC no es válido';
-            $_SESSION['form_data'] = $clientData;
-            header('Location: /clients/create');
-            exit;
-        }
-        
-        // Procesar archivo CSF si fue enviado
-        if (isset($_FILES['csf_pdf']) && $_FILES['csf_pdf']['error'] === UPLOAD_ERR_OK) {
-            $uploadDir = UPLOAD_PATH . '/csf/';
-            if (!is_dir($uploadDir)) {
-                mkdir($uploadDir, 0755, true);
-            }
-            
-            $fileName = $clientData['rfc'] . '_' . time() . '.pdf';
-            $filePath = $uploadDir . $fileName;
-            
-            if (move_uploaded_file($_FILES['csf_pdf']['tmp_name'], $filePath)) {
-                $clientData['csf_path'] = $filePath;
-                
-                // Parsear PDF para extraer datos
-                $pdfParser = new PdfParser();
-                $extractedData = $pdfParser->parseCSF($filePath);
-                
-                if ($extractedData) {
-                    // Actualizar datos con la información extraída del PDF
-                    $clientData = array_merge($clientData, $extractedData);
-                }
-            }
-        }
-        
         try {
-            $clientId = $this->client->create($clientData);
-            
-            if ($clientId) {
-                $_SESSION['success'] = 'Cliente registrado correctamente';
-                header('Location: /clients');
-                exit;
-            }
+            $this->client->create($clientData);
+            $_SESSION['success'] = 'Cliente creado exitosamente';
+            header('Location: /clients');
         } catch (Exception $e) {
-            $_SESSION['error'] = 'Error al registrar el cliente: ' . $e->getMessage();
-            $_SESSION['form_data'] = $clientData;
+            $_SESSION['error'] = 'Error al crear el cliente: ' . $e->getMessage();
             header('Location: /clients/create');
-            exit;
         }
     }
     
+    private function processCsfFile($file) {
+        $targetDir = UPLOAD_PATH . '/csf/';
+        if (!file_exists($targetDir)) {
+            mkdir($targetDir, 0777, true);
+        }
+        
+        $fileName = uniqid() . '_' . basename($file['name']);
+        $targetFile = $targetDir . $fileName;
+        
+        if (move_uploaded_file($file['tmp_name'], $targetFile)) {
+            return $targetFile;
+        }
+        
+        throw new Exception('Error al subir el archivo CSF');
+    }
+    
     public function extractCsfData() {
-        if (!isset($_FILES['csf_pdf']) || $_FILES['csf_pdf']['error'] !== UPLOAD_ERR_OK) {
-            echo json_encode(['error' => 'No se recibió el archivo PDF']);
+        if (!isset($_FILES['csf']) || $_FILES['csf']['error'] !== UPLOAD_ERR_OK) {
+            echo json_encode(['error' => 'No se recibió el archivo']);
             return;
         }
         
-        $tempFile = $_FILES['csf_pdf']['tmp_name'];
-        $pdfParser = new PdfParser();
-        $extractedData = $pdfParser->parseCSF($tempFile);
-        
-        if ($extractedData) {
-            echo json_encode(['success' => true, 'data' => $extractedData]);
-        } else {
-            echo json_encode(['error' => 'No se pudieron extraer los datos del PDF']);
+        try {
+            $parser = new PdfParser();
+            $data = $parser->parseCSF($_FILES['csf']['tmp_name']);
+            echo json_encode(['success' => true, 'data' => $data]);
+        } catch (Exception $e) {
+            echo json_encode(['error' => $e->getMessage()]);
         }
     }
 } 

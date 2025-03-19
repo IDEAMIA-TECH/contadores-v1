@@ -37,4 +37,9 @@ ini_set('session.cookie_lifetime', 7200);
 session_start();
 
 // Configuración de archivos
-define('MAX_UPLOAD_SIZE', 10 * 1024 * 1024); // 10MB 
+define('MAX_UPLOAD_SIZE', 10 * 1024 * 1024); // 10MB
+
+// Configuración de logs
+define('LOG_PATH', BASE_PATH . '/logs');
+ini_set('error_log', LOG_PATH . '/error.log');
+ini_set('log_errors', 1); 
