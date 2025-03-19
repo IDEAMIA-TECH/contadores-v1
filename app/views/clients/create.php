@@ -46,7 +46,7 @@
                 </div>
             </div>
 
-            <form action="<?php echo BASE_URL; ?>/clients/store" method="POST" class="space-y-6">
+            <form action="<?php echo BASE_URL; ?>/clients/store" method="POST" class="space-y-6" id="clientForm">
                 <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($_SESSION['csrf_token']); ?>">
                 <input type="hidden" name="csf_path" id="csf_path" value="">
                 
@@ -191,26 +191,49 @@
 
     <script>
     document.addEventListener('DOMContentLoaded', function() {
+        const form = document.getElementById('clientForm');
         const csfFile = document.getElementById('csf_file');
         const uploadButton = document.getElementById('upload_csf');
         
+        // Prevenir envío del formulario si faltan campos requeridos
+        form.addEventListener('submit', function(e) {
+            const requiredFields = [
+                'rfc', 'business_name', 'fiscal_regime', 
+                'street', 'exterior_number', 'neighborhood',
+                'city', 'state', 'zip_code', 'email', 'phone'
+            ];
+            
+            let hasError = false;
+            requiredFields.forEach(field => {
+                const input = document.getElementById(field);
+                if (!input.value.trim()) {
+                    hasError = true;
+                    input.classList.add('border-red-500');
+                } else {
+                    input.classList.remove('border-red-500');
+                }
+            });
+            
+            if (hasError) {
+                e.preventDefault();
+                alert('Por favor complete todos los campos obligatorios');
+            }
+            
+            // Actualizar token CSRF antes de enviar
+            const csrfToken = document.querySelector('input[name="csrf_token"]');
+            csrfToken.value = '<?php echo $_SESSION['csrf_token']; ?>';
+        });
+        
         uploadButton.addEventListener('click', function() {
             if (!csfFile.files.length) {
-                console.error('No se seleccionó ningún archivo');
                 alert('Por favor seleccione un archivo PDF');
                 return;
             }
 
-            console.log('Archivo seleccionado:', csfFile.files[0].name);
-            
             const formData = new FormData();
             formData.append('csf_file', csfFile.files[0]);
             formData.append('csrf_token', document.querySelector('input[name="csrf_token"]').value);
 
-            console.log('Iniciando carga del archivo...');
-            console.log('CSRF Token:', document.querySelector('input[name="csrf_token"]').value);
-
-            // Mostrar indicador de carga
             uploadButton.disabled = true;
             uploadButton.textContent = 'Procesando...';
 
@@ -218,59 +241,45 @@
                 method: 'POST',
                 body: formData
             })
-            .then(response => {
-                console.log('Respuesta del servidor:', response.status, response.statusText);
-                if (!response.ok) {
-                    throw new Error(`HTTP error! status: ${response.status}`);
-                }
-                return response.json();
-            })
+            .then(response => response.json())
             .then(data => {
-                console.log('Datos recibidos:', data);
                 if (data.success) {
                     // Actualizar los campos del formulario
-                    console.log('Actualizando campos del formulario...');
-                    document.getElementById('rfc').value = data.data.rfc || '';
-                    document.getElementById('business_name').value = data.data.business_name || '';
-                    document.getElementById('legal_name').value = data.data.legal_name || '';
-                    document.getElementById('fiscal_regime').value = data.data.fiscal_regime || '';
-                    document.getElementById('street').value = data.data.street || '';
-                    document.getElementById('exterior_number').value = data.data.exterior_number || '';
-                    document.getElementById('interior_number').value = data.data.interior_number || '';
-                    document.getElementById('neighborhood').value = data.data.neighborhood || '';
-                    document.getElementById('city').value = data.data.city || '';
-                    document.getElementById('state').value = data.data.state || '';
-                    document.getElementById('zip_code').value = data.data.zip_code || '';
-                    document.getElementById('csf_path').value = data.data.csf_path || '';
-                    
-                    console.log('Formulario actualizado correctamente');
+                    Object.keys(data.data).forEach(key => {
+                        const input = document.getElementById(key);
+                        if (input) {
+                            input.value = data.data[key];
+                            input.classList.remove('border-red-500');
+                        }
+                    });
                     alert('Constancia procesada correctamente');
                 } else {
-                    console.error('Error en la respuesta:', data);
-                    alert(data.message || 'Error al procesar el archivo');
+                    throw new Error(data.message || 'Error al procesar el archivo');
                 }
             })
             .catch(error => {
-                console.error('Error detallado:', {
-                    message: error.message,
-                    name: error.name,
-                    stack: error.stack
-                });
-                alert('Error al procesar el archivo: ' + error.message);
+                console.error('Error:', error);
+                alert('Error: ' + error.message);
             })
             .finally(() => {
-                console.log('Proceso finalizado');
                 uploadButton.disabled = false;
                 uploadButton.textContent = 'Cargar y Procesar';
             });
         });
-
-        // Actualizar el token CSRF antes de enviar el formulario
-        const form = document.querySelector('form');
-        form.addEventListener('submit', function() {
-            const csrfToken = document.querySelector('input[name="csrf_token"]');
-            csrfToken.value = '<?php echo $_SESSION['csrf_token']; ?>';
+        
+        // Restaurar datos del formulario si hay error
+        <?php if (isset($_SESSION['form_data'])): ?>
+        const formData = <?php echo json_encode($_SESSION['form_data']); ?>;
+        Object.keys(formData).forEach(key => {
+            const input = document.getElementById(key);
+            if (input) {
+                input.value = formData[key];
+            }
         });
+        <?php 
+        unset($_SESSION['form_data']);
+        endif; 
+        ?>
     });
     </script>
 </body>
