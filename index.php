@@ -8,9 +8,6 @@ define('BASE_URL', '/contadores-v1');
 // Definir la ruta base del sistema
 define('ROOT_PATH', __DIR__);
 
-// Definir la ruta para los assets
-define('ASSETS_URL', BASE_URL . '/public');
-
 // Cargar configuración y dependencias comunes
 require_once __DIR__ . '/app/config/config.php';
 require_once __DIR__ . '/app/config/database.php';

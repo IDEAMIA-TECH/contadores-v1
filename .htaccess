@@ -50,14 +50,7 @@ RewriteRule ^(.*)$ index.php/$1 [L]
 RewriteEngine On
 RewriteBase /contadores-v1/
 
-# Si el archivo o directorio existe, servirlo directamente
+# Permitir acceso directo a archivos y directorios existentes
 RewriteCond %{REQUEST_FILENAME} !-f
 RewriteCond %{REQUEST_FILENAME} !-d
-
-# Redirigir todo lo demás a index.php
-RewriteRule ^(.*)$ index.php [QSA,L]
-
-# Permitir acceso a la carpeta public
-<IfModule mod_headers.c>
-    Header set Access-Control-Allow-Origin "*"
-</IfModule> 
+RewriteRule ^(.*)$ index.php [QSA,L] 
