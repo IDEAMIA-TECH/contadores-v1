@@ -24,16 +24,16 @@ class AuthController {
             exit;
         }
         
-        // Asegurarnos de que haya un token CSRF válido
+        // Usar el token existente o generar uno nuevo
         if (empty($_SESSION['csrf_token'])) {
-            error_log("No hay token CSRF, generando uno nuevo");
+            error_log("No hay token CSRF en sesión, generando uno nuevo");
             $token = $this->security->generateCsrfToken();
         } else {
-            error_log("Usando token CSRF existente");
+            error_log("Usando token CSRF existente en sesión");
             $token = $_SESSION['csrf_token'];
         }
         
-        error_log("Token CSRF para el formulario: " . $token);
+        error_log("Token CSRF que se usará en el formulario: " . $token);
         
         include __DIR__ . '/../views/auth/login.php';
     }

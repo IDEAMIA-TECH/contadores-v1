@@ -24,15 +24,20 @@ class Security {
             error_log("Sesión ya iniciada - ID: " . session_id());
         }
         
-        // Siempre generar un nuevo token al inicializar
-        $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
-        error_log("Nuevo token CSRF generado en initSession: " . $_SESSION['csrf_token']);
+        // Solo generar token si no existe
+        if (!isset($_SESSION['csrf_token'])) {
+            error_log("No hay token CSRF, generando uno nuevo en initSession");
+            $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
+            error_log("Token generado: " . $_SESSION['csrf_token']);
+        } else {
+            error_log("Token CSRF existente en initSession: " . $_SESSION['csrf_token']);
+        }
     }
     
     public function generateCsrfToken() {
         error_log("Generando nuevo token CSRF");
         
-        // Siempre generar un nuevo token
+        // Siempre generar un nuevo token y guardarlo en sesión
         $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
         error_log("Nuevo token generado: " . $_SESSION['csrf_token']);
         
@@ -40,15 +45,9 @@ class Security {
     }
     
     public function validateCsrfToken($token) {
-        error_log("Validando token CSRF");
+        error_log("=== Validando token CSRF ===");
         error_log("Token recibido: " . ($token ?: 'vacío'));
         error_log("Token en sesión: " . ($_SESSION['csrf_token'] ?? 'no existe'));
-        
-        // Durante desarrollo, generar un token si no existe
-        if (APP_ENV === 'development' && empty($_SESSION['csrf_token'])) {
-            error_log("Generando token CSRF de emergencia en validateCsrfToken");
-            $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
-        }
         
         if (empty($token) || empty($_SESSION['csrf_token'])) {
             error_log("Token vacío o no existe en sesión");
@@ -57,6 +56,11 @@ class Security {
         
         $result = hash_equals($_SESSION['csrf_token'], $token);
         error_log("Resultado de validación: " . ($result ? 'válido' : 'inválido'));
+        
+        if ($result) {
+            // Si la validación fue exitosa, generar un nuevo token para la siguiente solicitud
+            $this->generateCsrfToken();
+        }
         
         return $result;
     }
