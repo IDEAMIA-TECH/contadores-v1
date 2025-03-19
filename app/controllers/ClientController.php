@@ -234,13 +234,22 @@ class ClientController {
                 $xmlParser = new CfdiXmlParser();
                 $xmlData = $xmlParser->parse($filePath);
 
+                // Preparar datos para guardar
+                $xmlData = array_merge($xmlData, [
+                    'client_id' => $clientId,
+                    'xml_path' => 'xml/' . $fileName,
+                    'created_at' => date('Y-m-d H:i:s'),
+                    'updated_at' => date('Y-m-d H:i:s')
+                ]);
+
                 // Guardar información en la base de datos
                 $xmlModel = new ClientXml($this->db);
-                $xmlData['client_id'] = $clientId;
-                $xmlData['file_path'] = 'xml/' . $fileName;
-                
                 if (!$xmlModel->create($xmlData)) {
-                    throw new Exception('Error al guardar la información del XML');
+                    // Si hay error, eliminar el archivo subido
+                    if (file_exists($filePath)) {
+                        unlink($filePath);
+                    }
+                    throw new Exception('Error al guardar el XML');
                 }
 
                 $_SESSION['success'] = 'XML procesado correctamente';
@@ -252,6 +261,11 @@ class ClientController {
             error_log("Error en uploadXml: " . $e->getMessage());
             $_SESSION['error'] = $e->getMessage();
             
+            // Si hay error y se subió un archivo, eliminarlo
+            if (isset($filePath) && file_exists($filePath)) {
+                unlink($filePath);
+            }
+
             // Redirigir según el tipo de solicitud
             if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 header('Location: ' . BASE_URL . '/clients/upload-xml?id=' . ($clientId ?? ''));

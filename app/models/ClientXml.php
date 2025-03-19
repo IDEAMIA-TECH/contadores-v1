@@ -9,31 +9,44 @@ class ClientXml {
     public function create($data) {
         try {
             $stmt = $this->db->prepare("
-                INSERT INTO client_xmls (
-                    client_id, 
-                    xml_type,
-                    uuid,
+                INSERT INTO client_xml (
+                    client_id,
                     xml_path,
-                    emission_date,
-                    certification_date,
+                    uuid,
+                    serie,
+                    folio,
+                    fecha,
                     subtotal,
                     total,
-                    status,
-                    created_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
+                    created_at,
+                    updated_at
+                ) VALUES (
+                    :client_id,
+                    :xml_path,
+                    :uuid,
+                    :serie,
+                    :folio,
+                    :fecha,
+                    :subtotal,
+                    :total,
+                    :created_at,
+                    :updated_at
+                )
             ");
-            
+
             return $stmt->execute([
-                $data['client_id'],
-                $data['xml_type'],
-                $data['uuid'],
-                $data['xml_path'],
-                $data['emission_date'],
-                $data['certification_date'],
-                $data['subtotal'],
-                $data['total'],
-                $data['status']
+                ':client_id' => $data['client_id'],
+                ':xml_path' => $data['xml_path'],
+                ':uuid' => $data['uuid'] ?? null,
+                ':serie' => $data['serie'] ?? null,
+                ':folio' => $data['folio'] ?? null,
+                ':fecha' => $data['fecha'] ?? null,
+                ':subtotal' => $data['subtotal'] ?? 0,
+                ':total' => $data['total'] ?? 0,
+                ':created_at' => $data['created_at'],
+                ':updated_at' => $data['updated_at']
             ]);
+
         } catch (PDOException $e) {
             error_log("Error al crear XML: " . $e->getMessage());
             throw new Exception("Error al guardar el XML");
