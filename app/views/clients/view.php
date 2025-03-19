@@ -258,6 +258,9 @@
 
     <!-- Actualizar el script de manejo de descargas -->
     <script>
+    // Definir BASE_URL al inicio del script
+    const BASE_URL = '<?php echo BASE_URL; ?>';
+
     document.addEventListener('DOMContentLoaded', function() {
         const formEmitidas = document.getElementById('form-emitidas');
         const formRecibidas = document.getElementById('form-recibidas');
@@ -291,10 +294,15 @@
                 const formData = new FormData(form);
                 formData.append('csrf_token', '<?php echo $token; ?>');
 
+                console.log('Enviando solicitud a:', `${BASE_URL}/clients/download-sat`);
+                console.log('Datos del formulario:', Object.fromEntries(formData));
+
                 const response = await fetch(`${BASE_URL}/clients/download-sat`, {
                     method: 'POST',
                     body: formData
                 });
+
+                console.log('Respuesta recibida:', response);
 
                 if (!response.ok) {
                     const errorData = await response.json();
