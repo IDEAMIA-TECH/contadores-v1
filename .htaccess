@@ -1,13 +1,19 @@
 # Prevenir listado de directorios
 Options -Indexes
 
-# Proteger archivos sensibles
+# Proteger directorios sensibles
 <FilesMatch "^\.">
     Order allow,deny
     Deny from all
 </FilesMatch>
 
-# Redirigir todo a index.php
+# Proteger app y vendor
+<FilesMatch "(^app/|^vendor/)">
+    Order allow,deny
+    Deny from all
+</FilesMatch>
+
+# Redirigir todo a index.php excepto archivos estáticos
 RewriteEngine On
 RewriteCond %{REQUEST_FILENAME} !-f
 RewriteCond %{REQUEST_FILENAME} !-d

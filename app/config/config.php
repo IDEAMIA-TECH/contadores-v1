@@ -1,11 +1,12 @@
 <?php
 define('BASE_PATH', dirname(__DIR__, 1));
+define('APP_PATH', __DIR__ . '/../app');
+define('UPLOAD_PATH', __DIR__ . '/../uploads');
 define('APP_URL', getenv('APP_URL') ?: 'http://localhost');
 define('APP_ENV', getenv('APP_ENV') ?: 'development');
 define('DEBUG', getenv('APP_DEBUG') ?: true);
 
 // Configuración de rutas
-define('UPLOAD_PATH', BASE_PATH . '/public/uploads/xml/');
 define('MAX_UPLOAD_SIZE', 10 * 1024 * 1024); // 10MB
 
 // Configuración de errores

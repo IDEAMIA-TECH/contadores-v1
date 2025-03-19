@@ -1,8 +1,8 @@
 <?php
 class PdfParser {
     public function parseCSF($filePath) {
-        // Requiere la librería pdfparser
-        require_once __DIR__ . '/../../vendor/autoload.php';
+        // Actualizar la ruta del autoload
+        require_once BASE_PATH . '/vendor/autoload.php';
         
         try {
             $parser = new \Smalot\PdfParser\Parser();
