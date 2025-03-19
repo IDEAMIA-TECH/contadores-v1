@@ -19,10 +19,10 @@ class AuthController {
         if (isset($_SESSION['user_id'])) {
             switch ($_SESSION['role']) {
                 case 'contador':
-                    header('Location: /clients');
+                    header('Location: ' . BASE_URL . '/clients');
                     break;
                 default:
-                    header('Location: /dashboard');
+                    header('Location: ' . BASE_URL . '/dashboard');
                     break;
             }
             exit;
@@ -35,7 +35,7 @@ class AuthController {
     public function login() {
         if (!$this->security->validateCsrfToken($_POST['csrf_token'] ?? '')) {
             $_SESSION['error'] = 'Token de seguridad inválido';
-            header('Location: /login');
+            header('Location: ' . BASE_URL . '/login');
             exit;
         }
         
@@ -44,7 +44,7 @@ class AuthController {
         
         if (empty($username) || empty($password)) {
             $_SESSION['error'] = 'Por favor complete todos los campos';
-            header('Location: /login');
+            header('Location: ' . BASE_URL . '/login');
             exit;
         }
         
@@ -52,13 +52,13 @@ class AuthController {
         
         if (!$user || !$this->security->verifyPassword($password, $user['password'])) {
             $_SESSION['error'] = 'Credenciales inválidas';
-            header('Location: /login');
+            header('Location: ' . BASE_URL . '/login');
             exit;
         }
         
         if ($user['status'] !== 'active') {
             $_SESSION['error'] = 'Su cuenta está desactivada';
-            header('Location: /login');
+            header('Location: ' . BASE_URL . '/login');
             exit;
         }
         
@@ -73,20 +73,20 @@ class AuthController {
         // Redirigir según el rol
         switch ($user['role']) {
             case 'contador':
-                header('Location: /clients');
+                header('Location: ' . BASE_URL . '/clients');
                 break;
             case 'admin':
-                header('Location: /dashboard');
+                header('Location: ' . BASE_URL . '/dashboard');
                 break;
             default:
-                header('Location: /dashboard');
+                header('Location: ' . BASE_URL . '/dashboard');
         }
         exit;
     }
     
     public function logout() {
         session_destroy();
-        header('Location: /login');
+        header('Location: ' . BASE_URL . '/login');
         exit;
     }
     

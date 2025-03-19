@@ -13,7 +13,7 @@
             <p class="text-gray-600 mb-6">
                 Ha ocurrido un error inesperado. Por favor, inténtelo de nuevo más tarde.
             </p>
-            <a href="/" class="inline-block bg-blue-600 text-white px-6 py-2 rounded hover:bg-blue-700">
+            <a href="<?php echo BASE_URL; ?>/" class="inline-block bg-blue-600 text-white px-6 py-2 rounded hover:bg-blue-700">
                 Volver al inicio
             </a>
         </div>

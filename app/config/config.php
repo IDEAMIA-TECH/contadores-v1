@@ -17,6 +17,9 @@ define('APP_DEBUG', getenv('APP_DEBUG') ?: true);
 // Configuración de URLs
 define('APP_URL', getenv('APP_URL') ?: 'https://contadores.ideamia.dev');
 
+// Definir la URL base del proyecto
+define('BASE_URL', '/contadores-v1');
+
 // Configuración de errores
 if (APP_DEBUG) {
     ini_set('display_errors', 1);

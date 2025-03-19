@@ -59,23 +59,23 @@ try {
 
     // Enrutador básico
     switch ($uri) {
-        case '/':
+        case BASE_URL . '/':
             if (!isset($_SESSION['user_id'])) {
-                header('Location: /login');
+                header('Location: ' . BASE_URL . '/login');
                 exit;
             }
             // Redirigir según el rol
             switch ($_SESSION['role']) {
                 case 'contador':
-                    header('Location: /clients');
+                    header('Location: ' . BASE_URL . '/clients');
                     break;
                 default:
-                    header('Location: /dashboard');
+                    header('Location: ' . BASE_URL . '/dashboard');
                     break;
             }
             exit;
 
-        case '/login':
+        case BASE_URL . '/login':
             $controller = new AuthController();
             if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $controller->login();
@@ -84,23 +84,23 @@ try {
             }
             break;
 
-        case '/logout':
+        case BASE_URL . '/logout':
             $controller = new AuthController();
             $controller->logout();
             break;
 
-        case '/clients':
+        case BASE_URL . '/clients':
             if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'contador') {
-                header('Location: /login');
+                header('Location: ' . BASE_URL . '/login');
                 exit;
             }
             $controller = new ClientController();
             $controller->index();
             break;
 
-        case '/clients/create':
+        case BASE_URL . '/clients/create':
             if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'contador') {
-                header('Location: /login');
+                header('Location: ' . BASE_URL . '/login');
                 exit;
             }
             $controller = new ClientController();
@@ -111,32 +111,32 @@ try {
             }
             break;
 
-        case '/clients/extract-csf':
+        case BASE_URL . '/clients/extract-csf':
             if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'contador') {
-                header('Location: /login');
+                header('Location: ' . BASE_URL . '/login');
                 exit;
             }
             $controller = new ClientController();
             $controller->extractCsfData();
             break;
 
-        case '/dashboard':
+        case BASE_URL . '/dashboard':
             if (!isset($_SESSION['user_id'])) {
-                header('Location: /login');
+                header('Location: ' . BASE_URL . '/login');
                 exit;
             }
             include __DIR__ . '/app/views/dashboard/index.php';
             break;
 
-        case '/profile':
+        case BASE_URL . '/profile':
             if (!isset($_SESSION['user_id'])) {
-                header('Location: /login');
+                header('Location: ' . BASE_URL . '/login');
                 exit;
             }
             include __DIR__ . '/app/views/profile.php';
             break;
 
-        case '/reset-password':
+        case BASE_URL . '/reset-password':
             $controller = new AuthController();
             if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $controller->resetPassword();
@@ -147,7 +147,7 @@ try {
 
         default:
             if (!isset($_SESSION['user_id'])) {
-                header('Location: /login');
+                header('Location: ' . BASE_URL . '/login');
                 exit;
             }
             // Página 404

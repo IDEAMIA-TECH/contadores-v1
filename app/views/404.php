@@ -13,7 +13,7 @@
             <p class="text-gray-600 mb-6">
                 Lo sentimos, la página que buscas no existe o ha sido movida.
             </p>
-            <a href="/" class="inline-block bg-blue-600 text-white px-6 py-2 rounded hover:bg-blue-700">
+            <a href="<?php echo BASE_URL; ?>/" class="inline-block bg-blue-600 text-white px-6 py-2 rounded hover:bg-blue-700">
                 Volver al inicio
             </a>
         </div>

@@ -16,7 +16,7 @@ class ClientController {
     
     public function index() {
         if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'contador') {
-            header('Location: /login');
+            header('Location: ' . BASE_URL . '/login');
             exit;
         }
         
@@ -27,7 +27,7 @@ class ClientController {
     
     public function showCreateForm() {
         if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'contador') {
-            header('Location: /login');
+            header('Location: ' . BASE_URL . '/login');
             exit;
         }
         
