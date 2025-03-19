@@ -81,7 +81,7 @@ class Client {
             
             // Insertar relación contador-cliente
             $stmt = $this->db->prepare("
-                INSERT INTO accountant_clients{$this->tablePrefix} (
+                INSERT INTO accountant_clients (
                     accountant_id, client_id
                 ) VALUES (
                     :accountant_id, :client_id
@@ -89,28 +89,28 @@ class Client {
             ");
             
             $stmt->execute([
-                'accountant_id' => $data['accountant_id'],
-                'client_id' => $clientId
+                ':accountant_id' => $data['accountant_id'],
+                ':client_id' => $clientId
             ]);
             
-            // Guardar ruta del PDF de la CSF si existe
+            // Guardar documento CSF si existe
             if (!empty($data['csf_path'])) {
-                $stmt = $this->db->prepare('
+                $stmt = $this->db->prepare("
                     INSERT INTO client_documents (
                         client_id, type, file_path
                     ) VALUES (
-                        :client_id, "csf", :file_path
+                        :client_id, 'csf', :file_path
                     )
-                ');
+                ");
                 
                 $stmt->execute([
-                    'client_id' => $clientId,
-                    'file_path' => $data['csf_path']
+                    ':client_id' => $clientId,
+                    ':file_path' => $data['csf_path']
                 ]);
             }
             
             $this->db->commit();
-            return $clientId;
+            return true;
             
         } catch (PDOException $e) {
             $this->db->rollBack();
