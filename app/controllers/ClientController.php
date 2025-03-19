@@ -134,17 +134,16 @@ class ClientController {
         }
     }
     
-    public function showUploadXml($id = null) {
+    public function showUploadXml() {
         try {
             if (!$this->security->isAuthenticated()) {
                 throw new Exception('No autorizado');
             }
 
+            // Obtener el ID del cliente de la URL
+            $id = filter_input(INPUT_GET, 'id', FILTER_VALIDATE_INT);
             if (!$id) {
-                $id = filter_input(INPUT_GET, 'id', FILTER_VALIDATE_INT);
-                if (!$id) {
-                    throw new Exception('ID de cliente no válido');
-                }
+                throw new Exception('ID de cliente no válido');
             }
 
             // Obtener datos del cliente
@@ -228,8 +227,8 @@ class ClientController {
             error_log("Error en uploadXml: " . $e->getMessage());
             $_SESSION['error'] = $e->getMessage();
             header('Location: ' . BASE_URL . '/clients/upload-xml?id=' . ($clientId ?? ''));
+            exit;
         }
-        exit;
     }
 
     public function processCsf() {
