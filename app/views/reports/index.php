@@ -77,7 +77,43 @@
                         </tr>
                     </thead>
                     <tbody class="bg-white divide-y divide-gray-200">
-                        <!-- Los datos se cargarán dinámicamente -->
+                        <?php if (!empty($reportData)): ?>
+                            <?php foreach ($reportData as $row): ?>
+                                <tr>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                        <?php echo htmlspecialchars($row['cliente']); ?>
+                                    </td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                        <?php echo date('d/m/Y', strtotime($row['fecha'])); ?>
+                                    </td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                        <?php echo htmlspecialchars($row['uuid']); ?>
+                                    </td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                        $<?php echo number_format($row['total'], 2); ?>
+                                    </td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                        $<?php echo number_format($row['total_impuestos_trasladados'], 2); ?>
+                                    </td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                        <?php 
+                                        $tipos = [
+                                            'I' => 'Ingreso',
+                                            'E' => 'Egreso',
+                                            'P' => 'Pago'
+                                        ];
+                                        echo htmlspecialchars($tipos[$row['tipo_comprobante']] ?? $row['tipo_comprobante']); 
+                                        ?>
+                                    </td>
+                                </tr>
+                            <?php endforeach; ?>
+                        <?php else: ?>
+                            <tr>
+                                <td colspan="6" class="px-6 py-4 text-center text-sm text-gray-500">
+                                    No se encontraron resultados
+                                </td>
+                            </tr>
+                        <?php endif; ?>
                     </tbody>
                 </table>
             </div>
@@ -86,7 +122,54 @@
 
     <script>
     document.addEventListener('DOMContentLoaded', function() {
-        // Implementar la lógica del frontend
+        const form = document.getElementById('report-form');
+        const exportExcel = document.getElementById('export-excel');
+        const exportPdf = document.getElementById('export-pdf');
+
+        // Manejar la búsqueda
+        form.addEventListener('submit', function(e) {
+            e.preventDefault();
+            const formData = new FormData(form);
+            const params = new URLSearchParams(formData);
+            window.location.href = `${BASE_URL}/reports?${params.toString()}`;
+        });
+
+        // Manejar exportación a Excel
+        exportExcel.addEventListener('click', function() {
+            const formData = new FormData(form);
+            formData.append('format', 'excel');
+            submitExport(formData);
+        });
+
+        // Manejar exportación a PDF
+        exportPdf.addEventListener('click', function() {
+            const formData = new FormData(form);
+            formData.append('format', 'pdf');
+            submitExport(formData);
+        });
+
+        function submitExport(formData) {
+            formData.append('csrf_token', '<?php echo $token; ?>');
+            
+            fetch(`${BASE_URL}/reports/export`, {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.blob())
+            .then(blob => {
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `reporte.${formData.get('format')}`;
+                document.body.appendChild(a);
+                a.click();
+                window.URL.revokeObjectURL(url);
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Error al exportar el reporte');
+            });
+        }
     });
     </script>
 

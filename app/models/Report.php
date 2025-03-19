@@ -21,7 +21,9 @@ class Report {
                     x.total_impuestos_trasladados,
                     x.emisor_rfc,
                     x.emisor_nombre,
-                    x.tipo_comprobante
+                    x.tipo_comprobante,
+                    x.forma_pago,
+                    x.metodo_pago
                 FROM client_xmls x
                 JOIN clients c ON x.client_id = c.id
                 WHERE 1=1
@@ -51,10 +53,16 @@ class Report {
             
             $query .= " ORDER BY x.fecha DESC";
             
+            error_log("Query: " . $query);
+            error_log("Params: " . print_r($params, true));
+            
             $stmt = $this->db->prepare($query);
             $stmt->execute($params);
             
-            return $stmt->fetchAll(PDO::FETCH_ASSOC);
+            $results = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            error_log("Results: " . print_r($results, true));
+            
+            return $results;
             
         } catch (PDOException $e) {
             error_log("Error en generateReport: " . $e->getMessage());
