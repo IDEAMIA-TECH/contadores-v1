@@ -22,36 +22,26 @@ class Security {
     }
     
     public function generateCsrfToken() {
-        $token = bin2hex(random_bytes(32));
-        $_SESSION['csrf_token'] = $token;
-        $_SESSION['token_expiry'] = time() + 3600; // 1 hora de validez
-        return $token;
+        if (!isset($_SESSION['csrf_token'])) {
+            $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
+        }
+        return $_SESSION['csrf_token'];
     }
     
     public function validateCsrfToken($token) {
-        if (empty($token) || empty($_SESSION['csrf_token']) || empty($_SESSION['token_expiry'])) {
+        if (empty($token) || empty($_SESSION['csrf_token'])) {
             return false;
         }
-        
-        if (time() > $_SESSION['token_expiry']) {
-            // Token expirado
-            unset($_SESSION['csrf_token']);
-            unset($_SESSION['token_expiry']);
-            return false;
-        }
-        
         return hash_equals($_SESSION['csrf_token'], $token);
     }
     
     public function hashPassword($password) {
-        return password_hash($password, PASSWORD_ARGON2ID, [
-            'memory_cost' => 65536,
-            'time_cost' => 4,
-            'threads' => 3
-        ]);
+        return password_hash($password, PASSWORD_ARGON2ID);
     }
     
     public function verifyPassword($password, $hash) {
+        // Debug: Verificar los valores recibidos
+        error_log("Verificando contraseña - Hash almacenado: " . $hash);
         return password_verify($password, $hash);
     }
     
@@ -78,7 +68,7 @@ class Security {
     }
     
     public function isAuthenticated() {
-        return isset($_SESSION['user_id']) && !empty($_SESSION['user_id']);
+        return isset($_SESSION['user_id']);
     }
     
     public function hasRole($role) {
