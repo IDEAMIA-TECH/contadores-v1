@@ -45,8 +45,9 @@ class Report {
             }
             
             if (!empty($filters['type'])) {
-                $query .= " AND x.tipo_comprobante = ?";
-                $params[] = $filters['type'];
+                $placeholders = str_repeat('?,', count($filters['type']) - 1) . '?';
+                $query .= " AND x.tipo_comprobante IN ($placeholders)";
+                $params = array_merge($params, $filters['type']);
             }
             
             $query .= " ORDER BY x.fecha DESC";

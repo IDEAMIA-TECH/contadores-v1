@@ -42,12 +42,30 @@
 
                 <div>
                     <label class="block text-sm font-medium text-gray-700 mb-2">Tipo de Comprobante</label>
-                    <select name="type" class="w-full rounded-md border-gray-300">
+                    <select name="type[]" multiple class="w-full rounded-md border-gray-300 h-32" id="tipo-comprobante">
                         <option value="">Todos</option>
-                        <option value="I" <?php echo (isset($filters['type']) && $filters['type'] == 'I') ? 'selected' : ''; ?>>Ingreso</option>
-                        <option value="E" <?php echo (isset($filters['type']) && $filters['type'] == 'E') ? 'selected' : ''; ?>>Egreso</option>
-                        <option value="P" <?php echo (isset($filters['type']) && $filters['type'] == 'P') ? 'selected' : ''; ?>>Pago</option>
+                        <?php 
+                        $tiposComprobante = [
+                            'I' => 'Ingreso',
+                            'E' => 'Egreso',
+                            'P' => 'Pago',
+                            'N' => 'Nómina',
+                            'T' => 'Traslado',
+                            'R' => 'Recepción de pagos',
+                            'D' => 'Nota de débito',
+                            'C' => 'Nota de crédito'
+                        ];
+                        
+                        $selectedTypes = isset($filters['type']) ? (array)$filters['type'] : [];
+                        
+                        foreach ($tiposComprobante as $value => $label): ?>
+                            <option value="<?php echo htmlspecialchars($value); ?>" 
+                                    <?php echo in_array($value, $selectedTypes) ? 'selected' : ''; ?>>
+                                <?php echo htmlspecialchars($label); ?>
+                            </option>
+                        <?php endforeach; ?>
                     </select>
+                    <p class="mt-1 text-sm text-gray-500">Mantén presionado Ctrl (Windows) o Cmd (Mac) para seleccionar múltiples opciones</p>
                 </div>
 
                 <div class="col-span-full flex justify-end space-x-4">

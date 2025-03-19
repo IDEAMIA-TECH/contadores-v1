@@ -41,7 +41,7 @@ class ReportController {
                     'client_id' => filter_input(INPUT_GET, 'client_id', FILTER_VALIDATE_INT),
                     'start_date' => filter_input(INPUT_GET, 'start_date'),
                     'end_date' => filter_input(INPUT_GET, 'end_date'),
-                    'type' => filter_input(INPUT_GET, 'type')
+                    'type' => filter_input(INPUT_GET, 'type', FILTER_DEFAULT, FILTER_REQUIRE_ARRAY) ?: []
                 ];
                 
                 // Validar fechas
