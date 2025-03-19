@@ -1,9 +1,11 @@
 <?php
 class Client {
     private $db;
+    private $tablePrefix;
     
-    public function __construct($db) {
+    public function __construct($db, $isTest = false) {
         $this->db = $db;
+        $this->tablePrefix = $isTest ? '_test' : '';
     }
     
     public function create($data) {
@@ -11,15 +13,15 @@ class Client {
             $this->db->beginTransaction();
             
             // Insertar cliente
-            $stmt = $this->db->prepare('
-                INSERT INTO clients (
+            $stmt = $this->db->prepare("
+                INSERT INTO clients{$this->tablePrefix} (
                     rfc, business_name, legal_name, fiscal_regime, 
                     address, email, phone, status
                 ) VALUES (
                     :rfc, :business_name, :legal_name, :fiscal_regime,
-                    :address, :email, :phone, "active"
+                    :address, :email, :phone, 'active'
                 )
-            ');
+            ");
             
             $stmt->execute([
                 'rfc' => $data['rfc'],
@@ -35,13 +37,13 @@ class Client {
             
             // Insertar contacto
             if (!empty($data['contact_name'])) {
-                $stmt = $this->db->prepare('
-                    INSERT INTO client_contacts (
+                $stmt = $this->db->prepare("
+                    INSERT INTO client_contacts{$this->tablePrefix} (
                         client_id, name, email, phone
                     ) VALUES (
                         :client_id, :name, :email, :phone
                     )
-                ');
+                ");
                 
                 $stmt->execute([
                     'client_id' => $clientId,
@@ -52,13 +54,13 @@ class Client {
             }
             
             // Insertar relación contador-cliente
-            $stmt = $this->db->prepare('
-                INSERT INTO accountant_clients (
+            $stmt = $this->db->prepare("
+                INSERT INTO accountant_clients{$this->tablePrefix} (
                     accountant_id, client_id
                 ) VALUES (
                     :accountant_id, :client_id
                 )
-            ');
+            ");
             
             $stmt->execute([
                 'accountant_id' => $data['accountant_id'],

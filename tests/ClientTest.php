@@ -9,7 +9,7 @@ class ClientTest extends TestCase {
     
     public function __construct() {
         parent::__construct();
-        $this->client = new Client($this->pdo);
+        $this->client = new Client($this->pdo, true);
         $this->controller = new ClientController();
     }
     

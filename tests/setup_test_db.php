@@ -76,7 +76,38 @@ try {
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
     ");
     
-    // ... crear el resto de tablas con sufijo _test ...
+    $pdo->exec("
+        CREATE TABLE accountants_test (
+            id INT PRIMARY KEY AUTO_INCREMENT,
+            user_id INT NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            FOREIGN KEY (user_id) REFERENCES users_test(id)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+    ");
+    
+    $pdo->exec("
+        CREATE TABLE client_contacts_test (
+            id INT PRIMARY KEY AUTO_INCREMENT,
+            client_id INT NOT NULL,
+            name VARCHAR(100) NOT NULL,
+            email VARCHAR(100),
+            phone VARCHAR(20),
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (client_id) REFERENCES clients_test(id)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+    ");
+    
+    $pdo->exec("
+        CREATE TABLE accountant_clients_test (
+            id INT PRIMARY KEY AUTO_INCREMENT,
+            accountant_id INT NOT NULL,
+            client_id INT NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (accountant_id) REFERENCES users_test(id),
+            FOREIGN KEY (client_id) REFERENCES clients_test(id)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+    ");
     
     // Insertar datos de prueba
     $pdo->exec("
