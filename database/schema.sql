@@ -7,8 +7,8 @@ CREATE TABLE IF NOT EXISTS users (
     role ENUM('admin', 'contador') NOT NULL DEFAULT 'contador',
     status ENUM('active', 'inactive') NOT NULL DEFAULT 'active',
     last_login DATETIME,
-    reset_token VARCHAR(64),
-    reset_token_expiry DATETIME,
+    reset_token VARCHAR(64) DEFAULT NULL,
+    reset_token_expiry DATETIME DEFAULT NULL,
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
