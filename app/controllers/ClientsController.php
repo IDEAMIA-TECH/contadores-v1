@@ -1,6 +1,14 @@
 <?php
 
 class ClientsController {
+    private $clientModel;
+    private $db;
+
+    public function __construct($db) {
+        $this->db = $db;
+        $this->clientModel = new ClientModel($db);
+    }
+
     public function update() {
         if (isset($_FILES['cer_file']) && $_FILES['cer_file']['error'] === UPLOAD_ERR_OK) {
             $cerPath = 'path/to/upload/directory/' . uniqid() . '_' . $_FILES['cer_file']['name'];
@@ -15,9 +23,17 @@ class ClientsController {
         }
     }
 
-    public function satPortal($id) {
+    public function satPortal($params) {
         // Verificar autenticación
         $this->checkAuth();
+        
+        // Obtener el ID del cliente desde los parámetros
+        $id = isset($params['id']) ? $params['id'] : null;
+        
+        if (!$id) {
+            $_SESSION['error'] = 'ID de cliente no proporcionado';
+            redirect('/clients');
+        }
         
         // Verificar que el cliente existe
         $client = $this->clientModel->find($id);
@@ -36,7 +52,8 @@ class ClientsController {
         $data = [
             'client_id' => $id,
             'client' => $client,
-            'token' => $_SESSION['csrf_token']
+            'token' => $_SESSION['csrf_token'] ?? '',
+            'title' => 'Portal SAT - ' . $client['business_name']
         ];
 
         // Renderizar la vista

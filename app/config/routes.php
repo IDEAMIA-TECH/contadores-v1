@@ -1,1 +1,1 @@
-$router->get('/clients/sat-portal/:id', 'ClientsController@satPortal'); 
+$router->get('clients/sat-portal/:id', 'ClientsController@satPortal'); 
