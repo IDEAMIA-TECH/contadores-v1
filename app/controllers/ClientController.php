@@ -240,21 +240,36 @@ class ClientController {
                     // Cargar el XML como objeto
                     $xml = new SimpleXMLElement($xmlContent);
                     
+                    // Debug: Mostrar el contenido del XML
+                    error_log("Contenido del XML: " . $xmlContent);
+                    
                     // Registrar los namespaces
                     $namespaces = $xml->getNamespaces(true);
+                    error_log("Namespaces encontrados: " . print_r($namespaces, true));
                     
                     // Acceder a los elementos usando los namespaces correctos
                     $cfdi = $xml->children($namespaces['cfdi']);
+                    error_log("Datos del CFDI: " . print_r($cfdi, true));
                     
                     // El TimbreFiscalDigital está dentro del Complemento
                     $tfd = null;
                     if (isset($cfdi->Complemento)) {
+                        error_log("Complemento encontrado: " . print_r($cfdi->Complemento, true));
+                        
+                        // Registrar los namespaces del complemento
+                        $complementoNamespaces = $cfdi->Complemento->getNamespaces(true);
+                        error_log("Namespaces del complemento: " . print_r($complementoNamespaces, true));
+                        
                         foreach ($cfdi->Complemento->children() as $complemento) {
+                            error_log("Procesando complemento: " . $complemento->getName());
                             if ($complemento->getName() === 'TimbreFiscalDigital') {
                                 $tfd = $complemento;
+                                error_log("TimbreFiscalDigital encontrado: " . print_r($tfd, true));
                                 break;
                             }
                         }
+                    } else {
+                        error_log("No se encontró el nodo Complemento en el XML");
                     }
                     
                     if (!$tfd) {
@@ -290,6 +305,9 @@ class ClientController {
                         'updated_at' => date('Y-m-d H:i:s')
                     ];
 
+                    // Debug: Mostrar los datos extraídos
+                    error_log("Datos extraídos del XML: " . print_r($xmlData, true));
+
                     // Validar campos requeridos antes de guardar
                     $requiredFields = [
                         'uuid', 'fecha', 'fecha_timbrado',
@@ -299,6 +317,7 @@ class ClientController {
 
                     foreach ($requiredFields as $field) {
                         if (empty($xmlData[$field])) {
+                            error_log("Campo requerido vacío: {$field}");
                             throw new Exception("El campo {$field} es requerido y está vacío en el XML");
                         }
                     }
@@ -318,6 +337,7 @@ class ClientController {
                     if (file_exists($filePath)) {
                         unlink($filePath);
                     }
+                    error_log("Error detallado: " . $e->getMessage() . "\nTrace: " . $e->getTraceAsString());
                     throw new Exception('Error al procesar el XML: ' . $e->getMessage());
                 }
 
