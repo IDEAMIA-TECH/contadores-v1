@@ -26,45 +26,57 @@ class Client {
         try {
             $this->db->beginTransaction();
             
-            // Insertar cliente
+            // Insertar en la tabla clients
             $stmt = $this->db->prepare("
-                INSERT INTO clients{$this->tablePrefix} (
-                    rfc, business_name, legal_name, fiscal_regime, 
-                    address, email, phone, status
+                INSERT INTO clients (
+                    rfc, business_name, legal_name, fiscal_regime,
+                    street, exterior_number, interior_number, neighborhood,
+                    city, state, zip_code, email, phone, csf_path
                 ) VALUES (
                     :rfc, :business_name, :legal_name, :fiscal_regime,
-                    :address, :email, :phone, 'active'
+                    :street, :exterior_number, :interior_number, :neighborhood,
+                    :city, :state, :zip_code, :email, :phone, :csf_path
                 )
             ");
             
-            $stmt->execute([
-                'rfc' => $data['rfc'],
-                'business_name' => $data['business_name'],
-                'legal_name' => $data['legal_name'],
-                'fiscal_regime' => $data['fiscal_regime'],
-                'address' => $data['address'],
-                'email' => $data['email'],
-                'phone' => $data['phone']
-            ]);
+            $clientData = [
+                ':rfc' => $data['rfc'],
+                ':business_name' => $data['business_name'],
+                ':legal_name' => $data['legal_name'] ?? null,
+                ':fiscal_regime' => $data['fiscal_regime'],
+                ':street' => $data['street'],
+                ':exterior_number' => $data['exterior_number'],
+                ':interior_number' => $data['interior_number'] ?? null,
+                ':neighborhood' => $data['neighborhood'],
+                ':city' => $data['city'],
+                ':state' => $data['state'],
+                ':zip_code' => $data['zip_code'],
+                ':email' => $data['email'],
+                ':phone' => $data['phone'],
+                ':csf_path' => $data['csf_path'] ?? null
+            ];
             
+            $stmt->execute($clientData);
             $clientId = $this->db->lastInsertId();
             
-            // Insertar contacto
-            if (!empty($data['contact_name'])) {
+            // Insertar en la tabla client_contacts si hay datos de contacto
+            if (!empty($data['contact_name']) || !empty($data['contact_email']) || !empty($data['contact_phone'])) {
                 $stmt = $this->db->prepare("
-                    INSERT INTO client_contacts{$this->tablePrefix} (
-                        client_id, name, email, phone
+                    INSERT INTO client_contacts (
+                        client_id, contact_name, contact_email, contact_phone
                     ) VALUES (
-                        :client_id, :name, :email, :phone
+                        :client_id, :contact_name, :contact_email, :contact_phone
                     )
                 ");
                 
-                $stmt->execute([
-                    'client_id' => $clientId,
-                    'name' => $data['contact_name'],
-                    'email' => $data['contact_email'],
-                    'phone' => $data['contact_phone']
-                ]);
+                $contactData = [
+                    ':client_id' => $clientId,
+                    ':contact_name' => $data['contact_name'] ?? null,
+                    ':contact_email' => $data['contact_email'] ?? null,
+                    ':contact_phone' => $data['contact_phone'] ?? null
+                ];
+                
+                $stmt->execute($contactData);
             }
             
             // Insertar relación contador-cliente
