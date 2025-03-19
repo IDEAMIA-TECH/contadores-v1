@@ -60,6 +60,7 @@ try {
     $parts = explode('/', $route);
     $controllerName = ucfirst($parts[0] ?? 'Dashboard');
     $action = $parts[1] ?? 'index';
+    $id = $parts[2] ?? null; // Agregar soporte para el ID
     
     // Mapear rutas a controladores
     $controllerMap = [
@@ -86,8 +87,12 @@ try {
         throw new Exception('Página no encontrada', 404);
     }
     
-    // Ejecutar la acción
-    $controllerInstance->$action();
+    // Ejecutar la acción con el ID si existe
+    if ($id !== null) {
+        $controllerInstance->$action($id);
+    } else {
+        $controllerInstance->$action();
+    }
     
 } catch (Exception $e) {
     error_log("Error en enrutamiento: " . $e->getMessage());

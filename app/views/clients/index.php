@@ -44,7 +44,10 @@
                         <td class="px-6 py-4"><?php echo htmlspecialchars($client['business_name']); ?></td>
                         <td class="px-6 py-4"><?php echo htmlspecialchars($client['email']); ?></td>
                         <td class="px-6 py-4"><?php echo htmlspecialchars($client['phone']); ?></td>
-                        <td class="px-6 py-4">
+                        <td class="px-6 py-4 space-x-3">
+                            <a href="<?php echo BASE_URL; ?>/clients/view/<?php echo $client['id']; ?>" 
+                               class="text-blue-600 hover:text-blue-900">Ver</a>
+                            <span class="text-gray-300">|</span>
                             <a href="<?php echo BASE_URL; ?>/clients/edit/<?php echo $client['id']; ?>" 
                                class="text-blue-600 hover:text-blue-900">Editar</a>
                         </td>

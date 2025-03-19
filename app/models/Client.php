@@ -162,4 +162,76 @@ class Client {
             throw new Exception("Error al obtener el contacto del cliente");
         }
     }
+
+    public function update($data) {
+        try {
+            $this->db->beginTransaction();
+            
+            // Actualizar datos del cliente
+            $stmt = $this->db->prepare("
+                UPDATE clients SET
+                    rfc = :rfc,
+                    business_name = :business_name,
+                    legal_name = :legal_name,
+                    fiscal_regime = :fiscal_regime,
+                    street = :street,
+                    exterior_number = :exterior_number,
+                    interior_number = :interior_number,
+                    neighborhood = :neighborhood,
+                    city = :city,
+                    state = :state,
+                    zip_code = :zip_code,
+                    email = :email,
+                    phone = :phone,
+                    updated_at = CURRENT_TIMESTAMP
+                WHERE id = :id
+            ");
+            
+            $stmt->execute([
+                ':id' => $data['id'],
+                ':rfc' => $data['rfc'],
+                ':business_name' => $data['business_name'],
+                ':legal_name' => $data['legal_name'],
+                ':fiscal_regime' => $data['fiscal_regime'],
+                ':street' => $data['street'],
+                ':exterior_number' => $data['exterior_number'],
+                ':interior_number' => $data['interior_number'],
+                ':neighborhood' => $data['neighborhood'],
+                ':city' => $data['city'],
+                ':state' => $data['state'],
+                ':zip_code' => $data['zip_code'],
+                ':email' => $data['email'],
+                ':phone' => $data['phone']
+            ]);
+            
+            // Actualizar o insertar datos de contacto
+            if (!empty($data['contact_name']) || !empty($data['contact_email']) || !empty($data['contact_phone'])) {
+                $stmt = $this->db->prepare("
+                    INSERT INTO client_contacts (
+                        client_id, contact_name, contact_email, contact_phone
+                    ) VALUES (
+                        :client_id, :contact_name, :contact_email, :contact_phone
+                    ) ON DUPLICATE KEY UPDATE
+                        contact_name = VALUES(contact_name),
+                        contact_email = VALUES(contact_email),
+                        contact_phone = VALUES(contact_phone)
+                ");
+                
+                $stmt->execute([
+                    ':client_id' => $data['id'],
+                    ':contact_name' => $data['contact_name'],
+                    ':contact_email' => $data['contact_email'],
+                    ':contact_phone' => $data['contact_phone']
+                ]);
+            }
+            
+            $this->db->commit();
+            return true;
+            
+        } catch (PDOException $e) {
+            $this->db->rollBack();
+            error_log("Error en update: " . $e->getMessage());
+            throw new Exception("Error al actualizar el cliente");
+        }
+    }
 } 
