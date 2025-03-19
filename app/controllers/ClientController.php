@@ -237,103 +237,90 @@ class ClientController {
                 }
 
                 try {
-                    // Cargar el XML como objeto
+                    // Cargar el XML como objeto y registrar los namespaces
                     $xml = new SimpleXMLElement($xmlContent);
+                    $xml->registerXPathNamespace('cfdi', 'http://www.sat.gob.mx/cfd/4');
+                    $xml->registerXPathNamespace('tfd', 'http://www.sat.gob.mx/TimbreFiscalDigital');
                     
-                    // Debug: Mostrar el contenido del XML
                     error_log("Contenido del XML: " . $xmlContent);
                     
-                    // Registrar los namespaces
-                    $namespaces = $xml->getNamespaces(true);
-                    error_log("Namespaces encontrados: " . print_r($namespaces, true));
-                    
-                    // Acceder a los elementos usando los namespaces correctos
-                    $cfdi = $xml->children($namespaces['cfdi']);
-                    error_log("Datos del CFDI: " . print_r($cfdi, true));
-                    
-                    // El TimbreFiscalDigital está dentro del Complemento
-                    $tfd = null;
-                    if (isset($cfdi->Complemento)) {
-                        error_log("Complemento encontrado: " . print_r($cfdi->Complemento, true));
-                        
-                        // Registrar los namespaces del complemento
-                        $complementoNamespaces = $cfdi->Complemento->getNamespaces(true);
-                        error_log("Namespaces del complemento: " . print_r($complementoNamespaces, true));
-                        
-                        foreach ($cfdi->Complemento->children() as $complemento) {
-                            error_log("Procesando complemento: " . $complemento->getName());
-                            if ($complemento->getName() === 'TimbreFiscalDigital') {
-                                $tfd = $complemento;
-                                error_log("TimbreFiscalDigital encontrado: " . print_r($tfd, true));
-                                break;
-                            }
-                        }
-                    } else {
-                        error_log("No se encontró el nodo Complemento en el XML");
+                    // Obtener el TimbreFiscalDigital usando XPath
+                    $tfdNodes = $xml->xpath('//tfd:TimbreFiscalDigital');
+                    if (empty($tfdNodes)) {
+                        throw new Exception('No se encontró el TimbreFiscalDigital en el XML');
                     }
+                    $tfd = $tfdNodes[0];
                     
-                    if (!$tfd) {
-                        throw new Exception('El XML no contiene el TimbreFiscalDigital');
-                    }
-
+                    error_log("TFD encontrado: " . print_r($tfd, true));
+                    
                     // Extraer datos del XML con validación
                     $xmlData = [
                         'client_id' => $clientId,
                         'xml_path' => 'xml/' . $fileName,
                         'uuid' => (string)$tfd['UUID'],
-                        'serie' => (string)($xml['Serie'] ?? ''),
-                        'folio' => (string)($xml['Folio'] ?? ''),
+                        'serie' => (string)$xml['Serie'],
+                        'folio' => (string)$xml['Folio'],
                         'fecha' => (string)$xml['Fecha'],
                         'fecha_timbrado' => (string)$tfd['FechaTimbrado'],
-                        'subtotal' => (float)($xml['SubTotal'] ?? 0),
-                        'total' => (float)($xml['Total'] ?? 0),
-                        'tipo_comprobante' => (string)($xml['TipoDeComprobante'] ?? ''),
-                        'forma_pago' => (string)($xml['FormaPago'] ?? ''),
-                        'metodo_pago' => (string)($xml['MetodoPago'] ?? ''),
-                        'moneda' => (string)($xml['Moneda'] ?? 'MXN'),
-                        'lugar_expedicion' => (string)($xml['LugarExpedicion'] ?? ''),
-                        'emisor_rfc' => (string)($cfdi->Emisor['Rfc'] ?? ''),
-                        'emisor_nombre' => (string)($cfdi->Emisor['Nombre'] ?? ''),
-                        'emisor_regimen_fiscal' => (string)($cfdi->Emisor['RegimenFiscal'] ?? ''),
-                        'receptor_rfc' => (string)($cfdi->Receptor['Rfc'] ?? ''),
-                        'receptor_nombre' => (string)($cfdi->Receptor['Nombre'] ?? ''),
-                        'receptor_regimen_fiscal' => (string)($cfdi->Receptor['RegimenFiscalReceptor'] ?? ''),
-                        'receptor_domicilio_fiscal' => (string)($cfdi->Receptor['DomicilioFiscalReceptor'] ?? ''),
-                        'receptor_uso_cfdi' => (string)($cfdi->Receptor['UsoCFDI'] ?? ''),
-                        'total_impuestos_trasladados' => (float)($cfdi->Impuestos['TotalImpuestosTrasladados'] ?? 0),
-                        'created_at' => date('Y-m-d H:i:s'),
-                        'updated_at' => date('Y-m-d H:i:s')
+                        'subtotal' => (float)$xml['SubTotal'],
+                        'total' => (float)$xml['Total'],
+                        'tipo_comprobante' => (string)$xml['TipoDeComprobante'],
+                        'forma_pago' => (string)$xml['FormaPago'],
+                        'metodo_pago' => (string)$xml['MetodoPago'],
+                        'moneda' => (string)$xml['Moneda'],
+                        'lugar_expedicion' => (string)$xml['LugarExpedicion']
                     ];
-
-                    // Debug: Mostrar los datos extraídos
+                    
+                    // Obtener datos del Emisor y Receptor usando XPath
+                    $emisor = $xml->xpath('//cfdi:Emisor')[0];
+                    $receptor = $xml->xpath('//cfdi:Receptor')[0];
+                    
+                    // Agregar datos del emisor y receptor
+                    $xmlData = array_merge($xmlData, [
+                        'emisor_rfc' => (string)$emisor['Rfc'],
+                        'emisor_nombre' => (string)$emisor['Nombre'],
+                        'emisor_regimen_fiscal' => (string)$emisor['RegimenFiscal'],
+                        'receptor_rfc' => (string)$receptor['Rfc'],
+                        'receptor_nombre' => (string)$receptor['Nombre'],
+                        'receptor_regimen_fiscal' => (string)$receptor['RegimenFiscalReceptor'],
+                        'receptor_domicilio_fiscal' => (string)$receptor['DomicilioFiscalReceptor'],
+                        'receptor_uso_cfdi' => (string)$receptor['UsoCFDI']
+                    ]);
+                    
+                    // Obtener impuestos
+                    $impuestos = $xml->xpath('//cfdi:Impuestos')[0];
+                    $xmlData['total_impuestos_trasladados'] = (float)($impuestos['TotalImpuestosTrasladados'] ?? 0);
+                    
+                    // Agregar timestamps
+                    $xmlData['created_at'] = date('Y-m-d H:i:s');
+                    $xmlData['updated_at'] = date('Y-m-d H:i:s');
+                    
                     error_log("Datos extraídos del XML: " . print_r($xmlData, true));
-
+                    
                     // Validar campos requeridos antes de guardar
                     $requiredFields = [
                         'uuid', 'fecha', 'fecha_timbrado',
                         'emisor_rfc', 'emisor_nombre', 'emisor_regimen_fiscal',
                         'receptor_rfc', 'receptor_nombre', 'receptor_regimen_fiscal'
                     ];
-
+                    
                     foreach ($requiredFields as $field) {
                         if (empty($xmlData[$field])) {
                             error_log("Campo requerido vacío: {$field}");
                             throw new Exception("El campo {$field} es requerido y está vacío en el XML");
                         }
                     }
-
+                    
                     // Guardar en la base de datos
                     $xmlModel = new ClientXml($this->db);
                     if (!$xmlModel->create($xmlData)) {
-                        // Si hay error, eliminar el archivo subido
                         if (file_exists($filePath)) {
                             unlink($filePath);
                         }
                         throw new Exception('Error al guardar el XML');
                     }
-
+                    
                 } catch (Exception $e) {
-                    // Si hay error, eliminar el archivo subido
                     if (file_exists($filePath)) {
                         unlink($filePath);
                     }
