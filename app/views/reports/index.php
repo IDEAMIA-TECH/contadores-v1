@@ -70,8 +70,8 @@
                     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
                         <?php
                         $resumenIVA = [
-                            '0.16' => ['tasa' => '16%', 'total' => 0, 'label' => 'IVA 16%', 'class' => 'bg-blue-100'],
-                            '0.08' => ['tasa' => '8%', 'total' => 0, 'label' => 'IVA 8%', 'class' => 'bg-green-100'],
+                            '16' => ['tasa' => '16%', 'total' => 0, 'label' => 'IVA 16%', 'class' => 'bg-blue-100'],
+                            '8' => ['tasa' => '8%', 'total' => 0, 'label' => 'IVA 8%', 'class' => 'bg-green-100'],
                             '0' => ['tasa' => '0%', 'total' => 0, 'label' => 'IVA 0%', 'class' => 'bg-yellow-100'],
                             'Exento' => ['tasa' => 'Exento', 'total' => 0, 'label' => 'IVA Exento', 'class' => 'bg-purple-100'],
                             'Otros' => ['tasa' => 'Otros', 'total' => 0, 'label' => 'Otros', 'class' => 'bg-gray-100']
@@ -79,13 +79,14 @@
 
                         // Calcular totales por tipo de IVA
                         foreach ($reportData as $row) {
-                            $tasa = (float)$row['tasa_o_cuota'];
-                            $impuesto = $row['total_impuestos_trasladados'];
+                            $tasaPorcentaje = (float)$row['tasa_o_cuota'] * 100;
+                            $tasaKey = (string)round($tasaPorcentaje); // Convertir a string después de redondear
+                            $impuesto = (float)$row['total_impuestos_trasladados'];
                             
                             if ($row['tipo_factor'] === 'Exento') {
-                                $resumenIVA['Exento']['total'] += $row['subtotal'];
-                            } elseif (isset($resumenIVA[$tasa])) {
-                                $resumenIVA[$tasa]['total'] += $impuesto;
+                                $resumenIVA['Exento']['total'] += (float)$row['subtotal'];
+                            } elseif (isset($resumenIVA[$tasaKey])) {
+                                $resumenIVA[$tasaKey]['total'] += $impuesto;
                             } else {
                                 $resumenIVA['Otros']['total'] += $impuesto;
                             }
@@ -93,8 +94,8 @@
 
                         // Mostrar cada tipo de IVA
                         foreach ($resumenIVA as $info): ?>
-                            <div class="<?php echo $info['class']; ?> p-4 rounded-lg">
-                                <h3 class="font-semibold text-gray-700"><?php echo $info['label']; ?></h3>
+                            <div class="<?php echo htmlspecialchars($info['class']); ?> p-4 rounded-lg">
+                                <h3 class="font-semibold text-gray-700"><?php echo htmlspecialchars($info['label']); ?></h3>
                                 <p class="text-2xl font-bold text-gray-900">
                                     $<?php echo number_format($info['total'], 2); ?>
                                 </p>
