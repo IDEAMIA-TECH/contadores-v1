@@ -165,7 +165,7 @@
             </div>
             <?php endif; ?>
 
-            <!-- Agregar después de la sección de documentos y antes de las acciones adicionales -->
+            <!-- Credenciales SAT -->
             <div class="mb-8">
                 <h2 class="text-lg font-semibold text-gray-900 mb-4">Credenciales SAT</h2>
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
