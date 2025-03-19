@@ -41,8 +41,14 @@ class Security {
     
     public function verifyPassword($password, $hash) {
         // Debug: Verificar los valores recibidos
-        error_log("Verificando contraseña - Hash almacenado: " . $hash);
-        return password_verify($password, $hash);
+        error_log("Verificando contraseña");
+        error_log("Password recibido (longitud): " . strlen($password));
+        error_log("Hash almacenado: " . $hash);
+        
+        $result = password_verify($password, $hash);
+        error_log("Resultado de verificación: " . ($result ? "true" : "false"));
+        
+        return $result;
     }
     
     public function generateRandomToken($length = 32) {

@@ -127,4 +127,9 @@ UPDATE users
 SET reset_token = NULL, 
     reset_token_expiry = NULL 
 WHERE reset_token_expiry < NOW() 
-   OR reset_token_expiry IS NULL; 
+   OR reset_token_expiry IS NULL;
+
+-- Actualizar la contraseña del usuario de prueba (password123)
+UPDATE users 
+SET password = '$argon2id$v=19$m=65536,t=4,p=3$WHpVeUVhS3FxWVFXVHNGbg$2Bxm9h1W4QEpDCBHzPV+PLJWx0XVHoHFjV/FQZ+kK8Y'
+WHERE username = 'contador_test'; 

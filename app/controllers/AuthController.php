@@ -42,34 +42,38 @@ class AuthController {
     }
     
     public function login() {
-        if (headers_sent($filename, $line)) {
-            error_log("Headers already sent in $filename:$line");
-        }
-        
-        if (!$this->security->validateCsrfToken($_POST['csrf_token'] ?? '')) {
-            $_SESSION['error'] = 'Token de seguridad inválido';
-            header('Location: ' . BASE_URL . '/login');
-            exit;
-        }
-        
-        $username = filter_input(INPUT_POST, 'username', FILTER_SANITIZE_STRING);
-        $password = $_POST['password'] ?? '';
-        
-        // Debug: Verificar los valores recibidos
-        error_log("Intento de login - Usuario: " . $username);
-        
-        if (empty($username) || empty($password)) {
-            $_SESSION['error'] = 'Por favor complete todos los campos';
-            header('Location: ' . BASE_URL . '/login');
-            exit;
-        }
-        
         try {
+            if (headers_sent($filename, $line)) {
+                error_log("Headers already sent in $filename:$line");
+            }
+            
+            if (!$this->security->validateCsrfToken($_POST['csrf_token'] ?? '')) {
+                error_log("Token CSRF inválido");
+                $_SESSION['error'] = 'Token de seguridad inválido';
+                header('Location: ' . BASE_URL . '/login');
+                exit;
+            }
+            
+            $username = filter_input(INPUT_POST, 'username', FILTER_SANITIZE_STRING);
+            $password = $_POST['password'] ?? '';
+            
+            // Debug: Verificar los valores recibidos
+            error_log("Intento de login - Usuario: " . $username);
+            error_log("Password recibido (longitud): " . strlen($password));
+            
+            if (empty($username) || empty($password)) {
+                error_log("Campos vacíos");
+                $_SESSION['error'] = 'Por favor complete todos los campos';
+                header('Location: ' . BASE_URL . '/login');
+                exit;
+            }
+            
             $user = $this->user->findByUsername($username);
             
             // Debug: Verificar si se encontró el usuario
             if ($user) {
                 error_log("Usuario encontrado - ID: " . $user['id']);
+                error_log("Hash almacenado: " . $user['password']);
             } else {
                 error_log("Usuario no encontrado: " . $username);
             }
@@ -81,12 +85,8 @@ class AuthController {
                 exit;
             }
             
-            if ($user['status'] !== 'active') {
-                error_log("Intento de login con cuenta inactiva - Usuario: " . $username);
-                $_SESSION['error'] = 'Su cuenta está desactivada';
-                header('Location: ' . BASE_URL . '/login');
-                exit;
-            }
+            // Si llegamos aquí, la autenticación fue exitosa
+            error_log("Login exitoso - Usuario: " . $username);
             
             // Actualizar último login
             $this->user->updateLastLogin($user['id']);
@@ -95,8 +95,6 @@ class AuthController {
             $_SESSION['user_id'] = $user['id'];
             $_SESSION['username'] = $user['username'];
             $_SESSION['role'] = $user['role'];
-            
-            error_log("Login exitoso - Usuario: " . $username . ", Rol: " . $user['role']);
             
             // Redirigir según el rol
             switch ($user['role']) {
@@ -109,6 +107,7 @@ class AuthController {
             
         } catch (Exception $e) {
             error_log("Error en login: " . $e->getMessage());
+            error_log("Stack trace: " . $e->getTraceAsString());
             $_SESSION['error'] = 'Error al procesar el login';
             header('Location: ' . BASE_URL . '/login');
         }

@@ -11,10 +11,24 @@ class User {
             $stmt = $this->db->prepare("
                 SELECT * FROM users 
                 WHERE username = ? 
+                AND status = 'active'
                 LIMIT 1
             ");
+            
+            // Debug: Verificar la consulta
+            error_log("Buscando usuario: " . $username);
+            
             $stmt->execute([$username]);
-            return $stmt->fetch();
+            $user = $stmt->fetch();
+            
+            // Debug: Verificar resultado
+            if ($user) {
+                error_log("Usuario encontrado - ID: " . $user['id'] . ", Hash: " . $user['password']);
+            } else {
+                error_log("Usuario no encontrado");
+            }
+            
+            return $user;
         } catch (PDOException $e) {
             error_log("Error en findByUsername: " . $e->getMessage());
             throw new Exception("Error al buscar usuario");
