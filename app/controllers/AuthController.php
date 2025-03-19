@@ -153,6 +153,7 @@ class AuthController {
             exit;
         }
         
+        // Generar token CSRF
         $csrfToken = $this->security->generateCsrfToken();
         include __DIR__ . '/../views/auth/reset-password.php';
     }
@@ -164,23 +165,23 @@ class AuthController {
             exit;
         }
         
-        $token = $_POST['token'] ?? '';
+        $resetToken = $_POST['token'] ?? '';
         $password = $_POST['password'] ?? '';
         $passwordConfirm = $_POST['password_confirm'] ?? '';
         
         if (empty($password) || strlen($password) < 8) {
             $_SESSION['error'] = 'La contraseña debe tener al menos 8 caracteres';
-            header('Location: ' . BASE_URL . '/reset-password?token=' . $token);
+            header('Location: ' . BASE_URL . '/reset-password?token=' . $resetToken);
             exit;
         }
         
         if ($password !== $passwordConfirm) {
             $_SESSION['error'] = 'Las contraseñas no coinciden';
-            header('Location: ' . BASE_URL . '/reset-password?token=' . $token);
+            header('Location: ' . BASE_URL . '/reset-password?token=' . $resetToken);
             exit;
         }
         
-        $user = $this->user->findByResetToken($token);
+        $user = $this->user->findByResetToken($resetToken);
         
         if (!$user) {
             $_SESSION['error'] = 'Token inválido o expirado';
@@ -195,7 +196,7 @@ class AuthController {
             header('Location: ' . BASE_URL . '/login');
         } else {
             $_SESSION['error'] = 'Error al actualizar la contraseña';
-            header('Location: ' . BASE_URL . '/reset-password?token=' . $token);
+            header('Location: ' . BASE_URL . '/reset-password?token=' . $resetToken);
         }
         exit;
     }

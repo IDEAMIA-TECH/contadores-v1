@@ -22,8 +22,8 @@
             <?php endif; ?>
 
             <form method="POST" action="<?php echo BASE_URL; ?>/reset-password" class="space-y-6">
-                <input type="hidden" name="csrf_token" value="<?php echo $token; ?>">
-                <input type="hidden" name="token" value="<?php echo htmlspecialchars($_GET['token']); ?>">
+                <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($csrfToken); ?>">
+                <input type="hidden" name="token" value="<?php echo htmlspecialchars($token); ?>">
                 
                 <div>
                     <label for="password" class="block text-sm font-medium text-gray-700">Nueva Contraseña</label>
