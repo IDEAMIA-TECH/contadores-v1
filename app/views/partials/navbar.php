@@ -10,17 +10,17 @@
                 
                 <div class="hidden sm:ml-6 sm:flex sm:space-x-8">
                     <a href="<?php echo BASE_URL; ?>/dashboard" 
-                       class="<?php echo $_SERVER['REQUEST_URI'] === BASE_URL . '/dashboard' ? 'border-blue-500' : 'border-transparent'; ?> 
+                       class="<?php echo $route === '/dashboard' ? 'border-blue-500' : 'border-transparent'; ?> 
                               inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium text-gray-900">
                         Dashboard
                     </a>
                     <a href="<?php echo BASE_URL; ?>/clients" 
-                       class="<?php echo strpos($_SERVER['REQUEST_URI'], '/clients') !== false ? 'border-blue-500' : 'border-transparent'; ?> 
+                       class="<?php echo str_starts_with($route, '/clients') ? 'border-blue-500' : 'border-transparent'; ?> 
                               inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium text-gray-900">
                         Clientes
                     </a>
                     <a href="<?php echo BASE_URL; ?>/reports" 
-                       class="<?php echo strpos($_SERVER['REQUEST_URI'], '/reports') !== false ? 'border-blue-500' : 'border-transparent'; ?> 
+                       class="<?php echo $route === '/reports' ? 'border-blue-500' : 'border-transparent'; ?> 
                               inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium text-gray-900">
                         Reportes
                     </a>

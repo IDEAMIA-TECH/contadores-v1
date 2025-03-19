@@ -48,46 +48,44 @@ set_exception_handler(function($e) {
 });
 
 try {
-    // Verificar mantenimiento
-    require_once __DIR__ . '/maintenance.php';
+    // Obtener la ruta actual
+    $requestUri = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
+    error_log("Request URI: " . $requestUri);
+    
+    // Remover BASE_URL del inicio de la ruta si existe
+    $route = str_starts_with($requestUri, BASE_URL) 
+        ? substr($requestUri, strlen(BASE_URL)) 
+        : $requestUri;
+    
+    error_log("Ruta procesada: " . $route);
 
-    // Cargar clases necesarias
-    require_once __DIR__ . '/app/config/database.php';
-    require_once __DIR__ . '/app/config/security.php';
-    require_once __DIR__ . '/app/controllers/AuthController.php';
-    require_once __DIR__ . '/app/controllers/ClientController.php';
+    // Rutas públicas (no requieren autenticación)
+    $publicRoutes = [
+        '/login',
+        '/forgot-password',
+        '/reset-password'
+    ];
 
-    // Iniciar o reanudar sesión
-    if (session_status() === PHP_SESSION_NONE) {
-        session_start();
+    // Si no es una ruta pública y no hay sesión, redirigir al login
+    if (!in_array($route, $publicRoutes) && !isset($_SESSION['user_id'])) {
+        error_log("Ruta protegida sin autenticación, redirigiendo a login");
+        header('Location: ' . BASE_URL . '/login');
+        exit;
     }
 
-    // Debug: Mostrar información de la ruta
-    $uri = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
-    if (APP_DEBUG) {
-        error_log("URI solicitada: " . $uri);
-        error_log("Método HTTP: " . $_SERVER['REQUEST_METHOD']);
-    }
-
-    // Enrutador básico
-    switch ($uri) {
-        case BASE_URL . '/':
-            if (!isset($_SESSION['user_id'])) {
+    // Enrutamiento principal
+    switch ($route) {
+        case '/':
+        case '':
+            if (isset($_SESSION['user_id'])) {
+                header('Location: ' . BASE_URL . '/dashboard');
+            } else {
                 header('Location: ' . BASE_URL . '/login');
-                exit;
-            }
-            // Redirigir según el rol
-            switch ($_SESSION['role']) {
-                case 'contador':
-                    header('Location: ' . BASE_URL . '/clients');
-                    break;
-                default:
-                    header('Location: ' . BASE_URL . '/dashboard');
-                    break;
             }
             exit;
 
-        case BASE_URL . '/login':
+        case '/login':
+            require_once __DIR__ . '/app/controllers/AuthController.php';
             $controller = new AuthController();
             if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $controller->login();
@@ -96,81 +94,42 @@ try {
             }
             break;
 
-        case BASE_URL . '/logout':
+        case '/logout':
+            require_once __DIR__ . '/app/controllers/AuthController.php';
             $controller = new AuthController();
             $controller->logout();
             break;
 
-        case BASE_URL . '/clients':
-            if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'contador') {
-                header('Location: ' . BASE_URL . '/login');
-                exit;
-            }
+        case '/dashboard':
+            require_once __DIR__ . '/app/controllers/DashboardController.php';
+            $controller = new DashboardController();
+            $controller->index();
+            break;
+
+        case '/clients':
+            require_once __DIR__ . '/app/controllers/ClientController.php';
             $controller = new ClientController();
             $controller->index();
             break;
 
-        case BASE_URL . '/clients/create':
-            if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'contador') {
-                header('Location: ' . BASE_URL . '/login');
-                exit;
-            }
+        case '/clients/create':
+            require_once __DIR__ . '/app/controllers/ClientController.php';
             $controller = new ClientController();
-            if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-                $controller->create();
-            } else {
-                $controller->showCreateForm();
-            }
+            $controller->create();
             break;
 
-        case BASE_URL . '/clients/extract-csf':
-            if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'contador') {
-                header('Location: ' . BASE_URL . '/login');
+        case '/clients/store':
+            if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+                header('Location: ' . BASE_URL . '/clients/create');
                 exit;
             }
+            require_once __DIR__ . '/app/controllers/ClientController.php';
             $controller = new ClientController();
-            $controller->extractCsfData();
+            $controller->store();
             break;
 
-        case BASE_URL . '/dashboard':
-            if (!isset($_SESSION['user_id'])) {
-                header('Location: ' . BASE_URL . '/login');
-                exit;
-            }
-            include __DIR__ . '/app/views/dashboard/index.php';
-            break;
-
-        case BASE_URL . '/profile':
-            if (!isset($_SESSION['user_id'])) {
-                header('Location: ' . BASE_URL . '/login');
-                exit;
-            }
-            include __DIR__ . '/app/views/profile.php';
-            break;
-
-        case BASE_URL . '/forgot-password':
-            $controller = new AuthController();
-            if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-                $controller->processForgotPassword();
-            } else {
-                $controller->showForgotPassword();
-            }
-            break;
-
-        case BASE_URL . '/reset-password':
-            $controller = new AuthController();
-            if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-                $controller->processResetPassword();
-            } else {
-                $controller->showResetPassword();
-            }
-            break;
-
-        case BASE_URL . '/clients/upload-xml':
-            if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'contador') {
-                header('Location: ' . BASE_URL . '/login');
-                exit;
-            }
+        case '/clients/upload-xml':
+            require_once __DIR__ . '/app/controllers/ClientController.php';
             $controller = new ClientController();
             if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $controller->uploadXml();
@@ -179,24 +138,44 @@ try {
             }
             break;
 
-        default:
-            if (!isset($_SESSION['user_id'])) {
-                header('Location: ' . BASE_URL . '/login');
-                exit;
+        case '/reports':
+            require_once __DIR__ . '/app/controllers/ReportController.php';
+            $controller = new ReportController();
+            $controller->index();
+            break;
+
+        case '/forgot-password':
+            require_once __DIR__ . '/app/controllers/AuthController.php';
+            $controller = new AuthController();
+            if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+                $controller->processForgotPassword();
+            } else {
+                $controller->showForgotPassword();
             }
+            break;
+
+        case '/reset-password':
+            require_once __DIR__ . '/app/controllers/AuthController.php';
+            $controller = new AuthController();
+            if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+                $controller->processResetPassword();
+            } else {
+                $controller->showResetPassword();
+            }
+            break;
+
+        default:
             // Página 404
             header("HTTP/1.0 404 Not Found");
             include __DIR__ . '/app/views/404.php';
             break;
     }
+
 } catch (Throwable $e) {
-    // Log del error
     error_log("Error crítico: " . $e->getMessage());
     error_log("Stack trace: " . $e->getTraceAsString());
     
     if (APP_DEBUG) {
-        ob_clean(); // Limpiar cualquier salida anterior
-        // Mostrar error detallado en desarrollo
         echo "<h1>Error Crítico</h1>";
         echo "<pre>";
         echo "Mensaje: " . $e->getMessage() . "\n\n";
@@ -205,8 +184,6 @@ try {
         echo "Stack trace:\n" . $e->getTraceAsString();
         echo "</pre>";
     } else {
-        ob_clean(); // Limpiar cualquier salida anterior
-        // Mostrar error amigable en producción
         include __DIR__ . '/app/views/error.php';
     }
 }
