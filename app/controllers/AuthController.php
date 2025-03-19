@@ -12,24 +12,33 @@ class AuthController {
         $this->db = Database::getInstance()->getConnection();
         $this->security = new Security();
         $this->user = new User($this->db);
-        $this->security->initSession();
     }
     
     public function showLogin() {
-        if (isset($_SESSION['user_id'])) {
-            switch ($_SESSION['role']) {
-                case 'contador':
-                    header('Location: ' . BASE_URL . '/clients');
-                    break;
-                default:
-                    header('Location: ' . BASE_URL . '/dashboard');
-                    break;
-            }
+        // Verificar si ya está autenticado
+        if ($this->security->isAuthenticated()) {
+            $this->redirectBasedOnRole();
             exit;
         }
         
         $token = $this->security->generateCsrfToken();
         include __DIR__ . '/../views/auth/login.php';
+    }
+    
+    private function redirectBasedOnRole() {
+        if (!isset($_SESSION['role'])) {
+            header('Location: ' . BASE_URL . '/login');
+            exit;
+        }
+        
+        switch ($_SESSION['role']) {
+            case 'contador':
+                header('Location: ' . BASE_URL . '/clients');
+                break;
+            default:
+                header('Location: ' . BASE_URL . '/dashboard');
+                break;
+        }
     }
     
     public function login() {
