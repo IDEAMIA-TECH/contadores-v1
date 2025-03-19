@@ -636,6 +636,9 @@ class ClientController {
             // Obtener documentos del cliente
             $documents = $this->client->getClientDocuments($id);
             
+            // Generar token CSRF para los formularios de descarga
+            $token = $this->security->generateCsrfToken();
+            
             include __DIR__ . '/../views/clients/view.php';
             
         } catch (Exception $e) {
