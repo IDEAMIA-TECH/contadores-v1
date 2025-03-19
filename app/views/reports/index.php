@@ -13,15 +13,15 @@
         <div class="bg-white rounded-lg shadow-lg p-6">
             <h1 class="text-2xl font-bold text-gray-800 mb-6">Reportes</h1>
 
-            <!-- Filtros -->
-            <form id="report-form" class="mb-8 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <!-- Actualizar el formulario -->
+            <form id="report-form" method="GET" action="<?php echo BASE_URL; ?>/reports" class="mb-8 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                 <div>
                     <label class="block text-sm font-medium text-gray-700 mb-2">Cliente</label>
                     <select name="client_id" class="w-full rounded-md border-gray-300">
                         <option value="">Todos los clientes</option>
                         <?php foreach ($clients as $client): ?>
                             <option value="<?php echo htmlspecialchars($client['id']); ?>" 
-                                    <?php echo ($filters['client_id'] == $client['id']) ? 'selected' : ''; ?>>
+                                    <?php echo (isset($filters['client_id']) && $filters['client_id'] == $client['id']) ? 'selected' : ''; ?>>
                                 <?php echo htmlspecialchars($client['business_name']); ?>
                             </option>
                         <?php endforeach; ?>
@@ -30,13 +30,13 @@
 
                 <div>
                     <label class="block text-sm font-medium text-gray-700 mb-2">Fecha Inicio</label>
-                    <input type="date" name="start_date" class="w-full rounded-md border-gray-300" 
+                    <input type="date" name="start_date" required class="w-full rounded-md border-gray-300" 
                            value="<?php echo htmlspecialchars($filters['start_date'] ?? ''); ?>">
                 </div>
 
                 <div>
                     <label class="block text-sm font-medium text-gray-700 mb-2">Fecha Fin</label>
-                    <input type="date" name="end_date" class="w-full rounded-md border-gray-300"
+                    <input type="date" name="end_date" required class="w-full rounded-md border-gray-300"
                            value="<?php echo htmlspecialchars($filters['end_date'] ?? ''); ?>">
                 </div>
 
@@ -44,14 +44,14 @@
                     <label class="block text-sm font-medium text-gray-700 mb-2">Tipo de Comprobante</label>
                     <select name="type" class="w-full rounded-md border-gray-300">
                         <option value="">Todos</option>
-                        <option value="I" <?php echo ($filters['type'] == 'I') ? 'selected' : ''; ?>>Ingreso</option>
-                        <option value="E" <?php echo ($filters['type'] == 'E') ? 'selected' : ''; ?>>Egreso</option>
-                        <option value="P" <?php echo ($filters['type'] == 'P') ? 'selected' : ''; ?>>Pago</option>
+                        <option value="I" <?php echo (isset($filters['type']) && $filters['type'] == 'I') ? 'selected' : ''; ?>>Ingreso</option>
+                        <option value="E" <?php echo (isset($filters['type']) && $filters['type'] == 'E') ? 'selected' : ''; ?>>Egreso</option>
+                        <option value="P" <?php echo (isset($filters['type']) && $filters['type'] == 'P') ? 'selected' : ''; ?>>Pago</option>
                     </select>
                 </div>
 
                 <div class="col-span-full flex justify-end space-x-4">
-                    <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($token); ?>">
+                    <input type="hidden" name="search" value="1">
                     <button type="submit" class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded">
                         Generar Reporte
                     </button>
@@ -64,8 +64,9 @@
                 </div>
             </form>
 
-            <!-- Después del form y antes de la tabla, agregamos el resumen de impuestos -->
-            <?php if (!empty($reportData)): ?>
+            <!-- Solo mostrar resultados si se realizó una búsqueda -->
+            <?php if (isset($_GET['search']) && !empty($reportData)): ?>
+                <!-- Sección de resumen de impuestos -->
                 <div class="mb-8 bg-gray-50 p-6 rounded-lg">
                     <h2 class="text-xl font-semibold text-gray-800 mb-4">Resumen de Impuestos</h2>
                     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
@@ -104,74 +105,82 @@
                         <?php endforeach; ?>
                     </div>
                 </div>
-            <?php endif; ?>
 
-            <!-- Actualizar la tabla para incluir los nuevos campos -->
-            <div class="overflow-x-auto">
-                <table class="min-w-full divide-y divide-gray-200">
-                    <thead class="bg-gray-50">
-                        <tr>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Cliente</th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Fecha</th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">UUID</th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Subtotal</th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total</th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tasa o Cuota</th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tipo Factor</th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Impuestos Trasladados</th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tipo</th>
-                        </tr>
-                    </thead>
-                    <tbody class="bg-white divide-y divide-gray-200">
-                        <?php if (!empty($reportData)): ?>
-                            <?php foreach ($reportData as $row): ?>
+                <!-- Tabla de resultados -->
+                <div class="overflow-x-auto">
+                    <table class="min-w-full divide-y divide-gray-200">
+                        <thead class="bg-gray-50">
+                            <tr>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Cliente</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Fecha</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">UUID</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Subtotal</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tasa o Cuota</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tipo Factor</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Impuestos Trasladados</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tipo</th>
+                            </tr>
+                        </thead>
+                        <tbody class="bg-white divide-y divide-gray-200">
+                            <?php if (!empty($reportData)): ?>
+                                <?php foreach ($reportData as $row): ?>
+                                    <tr>
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                            <?php echo htmlspecialchars($row['cliente']); ?>
+                                        </td>
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                            <?php echo date('d/m/Y', strtotime($row['fecha'])); ?>
+                                        </td>
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                            <?php echo htmlspecialchars($row['uuid']); ?>
+                                        </td>
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                            $<?php echo number_format($row['subtotal'], 2); ?>
+                                        </td>
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                            $<?php echo number_format($row['total'], 2); ?>
+                                        </td>
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                            <?php echo ($row['tasa_o_cuota'] * 100) . '%'; ?>
+                                        </td>
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                            <?php echo htmlspecialchars($row['tipo_factor']); ?>
+                                        </td>
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                            $<?php echo number_format($row['total_impuestos_trasladados'], 2); ?>
+                                        </td>
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                            <?php 
+                                            $tipos = [
+                                                'I' => 'Ingreso',
+                                                'E' => 'Egreso',
+                                                'P' => 'Pago'
+                                            ];
+                                            echo htmlspecialchars($tipos[$row['tipo_comprobante']] ?? $row['tipo_comprobante']); 
+                                            ?>
+                                        </td>
+                                    </tr>
+                                <?php endforeach; ?>
+                            <?php else: ?>
                                 <tr>
-                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                        <?php echo htmlspecialchars($row['cliente']); ?>
-                                    </td>
-                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                        <?php echo date('d/m/Y', strtotime($row['fecha'])); ?>
-                                    </td>
-                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                        <?php echo htmlspecialchars($row['uuid']); ?>
-                                    </td>
-                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                        $<?php echo number_format($row['subtotal'], 2); ?>
-                                    </td>
-                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                        $<?php echo number_format($row['total'], 2); ?>
-                                    </td>
-                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                        <?php echo ($row['tasa_o_cuota'] * 100) . '%'; ?>
-                                    </td>
-                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                        <?php echo htmlspecialchars($row['tipo_factor']); ?>
-                                    </td>
-                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                        $<?php echo number_format($row['total_impuestos_trasladados'], 2); ?>
-                                    </td>
-                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                        <?php 
-                                        $tipos = [
-                                            'I' => 'Ingreso',
-                                            'E' => 'Egreso',
-                                            'P' => 'Pago'
-                                        ];
-                                        echo htmlspecialchars($tipos[$row['tipo_comprobante']] ?? $row['tipo_comprobante']); 
-                                        ?>
+                                    <td colspan="9" class="px-6 py-4 text-center text-sm text-gray-500">
+                                        No se encontraron resultados
                                     </td>
                                 </tr>
-                            <?php endforeach; ?>
-                        <?php else: ?>
-                            <tr>
-                                <td colspan="9" class="px-6 py-4 text-center text-sm text-gray-500">
-                                    No se encontraron resultados
-                                </td>
-                            </tr>
-                        <?php endif; ?>
-                    </tbody>
-                </table>
-            </div>
+                            <?php endif; ?>
+                        </tbody>
+                    </table>
+                </div>
+            <?php elseif (isset($_GET['search'])): ?>
+                <div class="text-center py-8 text-gray-600">
+                    No se encontraron resultados para los filtros seleccionados
+                </div>
+            <?php else: ?>
+                <div class="text-center py-8 text-gray-600">
+                    Selecciona los filtros y haz clic en "Generar Reporte" para ver los resultados
+                </div>
+            <?php endif; ?>
         </div>
     </div>
 
@@ -181,34 +190,43 @@
         const exportExcel = document.getElementById('export-excel');
         const exportPdf = document.getElementById('export-pdf');
 
-        // Manejar la búsqueda/generación de reporte
+        // Validar fechas antes de enviar el formulario
         form.addEventListener('submit', function(e) {
             e.preventDefault();
-            const formData = new FormData(form);
-            const searchParams = new URLSearchParams();
-            
-            // Agregar solo los parámetros con valor
-            for (const [key, value] of formData.entries()) {
-                if (value) {
-                    searchParams.append(key, value);
-                }
+            const startDate = form.querySelector('[name="start_date"]').value;
+            const endDate = form.querySelector('[name="end_date"]').value;
+
+            if (!startDate || !endDate) {
+                alert('Las fechas son obligatorias');
+                return;
             }
-            
-            window.location.href = `${BASE_URL}/reports?${searchParams.toString()}`;
+
+            if (startDate > endDate) {
+                alert('La fecha de inicio no puede ser posterior a la fecha final');
+                return;
+            }
+
+            this.submit();
         });
 
         // Función común para exportar
         async function exportReport(format) {
+            const startDate = form.querySelector('[name="start_date"]').value;
+            const endDate = form.querySelector('[name="end_date"]').value;
+
+            if (!startDate || !endDate) {
+                alert('Las fechas son obligatorias para exportar');
+                return;
+            }
+
             try {
-                const formData = new FormData(form);
+                const formData = new FormData();
                 formData.append('format', format);
                 formData.append('csrf_token', '<?php echo $token; ?>');
-
-                // Obtener los filtros actuales
-                const currentParams = new URLSearchParams(window.location.search);
-                for (const [key, value] of currentParams.entries()) {
-                    formData.append(key, value);
-                }
+                formData.append('start_date', startDate);
+                formData.append('end_date', endDate);
+                formData.append('client_id', form.querySelector('[name="client_id"]').value);
+                formData.append('type', form.querySelector('[name="type"]').value);
 
                 const response = await fetch(`${BASE_URL}/reports/export`, {
                     method: 'POST',
@@ -221,12 +239,10 @@
 
                 const contentType = response.headers.get('content-type');
                 if (contentType && contentType.includes('application/json')) {
-                    // Si es JSON, probablemente sea un mensaje de error
                     const jsonResponse = await response.json();
                     throw new Error(jsonResponse.message || 'Error al exportar');
                 }
 
-                // Si no es JSON, es el archivo para descargar
                 const blob = await response.blob();
                 const url = window.URL.createObjectURL(blob);
                 const a = document.createElement('a');
@@ -243,15 +259,8 @@
             }
         }
 
-        // Manejar exportación a Excel
-        exportExcel.addEventListener('click', function() {
-            exportReport('excel');
-        });
-
-        // Manejar exportación a PDF
-        exportPdf.addEventListener('click', function() {
-            exportReport('pdf');
-        });
+        exportExcel.addEventListener('click', () => exportReport('excel'));
+        exportPdf.addEventListener('click', () => exportReport('pdf'));
     });
     </script>
 

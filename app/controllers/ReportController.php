@@ -26,16 +26,32 @@ class ReportController {
             // Obtener lista de clientes para el dropdown
             $clients = $this->client->getAllClients();
             
-            // Obtener parámetros de filtrado
-            $filters = [
-                'client_id' => filter_input(INPUT_GET, 'client_id', FILTER_VALIDATE_INT),
-                'start_date' => filter_input(INPUT_GET, 'start_date'),
-                'end_date' => filter_input(INPUT_GET, 'end_date'),
-                'type' => filter_input(INPUT_GET, 'type')
-            ];
+            // Inicializar reportData como array vacío
+            $reportData = [];
             
-            // Obtener datos para el reporte
-            $reportData = $this->report->generateReport($filters);
+            // Solo procesar el reporte si se envió el formulario
+            if (isset($_GET['search'])) {
+                // Validar fechas requeridas
+                if (empty($_GET['start_date']) || empty($_GET['end_date'])) {
+                    throw new Exception('Las fechas son obligatorias');
+                }
+                
+                // Obtener parámetros de filtrado
+                $filters = [
+                    'client_id' => filter_input(INPUT_GET, 'client_id', FILTER_VALIDATE_INT),
+                    'start_date' => filter_input(INPUT_GET, 'start_date'),
+                    'end_date' => filter_input(INPUT_GET, 'end_date'),
+                    'type' => filter_input(INPUT_GET, 'type')
+                ];
+                
+                // Validar fechas
+                if ($filters['start_date'] > $filters['end_date']) {
+                    throw new Exception('La fecha de inicio no puede ser posterior a la fecha final');
+                }
+                
+                // Obtener datos para el reporte
+                $reportData = $this->report->generateReport($filters);
+            }
             
             // Generar token CSRF para el formulario
             $token = $this->security->generateCsrfToken();
@@ -45,7 +61,7 @@ class ReportController {
         } catch (Exception $e) {
             error_log("Error en reports/index: " . $e->getMessage());
             $_SESSION['error'] = $e->getMessage();
-            header('Location: ' . BASE_URL . '/dashboard');
+            header('Location: ' . BASE_URL . '/reports');
             exit;
         }
     }
