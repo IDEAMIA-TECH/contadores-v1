@@ -237,7 +237,7 @@ class ClientController {
 
             // Procesar el PDF
             $pdfParser = new PdfParser();
-            $data = $pdfParser->parseCSF($_FILES['csf_file']['tmp_name']);
+            $extractedData = $pdfParser->parseCSF($_FILES['csf_file']['tmp_name']);
 
             // Mover el archivo a una ubicación permanente
             $uploadDir = ROOT_PATH . '/uploads/csf/';
@@ -252,14 +252,27 @@ class ClientController {
                 throw new Exception('Error al guardar el archivo');
             }
 
-            // Agregar la ruta del archivo a los datos
-            $data['csf_path'] = 'csf/' . $fileName;
+            // Formatear los datos para el formulario
+            $formData = [
+                'rfc' => $extractedData['rfc'] ?? '',
+                'business_name' => $extractedData['razon_social'] ?? '',
+                'legal_name' => $extractedData['nombre_legal'] ?? '',
+                'fiscal_regime' => $extractedData['regimen_fiscal'] ?? '',
+                'street' => $extractedData['calle'] ?? '',
+                'exterior_number' => $extractedData['numero_exterior'] ?? '',
+                'interior_number' => $extractedData['numero_interior'] ?? '',
+                'neighborhood' => $extractedData['colonia'] ?? '',
+                'city' => $extractedData['municipio'] ?? '',
+                'state' => $extractedData['estado'] ?? '',
+                'zip_code' => $extractedData['codigo_postal'] ?? '',
+                'csf_path' => 'csf/' . $fileName
+            ];
 
             // Devolver respuesta
             header('Content-Type: application/json');
             echo json_encode([
                 'success' => true,
-                'data' => $data
+                'data' => $formData
             ]);
 
         } catch (Exception $e) {

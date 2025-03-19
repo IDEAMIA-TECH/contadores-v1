@@ -241,15 +241,36 @@
                 method: 'POST',
                 body: formData
             })
-            .then(response => response.json())
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Error en la respuesta del servidor');
+                }
+                return response.json();
+            })
             .then(data => {
                 if (data.success) {
                     // Actualizar los campos del formulario
-                    Object.keys(data.data).forEach(key => {
+                    const formFields = {
+                        'rfc': data.data.rfc || '',
+                        'business_name': data.data.business_name || '',
+                        'legal_name': data.data.legal_name || '',
+                        'fiscal_regime': data.data.fiscal_regime || '',
+                        'street': data.data.street || '',
+                        'exterior_number': data.data.exterior_number || '',
+                        'interior_number': data.data.interior_number || '',
+                        'neighborhood': data.data.neighborhood || '',
+                        'city': data.data.city || '',
+                        'state': data.data.state || '',
+                        'zip_code': data.data.zip_code || ''
+                    };
+
+                    // Actualizar cada campo del formulario
+                    Object.keys(formFields).forEach(key => {
                         const input = document.getElementById(key);
                         if (input) {
-                            input.value = data.data[key];
-                            input.classList.remove('border-red-500');
+                            input.value = formFields[key];
+                            // Disparar un evento de cambio para activar cualquier listener
+                            input.dispatchEvent(new Event('change'));
                         }
                     });
                     
