@@ -71,38 +71,54 @@
                     <h2 class="text-xl font-semibold text-gray-800 mb-4">Resumen de Impuestos</h2>
                     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
                         <?php
+                        // Inicializar el resumen de IVA con totales en 0
                         $resumenIVA = [
-                            '16' => ['tasa' => '16%', 'total' => 0, 'label' => 'IVA 16%', 'class' => 'bg-blue-100'],
-                            '8' => ['tasa' => '8%', 'total' => 0, 'label' => 'IVA 8%', 'class' => 'bg-green-100'],
-                            '0' => ['tasa' => '0%', 'total' => 0, 'label' => 'IVA 0%', 'class' => 'bg-yellow-100'],
-                            'Exento' => ['tasa' => 'Exento', 'total' => 0, 'label' => 'IVA Exento', 'class' => 'bg-purple-100'],
-                            'Otros' => ['tasa' => 'Otros', 'total' => 0, 'label' => 'Otros', 'class' => 'bg-gray-100']
+                            '16' => ['tasa' => '16%', 'total' => 0, 'base' => 0, 'label' => 'IVA 16%', 'class' => 'bg-blue-100'],
+                            '8' => ['tasa' => '8%', 'total' => 0, 'base' => 0, 'label' => 'IVA 8%', 'class' => 'bg-green-100'],
+                            '0' => ['tasa' => '0%', 'total' => 0, 'base' => 0, 'label' => 'IVA 0%', 'class' => 'bg-yellow-100'],
+                            'Exento' => ['tasa' => 'Exento', 'total' => 0, 'base' => 0, 'label' => 'IVA Exento', 'class' => 'bg-purple-100'],
+                            'Otros' => ['tasa' => 'Otros', 'total' => 0, 'base' => 0, 'label' => 'Otros', 'class' => 'bg-gray-100']
                         ];
 
                         // Calcular totales por tipo de IVA
                         foreach ($reportData as $row) {
-                            $tasaPorcentaje = (float)$row['tasa_o_cuota'] * 100;
-                            $tasaKey = (string)round($tasaPorcentaje); // Convertir a string después de redondear
+                            $tasa = $row['tasa_o_cuota'];
+                            $tasaPorcentaje = (string)round($tasa * 100);
                             $impuesto = (float)$row['total_impuestos_trasladados'];
+                            $subtotal = (float)$row['subtotal'];
+                            
+                            error_log("Procesando registro - Tasa: $tasa, TasaPorcentaje: $tasaPorcentaje, Impuesto: $impuesto, Subtotal: $subtotal, TipoFactor: {$row['tipo_factor']}");
                             
                             if ($row['tipo_factor'] === 'Exento') {
-                                $resumenIVA['Exento']['total'] += (float)$row['subtotal'];
-                            } elseif (isset($resumenIVA[$tasaKey])) {
-                                $resumenIVA[$tasaKey]['total'] += $impuesto;
+                                $resumenIVA['Exento']['total'] += $subtotal;
+                                $resumenIVA['Exento']['base'] += $subtotal;
+                            } elseif (isset($resumenIVA[$tasaPorcentaje])) {
+                                $resumenIVA[$tasaPorcentaje]['total'] += $impuesto;
+                                $resumenIVA[$tasaPorcentaje]['base'] += $subtotal;
                             } else {
                                 $resumenIVA['Otros']['total'] += $impuesto;
+                                $resumenIVA['Otros']['base'] += $subtotal;
                             }
                         }
 
                         // Mostrar cada tipo de IVA
-                        foreach ($resumenIVA as $info): ?>
+                        foreach ($resumenIVA as $key => $info): 
+                            // Solo mostrar categorías que tengan montos
+                            if ($info['total'] > 0 || $info['base'] > 0): 
+                        ?>
                             <div class="<?php echo htmlspecialchars($info['class']); ?> p-4 rounded-lg">
                                 <h3 class="font-semibold text-gray-700"><?php echo htmlspecialchars($info['label']); ?></h3>
-                                <p class="text-2xl font-bold text-gray-900">
-                                    $<?php echo number_format($info['total'], 2); ?>
-                                </p>
+                                <div class="mt-2">
+                                    <p class="text-sm text-gray-600">Base: $<?php echo number_format($info['base'], 2); ?></p>
+                                    <p class="text-2xl font-bold text-gray-900">
+                                        $<?php echo number_format($info['total'], 2); ?>
+                                    </p>
+                                </div>
                             </div>
-                        <?php endforeach; ?>
+                        <?php 
+                            endif;
+                        endforeach; 
+                        ?>
                     </div>
                 </div>
 

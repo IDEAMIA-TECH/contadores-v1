@@ -16,14 +16,12 @@ class Report {
                     x.total,
                     x.subtotal,
                     x.impuesto,
-                    x.tasa_o_cuota,
-                    x.tipo_factor,
-                    x.total_impuestos_trasladados,
+                    COALESCE(x.tasa_o_cuota, 0) as tasa_o_cuota,
+                    COALESCE(x.tipo_factor, '') as tipo_factor,
+                    COALESCE(x.total_impuestos_trasladados, 0) as total_impuestos_trasladados,
                     x.emisor_rfc,
                     x.emisor_nombre,
-                    x.tipo_comprobante,
-                    x.forma_pago,
-                    x.metodo_pago
+                    x.tipo_comprobante
                 FROM client_xmls x
                 JOIN clients c ON x.client_id = c.id
                 WHERE 1=1
@@ -53,14 +51,14 @@ class Report {
             
             $query .= " ORDER BY x.fecha DESC";
             
-            error_log("Query: " . $query);
-            error_log("Params: " . print_r($params, true));
+            error_log("Query de reporte: " . $query);
+            error_log("Parámetros: " . print_r($params, true));
             
             $stmt = $this->db->prepare($query);
             $stmt->execute($params);
             
             $results = $stmt->fetchAll(PDO::FETCH_ASSOC);
-            error_log("Results: " . print_r($results, true));
+            error_log("Resultados encontrados: " . count($results));
             
             return $results;
             
