@@ -46,45 +46,26 @@ class PdfParser {
                 $data['rfc'] = $matches[1];
             }
             
-            // Nombre/Razón Social
-            if (preg_match('/Nombre, denominación o razón\s+social\s+([^\n]+)/i', $text, $matches)) {
+            // Nombre/Razón Social - Corregido para tomar el nombre correcto
+            if (preg_match('/Nombre, denominación o razón\s+social\s+(.*?)(?=\s*idCIF:)/s', $text, $matches)) {
                 $data['razon_social'] = trim($matches[1]);
             }
             
-            // Régimen Fiscal
+            // Régimen Fiscal - Ajustado para detectar ambos regímenes
             if (preg_match('/Régimen de Sueldos y Salarios e Ingresos Asimilados a Salarios/', $text)) {
                 $data['regimen_fiscal'] = '605';
             } elseif (preg_match('/Régimen de Incorporación Fiscal/', $text)) {
                 $data['regimen_fiscal'] = '621';
             }
             
-            // Código Postal y datos de ubicación
+            // Dirección
+            // Código Postal
             if (preg_match('/CódigoPostal:(\d{5})/', $text, $matches)) {
-                $zipCode = $matches[1];
-                $data['codigo_postal'] = $zipCode;
-                
-                // Obtener datos de ubicación por CP
-                $locationData = $this->getLocationDataByZipCode($zipCode);
-                if ($locationData) {
-                    $data['estado'] = $locationData['estado'];
-                    $data['municipio'] = $locationData['municipio'];
-                    $data['colonia'] = $locationData['colonia'];
-                } else {
-                    // Si falla la API, usar los datos del PDF
-                    if (preg_match('/NombredelaColonia:([^N]+)/', $text, $matches)) {
-                        $data['colonia'] = trim($matches[1]);
-                    }
-                    if (preg_match('/NombredelMunicipiooDemarcaciónTerritorial:([^N]+)/', $text, $matches)) {
-                        $data['municipio'] = trim($matches[1]);
-                    }
-                    if (preg_match('/NombredelaEntidadFederativa:([^E]+)/', $text, $matches)) {
-                        $data['estado'] = trim($matches[1]);
-                    }
-                }
+                $data['codigo_postal'] = $matches[1];
             }
             
             // Calle
-            if (preg_match('/NombredeVialidad:([^N]+)/', $text, $matches)) {
+            if (preg_match('/NombredeVialidad:([^N\t]+)/', $text, $matches)) {
                 $data['calle'] = trim($matches[1]);
             }
             
@@ -98,7 +79,22 @@ class PdfParser {
                 $data['numero_interior'] = $matches[1];
             }
             
-            // Nombre Legal (compuesto por nombre y apellidos)
+            // Colonia
+            if (preg_match('/NombredelaColonia:([^N\t]+)/', $text, $matches)) {
+                $data['colonia'] = trim(str_replace('OTRANOESPECIFICADAENELCATALOGO', 'OTRA', $matches[1]));
+            }
+            
+            // Municipio
+            if (preg_match('/NombredelMunicipiooDemarcaciónTerritorial:([^N\t]+)/', $text, $matches)) {
+                $data['municipio'] = trim($matches[1]);
+            }
+            
+            // Estado - Corregido para tomar el nombre completo
+            if (preg_match('/NombredelaEntidadFederativa:([^E\t]+)/', $text, $matches)) {
+                $data['estado'] = trim($matches[1]);
+            }
+            
+            // Nombre Legal - Compuesto por nombre y apellidos
             $nombreCompleto = [];
             if (preg_match('/Nombre\(s\):\s*([^\n]+)/', $text, $matches)) {
                 $nombreCompleto[] = trim($matches[1]);
@@ -112,6 +108,8 @@ class PdfParser {
             if (!empty($nombreCompleto)) {
                 $data['nombre_legal'] = implode(' ', $nombreCompleto);
             }
+            
+            // Eliminar la API de códigos postales ya que está deshabilitada en el servidor
             
             error_log("Datos extraídos: " . print_r($data, true));
             
