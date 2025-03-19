@@ -15,13 +15,18 @@ class AuthController {
     }
     
     public function showLogin() {
+        error_log("=== Mostrando formulario de login ===");
+        
         // Verificar si ya está autenticado
         if ($this->security->isAuthenticated()) {
+            error_log("Usuario ya autenticado, redirigiendo...");
             $this->redirectBasedOnRole();
             exit;
         }
         
         $token = $this->security->generateCsrfToken();
+        error_log("Token CSRF generado: " . $token);
+        
         include __DIR__ . '/../views/auth/login.php';
     }
     
@@ -43,11 +48,21 @@ class AuthController {
     
     public function login() {
         try {
+            error_log("=== Inicio de intento de login ===");
+            
+            // Debug: Verificar datos POST
+            error_log("POST data: " . print_r($_POST, true));
+            
             if (headers_sent($filename, $line)) {
                 error_log("Headers already sent in $filename:$line");
             }
             
-            if (!$this->security->validateCsrfToken($_POST['csrf_token'] ?? '')) {
+            // Verificar token CSRF
+            $csrfToken = $_POST['csrf_token'] ?? '';
+            error_log("CSRF Token recibido: " . $csrfToken);
+            error_log("CSRF Token en sesión: " . ($_SESSION['csrf_token'] ?? 'no existe'));
+            
+            if (!$this->security->validateCsrfToken($csrfToken)) {
                 error_log("Token CSRF inválido");
                 $_SESSION['error'] = 'Token de seguridad inválido';
                 header('Location: ' . BASE_URL . '/login');
@@ -62,24 +77,34 @@ class AuthController {
             error_log("Password recibido (longitud): " . strlen($password));
             
             if (empty($username) || empty($password)) {
-                error_log("Campos vacíos");
+                error_log("Campos vacíos - Username: " . (empty($username) ? 'vacío' : 'presente') . 
+                         ", Password: " . (empty($password) ? 'vacío' : 'presente'));
                 $_SESSION['error'] = 'Por favor complete todos los campos';
                 header('Location: ' . BASE_URL . '/login');
                 exit;
             }
             
+            // Buscar usuario
+            error_log("Buscando usuario en la base de datos...");
             $user = $this->user->findByUsername($username);
             
             // Debug: Verificar si se encontró el usuario
             if ($user) {
                 error_log("Usuario encontrado - ID: " . $user['id']);
                 error_log("Hash almacenado: " . $user['password']);
+                error_log("Estado del usuario: " . $user['status']);
             } else {
-                error_log("Usuario no encontrado: " . $username);
+                error_log("Usuario no encontrado en la base de datos");
             }
             
+            // Verificar credenciales
             if (!$user || !$this->security->verifyPassword($password, $user['password'])) {
-                error_log("Fallo en la autenticación - Usuario: " . $username);
+                error_log("Fallo en la autenticación");
+                if (!$user) {
+                    error_log("Causa: Usuario no existe");
+                } else {
+                    error_log("Causa: Contraseña incorrecta");
+                }
                 $_SESSION['error'] = 'Credenciales inválidas';
                 header('Location: ' . BASE_URL . '/login');
                 exit;
@@ -96,7 +121,11 @@ class AuthController {
             $_SESSION['username'] = $user['username'];
             $_SESSION['role'] = $user['role'];
             
+            error_log("Sesión creada - ID: " . $_SESSION['user_id'] . 
+                     ", Role: " . $_SESSION['role']);
+            
             // Redirigir según el rol
+            error_log("Redirigiendo según rol: " . $user['role']);
             switch ($user['role']) {
                 case 'contador':
                     header('Location: ' . BASE_URL . '/clients');
@@ -111,6 +140,8 @@ class AuthController {
             $_SESSION['error'] = 'Error al procesar el login';
             header('Location: ' . BASE_URL . '/login');
         }
+        
+        error_log("=== Fin de intento de login ===");
         exit;
     }
     

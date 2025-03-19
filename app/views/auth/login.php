@@ -21,6 +21,9 @@
             <?php endif; ?>
 
             <form method="POST" action="<?php echo BASE_URL; ?>/login" class="space-y-6">
+                <?php
+                error_log("Token CSRF generado en vista login: " . htmlspecialchars($token));
+                ?>
                 <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($token); ?>">
                 
                 <div>

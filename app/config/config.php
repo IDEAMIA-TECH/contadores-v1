@@ -44,8 +44,19 @@ define('MAX_UPLOAD_SIZE', 10 * 1024 * 1024); // 10MB
 
 // Configuración de logs
 define('LOG_PATH', BASE_PATH . '/logs');
-ini_set('error_log', LOG_PATH . '/error.log');
+if (!is_dir(LOG_PATH)) {
+    mkdir(LOG_PATH, 0777, true);
+}
+
+$logFile = LOG_PATH . '/error.log';
+if (!file_exists($logFile)) {
+    touch($logFile);
+    chmod($logFile, 0666);
+}
+
+ini_set('error_log', $logFile);
 ini_set('log_errors', 1);
+error_log("=== Inicio de sesión de logs ===");
 
 // Debug: Mostrar valores de conexión si estamos en modo debug
 if (APP_DEBUG) {
