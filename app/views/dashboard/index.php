@@ -35,15 +35,15 @@
             <div class="mt-8">
                 <h2 class="text-xl font-semibold text-gray-800 mb-4">Acciones Rápidas</h2>
                 <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    <a href="<?php echo BASE_URL; ?>/client/create" 
+                    <a href="<?php echo BASE_URL; ?>/clients/create" 
                        class="bg-blue-500 hover:bg-blue-600 text-white rounded-lg p-4 text-center">
                         Agregar Cliente
                     </a>
-                    <a href="<?php echo BASE_URL; ?>/client" 
+                    <a href="<?php echo BASE_URL; ?>/clients" 
                        class="bg-green-500 hover:bg-green-600 text-white rounded-lg p-4 text-center">
                         Ver Clientes
                     </a>
-                    <a href="<?php echo BASE_URL; ?>/report" 
+                    <a href="<?php echo BASE_URL; ?>/reports" 
                        class="bg-purple-500 hover:bg-purple-600 text-white rounded-lg p-4 text-center">
                         Generar Reporte
                     </a>

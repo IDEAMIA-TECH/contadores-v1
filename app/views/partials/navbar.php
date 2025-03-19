@@ -14,13 +14,13 @@
                               inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium text-gray-900">
                         Dashboard
                     </a>
-                    <a href="<?php echo BASE_URL; ?>/client" 
-                       class="<?php echo strpos($_SERVER['REQUEST_URI'], '/client') !== false ? 'border-blue-500' : 'border-transparent'; ?> 
+                    <a href="<?php echo BASE_URL; ?>/clients" 
+                       class="<?php echo strpos($_SERVER['REQUEST_URI'], '/clients') !== false ? 'border-blue-500' : 'border-transparent'; ?> 
                               inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium text-gray-900">
                         Clientes
                     </a>
-                    <a href="<?php echo BASE_URL; ?>/report" 
-                       class="<?php echo strpos($_SERVER['REQUEST_URI'], '/report') !== false ? 'border-blue-500' : 'border-transparent'; ?> 
+                    <a href="<?php echo BASE_URL; ?>/reports" 
+                       class="<?php echo strpos($_SERVER['REQUEST_URI'], '/reports') !== false ? 'border-blue-500' : 'border-transparent'; ?> 
                               inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium text-gray-900">
                         Reportes
                     </a>
