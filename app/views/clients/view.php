@@ -167,7 +167,7 @@
 
             <!-- Acciones adicionales -->
             <div class="flex justify-end space-x-4 mt-8">
-                <a href="<?php echo BASE_URL; ?>/clients/upload-xml/<?php echo $client['id']; ?>" 
+                <a href="<?php echo BASE_URL; ?>/clients/upload-xml?id=<?php echo $client['id']; ?>" 
                    class="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded">
                     Subir XML
                 </a>
