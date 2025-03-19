@@ -265,7 +265,6 @@
                     </a>
                 </div>
             </div>
-            <?php endif; ?>
 
             <!-- Acciones adicionales -->
             <div class="flex justify-end space-x-4 mt-8">
