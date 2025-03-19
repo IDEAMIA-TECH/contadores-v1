@@ -266,6 +266,76 @@
                 </div>
             </div>
 
+            <!-- Después de la sección de credenciales SAT -->
+            <div class="bg-white rounded-lg shadow-lg p-6 mt-6">
+                <h2 class="text-xl font-bold text-gray-800 mb-4">Gestión de XMLs</h2>
+                
+                <!-- Formulario de carga -->
+                <form id="xml-upload-form" class="mb-6" enctype="multipart/form-data">
+                    <input type="hidden" name="client_id" value="<?php echo htmlspecialchars($client['id']); ?>">
+                    <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($_SESSION['csrf_token']); ?>">
+                    
+                    <div class="flex items-center space-x-4">
+                        <div class="flex-1">
+                            <input type="file" 
+                                   name="xml_files[]" 
+                                   multiple 
+                                   accept=".xml"
+                                   class="w-full text-sm text-gray-500
+                                          file:mr-4 file:py-2 file:px-4
+                                          file:rounded-full file:border-0
+                                          file:text-sm file:font-semibold
+                                          file:bg-blue-50 file:text-blue-700
+                                          hover:file:bg-blue-100">
+                        </div>
+                        <button type="submit" 
+                                class="bg-blue-500 hover:bg-blue-600 text-white px-6 py-2 rounded-md flex items-center">
+                            <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                                      d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0l-4 4m4-4v12"/>
+                            </svg>
+                            Procesar XMLs
+                        </button>
+                    </div>
+                </form>
+
+                <!-- Resumen de Facturas -->
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+                    <div class="bg-blue-50 rounded-lg p-4">
+                        <h3 class="text-lg font-semibold text-blue-700">Facturas Emitidas</h3>
+                        <p class="text-3xl font-bold text-blue-900" id="count-emitidas">0</p>
+                    </div>
+                    <div class="bg-green-50 rounded-lg p-4">
+                        <h3 class="text-lg font-semibold text-green-700">Facturas Recibidas</h3>
+                        <p class="text-3xl font-bold text-green-900" id="count-recibidas">0</p>
+                    </div>
+                    <div class="bg-purple-50 rounded-lg p-4">
+                        <h3 class="text-lg font-semibold text-purple-700">Total Facturado</h3>
+                        <p class="text-3xl font-bold text-purple-900" id="total-amount">$0.00</p>
+                    </div>
+                </div>
+
+                <!-- Tabla de Facturas -->
+                <div class="overflow-x-auto">
+                    <table class="min-w-full divide-y divide-gray-200">
+                        <thead class="bg-gray-50">
+                            <tr>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">UUID</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Fecha</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Emisor</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Receptor</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Total</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Tipo</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody class="bg-white divide-y divide-gray-200" id="facturas-list">
+                            <!-- Se llenará dinámicamente -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
             <!-- Acciones adicionales -->
             <div class="flex justify-end space-x-4 mt-8">
                 <a href="<?php echo BASE_URL; ?>/clients/upload-xml?id=<?php echo $client['id']; ?>" 
@@ -274,190 +344,115 @@
                 </a>
             </div>
         </div>
-
-        <!-- Agregar después de la sección de carga de archivos y antes del footer -->
-        <div class="bg-white rounded-lg shadow-lg p-6 mt-6">
-            <h2 class="text-xl font-bold text-gray-800 mb-4">Descarga de XMLs desde el SAT</h2>
-            
-            <!-- Agregar mensaje de funcionalidad en desarrollo -->
-            <div class="bg-yellow-100 border-l-4 border-yellow-500 text-yellow-700 p-4 mb-4">
-                <div class="flex">
-                    <div class="flex-shrink-0">
-                        <svg class="h-5 w-5 text-yellow-500" viewBox="0 0 20 20" fill="currentColor">
-                            <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/>
-                        </svg>
-                    </div>
-                    <div class="ml-3">
-                        <p class="text-sm">
-                            Esta funcionalidad está actualmente en desarrollo. Próximamente estará disponible.
-                        </p>
-                    </div>
-                </div>
-            </div>
-            
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <!-- Descarga de Facturas Emitidas -->
-                <div class="border rounded-lg p-4">
-                    <h3 class="text-lg font-semibold text-gray-700 mb-3">Facturas Emitidas</h3>
-                    <form id="form-emitidas" class="space-y-4">
-                        <input type="hidden" name="client_id" value="<?php echo htmlspecialchars($client['id']); ?>">
-                        <input type="hidden" name="tipo" value="emitidas">
-                        
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-2">Fecha Inicio</label>
-                            <input type="date" name="fecha_inicio" required 
-                                   class="w-full rounded-md border-gray-300 focus:border-blue-500 focus:ring-blue-500">
-                        </div>
-                        
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-2">Fecha Fin</label>
-                            <input type="date" name="fecha_fin" required 
-                                   class="w-full rounded-md border-gray-300 focus:border-blue-500 focus:ring-blue-500">
-                        </div>
-                        
-                        <div class="flex items-center space-x-2">
-                            <button type="submit" 
-                                    class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded flex items-center">
-                                <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
-                                          d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
-                                </svg>
-                                Descargar Emitidas
-                            </button>
-                            <div id="progress-emitidas" class="hidden flex-1">
-                                <div class="w-full bg-gray-200 rounded-full h-2.5">
-                                    <div class="bg-blue-600 h-2.5 rounded-full" style="width: 0%"></div>
-                                </div>
-                            </div>
-                        </div>
-                    </form>
-                </div>
-
-                <!-- Descarga de Facturas Recibidas -->
-                <div class="border rounded-lg p-4">
-                    <h3 class="text-lg font-semibold text-gray-700 mb-3">Facturas Recibidas</h3>
-                    <form id="form-recibidas" class="space-y-4">
-                        <input type="hidden" name="client_id" value="<?php echo htmlspecialchars($client['id']); ?>">
-                        <input type="hidden" name="tipo" value="recibidas">
-                        
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-2">Fecha Inicio</label>
-                            <input type="date" name="fecha_inicio" required 
-                                   class="w-full rounded-md border-gray-300 focus:border-blue-500 focus:ring-blue-500">
-                        </div>
-                        
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-2">Fecha Fin</label>
-                            <input type="date" name="fecha_fin" required 
-                                   class="w-full rounded-md border-gray-300 focus:border-blue-500 focus:ring-blue-500">
-                        </div>
-                        
-                        <div class="flex items-center space-x-2">
-                            <button type="submit" 
-                                    class="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded flex items-center">
-                                <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
-                                          d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
-                                </svg>
-                                Descargar Recibidas
-                            </button>
-                            <div id="progress-recibidas" class="hidden flex-1">
-                                <div class="w-full bg-gray-200 rounded-full h-2.5">
-                                    <div class="bg-green-600 h-2.5 rounded-full" style="width: 0%"></div>
-                                </div>
-                            </div>
-                        </div>
-                    </form>
-                </div>
-            </div>
-        </div>
     </div>
 
-    <!-- Actualizar el script de manejo de descargas -->
     <script>
     // Definir BASE_URL al inicio del script
     const BASE_URL = '<?php echo BASE_URL; ?>';
 
     document.addEventListener('DOMContentLoaded', function() {
-        const formEmitidas = document.getElementById('form-emitidas');
-        const formRecibidas = document.getElementById('form-recibidas');
-        const progressEmitidas = document.getElementById('progress-emitidas');
-        const progressRecibidas = document.getElementById('progress-recibidas');
-
-        async function handleDownload(e, form, progressElement) {
+        const uploadForm = document.getElementById('xml-upload-form');
+        
+        async function handleUpload(e) {
             e.preventDefault();
-            
-            const submitBtn = form.querySelector('button[type="submit"]');
-            const progressBar = progressElement.querySelector('.bg-blue-600, .bg-green-600');
+            const submitBtn = uploadForm.querySelector('button[type="submit"]');
+            submitBtn.disabled = true;
             
             try {
-                // Validar fechas
-                const fechaInicio = form.querySelector('[name="fecha_inicio"]').value;
-                const fechaFin = form.querySelector('[name="fecha_fin"]').value;
+                const formData = new FormData(uploadForm);
                 
-                if (!fechaInicio || !fechaFin) {
-                    alert('Por favor, seleccione las fechas de inicio y fin');
-                    return;
-                }
-
-                if (new Date(fechaInicio) > new Date(fechaFin)) {
-                    alert('La fecha de inicio no puede ser posterior a la fecha final');
-                    return;
-                }
-
-                submitBtn.disabled = true;
-                progressElement.classList.remove('hidden');
-                
-                const formData = new FormData(form);
-                formData.append('csrf_token', '<?php echo $token; ?>');
-
-                const response = await fetch(`${BASE_URL}/clients/download-sat`, {
+                const response = await fetch(`${BASE_URL}/clients/process-xmls`, {
                     method: 'POST',
                     body: formData
                 });
 
-                const contentType = response.headers.get('content-type');
-                if (contentType && contentType.includes('application/json')) {
-                    const jsonResponse = await response.json();
-                    if (!jsonResponse.success) {
-                        throw new Error(jsonResponse.error || 'Funcionalidad en desarrollo: La conexión con el SAT aún no está implementada');
-                    }
+                const result = await response.json();
+                
+                if (result.success) {
+                    alert(`Archivos procesados: ${result.processed}\n${
+                        result.errors.length ? 'Errores: ' + result.errors.join('\n') : ''
+                    }`);
+                    loadFacturas();
                 } else {
-                    const blob = await response.blob();
-                    const url = window.URL.createObjectURL(blob);
-                    const a = document.createElement('a');
-                    const fileName = `facturas_${formData.get('tipo')}_${fechaInicio}_${fechaFin}.zip`;
-                    
-                    a.href = url;
-                    a.download = fileName;
-                    document.body.appendChild(a);
-                    a.click();
-                    window.URL.revokeObjectURL(url);
-                    document.body.removeChild(a);
+                    throw new Error(result.error || 'Error al procesar los archivos');
                 }
-
             } catch (error) {
                 console.error('Error:', error);
-                // Mostrar un mensaje más amigable al usuario
-                if (error.message.includes('conexión con el SAT')) {
-                    alert('Esta funcionalidad está actualmente en desarrollo. Disculpe las molestias.');
-                } else {
-                    alert('Error al descargar los XMLs: ' + error.message);
-                }
+                alert(error.message || 'Error al procesar los archivos');
             } finally {
                 submitBtn.disabled = false;
-                progressElement.classList.add('hidden');
-                progressBar.style.width = '0%';
+                uploadForm.reset();
             }
         }
 
-        if (formEmitidas) {
-            formEmitidas.addEventListener('submit', (e) => handleDownload(e, formEmitidas, progressEmitidas));
+        async function loadFacturas() {
+            try {
+                const response = await fetch(
+                    `${BASE_URL}/clients/get-facturas/<?php echo $client['id']; ?>`
+                );
+                const data = await response.json();
+                
+                // Actualizar contadores
+                document.getElementById('count-emitidas').textContent = 
+                    data.summary.emitidas || 0;
+                document.getElementById('count-recibidas').textContent = 
+                    data.summary.recibidas || 0;
+                document.getElementById('total-amount').textContent = 
+                    `$${(data.summary.total_amount || 0).toLocaleString('es-MX', {
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: 2
+                    })}`;
+                
+                // Actualizar tabla
+                const tbody = document.getElementById('facturas-list');
+                tbody.innerHTML = data.facturas.map(factura => `
+                    <tr>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                            ${factura.uuid}
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            ${new Date(factura.fecha).toLocaleString()}
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                            ${factura.emisor_nombre}<br>
+                            <span class="text-xs text-gray-500">${factura.emisor_rfc}</span>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                            ${factura.receptor_nombre}<br>
+                            <span class="text-xs text-gray-500">${factura.receptor_rfc}</span>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                            $${parseFloat(factura.total).toLocaleString('es-MX', {
+                                minimumFractionDigits: 2,
+                                maximumFractionDigits: 2
+                            })}
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm">
+                            <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
+                                ${factura.tipo === 'emitidas' ? 'bg-blue-100 text-blue-800' : 'bg-green-100 text-green-800'}">
+                                ${factura.tipo}
+                            </span>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                            <a href="${BASE_URL}/uploads/xmls/${factura.file_name}" 
+                               class="text-blue-600 hover:text-blue-900"
+                               target="_blank">
+                                Ver XML
+                            </a>
+                        </td>
+                    </tr>
+                `).join('');
+            } catch (error) {
+                console.error('Error al cargar facturas:', error);
+            }
         }
-        
-        if (formRecibidas) {
-            formRecibidas.addEventListener('submit', (e) => handleDownload(e, formRecibidas, progressRecibidas));
+
+        if (uploadForm) {
+            uploadForm.addEventListener('submit', handleUpload);
         }
+
+        // Cargar facturas iniciales
+        loadFacturas();
     });
     </script>
 
