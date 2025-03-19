@@ -118,4 +118,48 @@ class Client {
             throw new Exception("Error al crear el cliente");
         }
     }
+
+    public function getClientById($id) {
+        try {
+            $stmt = $this->db->prepare("
+                SELECT * FROM clients 
+                WHERE id = :id
+            ");
+            $stmt->execute(['id' => $id]);
+            return $stmt->fetch(PDO::FETCH_ASSOC);
+        } catch (PDOException $e) {
+            error_log("Error en getClientById: " . $e->getMessage());
+            throw new Exception("Error al obtener el cliente");
+        }
+    }
+
+    public function getClientDocuments($id) {
+        try {
+            $stmt = $this->db->prepare("
+                SELECT * FROM client_documents 
+                WHERE client_id = :client_id 
+                ORDER BY created_at DESC
+            ");
+            $stmt->execute(['client_id' => $id]);
+            return $stmt->fetchAll(PDO::FETCH_ASSOC);
+        } catch (PDOException $e) {
+            error_log("Error en getClientDocuments: " . $e->getMessage());
+            throw new Exception("Error al obtener los documentos del cliente");
+        }
+    }
+
+    public function getClientContact($id) {
+        try {
+            $stmt = $this->db->prepare("
+                SELECT * FROM client_contacts 
+                WHERE client_id = :client_id 
+                LIMIT 1
+            ");
+            $stmt->execute(['client_id' => $id]);
+            return $stmt->fetch(PDO::FETCH_ASSOC);
+        } catch (PDOException $e) {
+            error_log("Error en getClientContact: " . $e->getMessage());
+            throw new Exception("Error al obtener el contacto del cliente");
+        }
+    }
 } 
