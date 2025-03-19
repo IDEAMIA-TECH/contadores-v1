@@ -42,7 +42,6 @@ class AuthController {
     }
     
     public function login() {
-        // Asegurarse de que no haya salida antes
         if (headers_sent($filename, $line)) {
             error_log("Headers already sent in $filename:$line");
         }
@@ -56,44 +55,62 @@ class AuthController {
         $username = filter_input(INPUT_POST, 'username', FILTER_SANITIZE_STRING);
         $password = $_POST['password'] ?? '';
         
+        // Debug: Verificar los valores recibidos
+        error_log("Intento de login - Usuario: " . $username);
+        
         if (empty($username) || empty($password)) {
             $_SESSION['error'] = 'Por favor complete todos los campos';
             header('Location: ' . BASE_URL . '/login');
             exit;
         }
         
-        $user = $this->user->findByUsername($username);
-        
-        if (!$user || !$this->security->verifyPassword($password, $user['password'])) {
-            $_SESSION['error'] = 'Credenciales inválidas';
+        try {
+            $user = $this->user->findByUsername($username);
+            
+            // Debug: Verificar si se encontró el usuario
+            if ($user) {
+                error_log("Usuario encontrado - ID: " . $user['id']);
+            } else {
+                error_log("Usuario no encontrado: " . $username);
+            }
+            
+            if (!$user || !$this->security->verifyPassword($password, $user['password'])) {
+                error_log("Fallo en la autenticación - Usuario: " . $username);
+                $_SESSION['error'] = 'Credenciales inválidas';
+                header('Location: ' . BASE_URL . '/login');
+                exit;
+            }
+            
+            if ($user['status'] !== 'active') {
+                error_log("Intento de login con cuenta inactiva - Usuario: " . $username);
+                $_SESSION['error'] = 'Su cuenta está desactivada';
+                header('Location: ' . BASE_URL . '/login');
+                exit;
+            }
+            
+            // Actualizar último login
+            $this->user->updateLastLogin($user['id']);
+            
+            // Crear sesión
+            $_SESSION['user_id'] = $user['id'];
+            $_SESSION['username'] = $user['username'];
+            $_SESSION['role'] = $user['role'];
+            
+            error_log("Login exitoso - Usuario: " . $username . ", Rol: " . $user['role']);
+            
+            // Redirigir según el rol
+            switch ($user['role']) {
+                case 'contador':
+                    header('Location: ' . BASE_URL . '/clients');
+                    break;
+                default:
+                    header('Location: ' . BASE_URL . '/dashboard');
+            }
+            
+        } catch (Exception $e) {
+            error_log("Error en login: " . $e->getMessage());
+            $_SESSION['error'] = 'Error al procesar el login';
             header('Location: ' . BASE_URL . '/login');
-            exit;
-        }
-        
-        if ($user['status'] !== 'active') {
-            $_SESSION['error'] = 'Su cuenta está desactivada';
-            header('Location: ' . BASE_URL . '/login');
-            exit;
-        }
-        
-        // Actualizar último login
-        $this->user->updateLastLogin($user['id']);
-        
-        // Crear sesión
-        $_SESSION['user_id'] = $user['id'];
-        $_SESSION['username'] = $user['username'];
-        $_SESSION['role'] = $user['role'];
-        
-        // Redirigir según el rol
-        switch ($user['role']) {
-            case 'contador':
-                header('Location: ' . BASE_URL . '/clients');
-                break;
-            case 'admin':
-                header('Location: ' . BASE_URL . '/dashboard');
-                break;
-            default:
-                header('Location: ' . BASE_URL . '/dashboard');
         }
         exit;
     }

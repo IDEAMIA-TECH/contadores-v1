@@ -10,41 +10,40 @@
     <div class="min-h-screen flex items-center justify-center">
         <div class="max-w-md w-full bg-white rounded-lg shadow-lg p-8">
             <div class="text-center mb-8">
-                <h2 class="text-3xl font-bold text-gray-800">IDEAMIA Tech</h2>
-                <p class="text-gray-600">Sistema de Cobranza</p>
+                <h2 class="text-3xl font-bold text-gray-800">Iniciar Sesión</h2>
             </div>
 
             <?php if (isset($_SESSION['error'])): ?>
-                <div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-4" role="alert">
+                <div class="alert-error">
                     <span class="block sm:inline"><?php echo htmlspecialchars($_SESSION['error']); ?></span>
                 </div>
                 <?php unset($_SESSION['error']); ?>
             <?php endif; ?>
 
             <form method="POST" action="<?php echo BASE_URL; ?>/login" class="space-y-6">
-                <input type="hidden" name="csrf_token" value="<?php echo $token; ?>">
+                <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($token); ?>">
                 
                 <div>
                     <label for="username" class="block text-sm font-medium text-gray-700">Usuario</label>
                     <input type="text" id="username" name="username" required 
-                           class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500">
+                           class="form-input">
                 </div>
 
                 <div>
                     <label for="password" class="block text-sm font-medium text-gray-700">Contraseña</label>
                     <input type="password" id="password" name="password" required 
-                           class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500">
+                           class="form-input">
                 </div>
 
                 <div>
-                    <button type="submit" 
-                            class="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                    <button type="submit" class="btn-primary">
                         Iniciar Sesión
                     </button>
                 </div>
-                <div class="text-center mt-4">
+
+                <div class="text-center">
                     <a href="<?php echo BASE_URL; ?>/forgot-password" class="text-sm text-blue-600 hover:text-blue-800">
-                        ¿Olvidaste tu contraseña?
+                        ¿Olvidó su contraseña?
                     </a>
                 </div>
             </form>
