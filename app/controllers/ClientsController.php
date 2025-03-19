@@ -14,4 +14,24 @@ class ClientsController {
             // Guardar $keyPath en la base de datos
         }
     }
+
+    public function satPortal($clientId) {
+        // Verificar autenticación y permisos
+        $this->checkAuth();
+        
+        // Verificar que el cliente existe
+        $client = $this->clientModel->find($clientId);
+        if (!$client) {
+            $_SESSION['error'] = 'Cliente no encontrado';
+            redirect('/clients');
+        }
+
+        // Pasar el ID del cliente a la vista
+        $data = [
+            'client_id' => $clientId
+        ];
+
+        // Renderizar la vista
+        $this->view('clients/sat_portal', $data);
+    }
 } 
