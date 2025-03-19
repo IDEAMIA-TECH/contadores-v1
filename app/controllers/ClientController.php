@@ -346,9 +346,24 @@ class ClientController {
                         'receptor_uso_cfdi' => (string)$receptor['UsoCFDI']
                     ]);
                     
-                    // Extraer impuestos
+                    // Extraer impuestos con más detalle
                     $impuestos = $xml->xpath('//cfdi:Impuestos')[0] ?? null;
-                    $xmlData['total_impuestos_trasladados'] = $impuestos ? (float)$impuestos['TotalImpuestosTrasladados'] : 0;
+                    $traslados = $xml->xpath('//cfdi:Traslados/cfdi:Traslado')[0] ?? null;
+                    
+                    // Datos de impuestos
+                    $xmlData = array_merge($xmlData, [
+                        'total_impuestos_trasladados' => $impuestos ? (float)$impuestos['TotalImpuestosTrasladados'] : 0,
+                        'impuesto' => $traslados ? (string)$traslados['Impuesto'] : null,
+                        'tasa_o_cuota' => $traslados ? (float)$traslados['TasaOCuota'] : null,
+                        'tipo_factor' => $traslados ? (string)$traslados['TipoFactor'] : null
+                    ]);
+                    
+                    error_log("Datos de impuestos encontrados: " . print_r([
+                        'total' => $xmlData['total_impuestos_trasladados'],
+                        'impuesto' => $xmlData['impuesto'],
+                        'tasa_o_cuota' => $xmlData['tasa_o_cuota'],
+                        'tipo_factor' => $xmlData['tipo_factor']
+                    ], true));
                     
                     // Agregar timestamps
                     $xmlData['created_at'] = date('Y-m-d H:i:s');

@@ -33,6 +33,9 @@ class ClientXml {
                 ':receptor_domicilio_fiscal' => $data['receptor_domicilio_fiscal'] ?? '',
                 ':receptor_uso_cfdi' => $data['receptor_uso_cfdi'] ?? '',
                 ':total_impuestos_trasladados' => $data['total_impuestos_trasladados'] ?? 0.00,
+                ':impuesto' => $data['impuesto'] ?? null,
+                ':tasa_o_cuota' => $data['tasa_o_cuota'] ?? null,
+                ':tipo_factor' => $data['tipo_factor'] ?? null,
                 ':created_at' => $data['created_at'] ?? date('Y-m-d H:i:s'),
                 ':updated_at' => $data['updated_at'] ?? date('Y-m-d H:i:s')
             ];
@@ -75,6 +78,9 @@ class ClientXml {
                     receptor_domicilio_fiscal,
                     receptor_uso_cfdi,
                     total_impuestos_trasladados,
+                    impuesto,
+                    tasa_o_cuota,
+                    tipo_factor,
                     created_at,
                     updated_at
                 ) VALUES (
@@ -101,6 +107,9 @@ class ClientXml {
                     :receptor_domicilio_fiscal,
                     :receptor_uso_cfdi,
                     :total_impuestos_trasladados,
+                    :impuesto,
+                    :tasa_o_cuota,
+                    :tipo_factor,
                     :created_at,
                     :updated_at
                 )
