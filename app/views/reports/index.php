@@ -63,7 +63,48 @@
                 </div>
             </form>
 
-            <!-- Tabla de Resultados -->
+            <!-- Después del form y antes de la tabla, agregamos el resumen de impuestos -->
+            <?php if (!empty($reportData)): ?>
+                <div class="mb-8 bg-gray-50 p-6 rounded-lg">
+                    <h2 class="text-xl font-semibold text-gray-800 mb-4">Resumen de Impuestos</h2>
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+                        <?php
+                        $resumenIVA = [
+                            '0.16' => ['tasa' => '16%', 'total' => 0, 'label' => 'IVA 16%', 'class' => 'bg-blue-100'],
+                            '0.08' => ['tasa' => '8%', 'total' => 0, 'label' => 'IVA 8%', 'class' => 'bg-green-100'],
+                            '0' => ['tasa' => '0%', 'total' => 0, 'label' => 'IVA 0%', 'class' => 'bg-yellow-100'],
+                            'Exento' => ['tasa' => 'Exento', 'total' => 0, 'label' => 'IVA Exento', 'class' => 'bg-purple-100'],
+                            'Otros' => ['tasa' => 'Otros', 'total' => 0, 'label' => 'Otros', 'class' => 'bg-gray-100']
+                        ];
+
+                        // Calcular totales por tipo de IVA
+                        foreach ($reportData as $row) {
+                            $tasa = (float)$row['tasa_o_cuota'];
+                            $impuesto = $row['total_impuestos_trasladados'];
+                            
+                            if ($row['tipo_factor'] === 'Exento') {
+                                $resumenIVA['Exento']['total'] += $row['subtotal'];
+                            } elseif (isset($resumenIVA[$tasa])) {
+                                $resumenIVA[$tasa]['total'] += $impuesto;
+                            } else {
+                                $resumenIVA['Otros']['total'] += $impuesto;
+                            }
+                        }
+
+                        // Mostrar cada tipo de IVA
+                        foreach ($resumenIVA as $info): ?>
+                            <div class="<?php echo $info['class']; ?> p-4 rounded-lg">
+                                <h3 class="font-semibold text-gray-700"><?php echo $info['label']; ?></h3>
+                                <p class="text-2xl font-bold text-gray-900">
+                                    $<?php echo number_format($info['total'], 2); ?>
+                                </p>
+                            </div>
+                        <?php endforeach; ?>
+                    </div>
+                </div>
+            <?php endif; ?>
+
+            <!-- Actualizar la tabla para incluir los nuevos campos -->
             <div class="overflow-x-auto">
                 <table class="min-w-full divide-y divide-gray-200">
                     <thead class="bg-gray-50">
@@ -71,8 +112,11 @@
                             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Cliente</th>
                             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Fecha</th>
                             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">UUID</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Subtotal</th>
                             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total</th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Impuestos</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tasa o Cuota</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tipo Factor</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Impuestos Trasladados</th>
                             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tipo</th>
                         </tr>
                     </thead>
@@ -90,7 +134,16 @@
                                         <?php echo htmlspecialchars($row['uuid']); ?>
                                     </td>
                                     <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                        $<?php echo number_format($row['subtotal'], 2); ?>
+                                    </td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                                         $<?php echo number_format($row['total'], 2); ?>
+                                    </td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                        <?php echo ($row['tasa_o_cuota'] * 100) . '%'; ?>
+                                    </td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                        <?php echo htmlspecialchars($row['tipo_factor']); ?>
                                     </td>
                                     <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                                         $<?php echo number_format($row['total_impuestos_trasladados'], 2); ?>
@@ -109,7 +162,7 @@
                             <?php endforeach; ?>
                         <?php else: ?>
                             <tr>
-                                <td colspan="6" class="px-6 py-4 text-center text-sm text-gray-500">
+                                <td colspan="9" class="px-6 py-4 text-center text-sm text-gray-500">
                                     No se encontraron resultados
                                 </td>
                             </tr>
