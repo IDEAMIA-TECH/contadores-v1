@@ -1,4 +1,7 @@
 <?php
+// Evitar cualquier salida antes de las redirecciones
+ob_start();
+
 // Cargar configuración primero
 require_once __DIR__ . '/app/config/config.php';
 
@@ -9,20 +12,28 @@ ini_set('display_startup_errors', APP_DEBUG ? 1 : 0);
 
 // Configurar el manejador de errores
 set_error_handler(function($errno, $errstr, $errfile, $errline) {
+    // Registrar el error en el log
     error_log("Error [$errno] $errstr en $errfile:$errline");
+    
+    // Solo mostrar errores en modo debug
     if (APP_DEBUG) {
+        ob_clean(); // Limpiar cualquier salida anterior
         echo "<h1>Error</h1>";
         echo "<p>$errstr</p>";
         echo "<p>Archivo: $errfile</p>";
         echo "<p>Línea: $errline</p>";
     }
+    return true; // Evitar que PHP maneje el error
 });
 
 // Configurar el manejador de excepciones
 set_exception_handler(function($e) {
+    // Registrar la excepción en el log
     error_log("Excepción no capturada: " . $e->getMessage());
     error_log("Stack trace: " . $e->getTraceAsString());
+    
     if (APP_DEBUG) {
+        ob_clean(); // Limpiar cualquier salida anterior
         echo "<h1>Error</h1>";
         echo "<pre>";
         echo "Mensaje: " . $e->getMessage() . "\n\n";
@@ -31,6 +42,7 @@ set_exception_handler(function($e) {
         echo "Stack trace:\n" . $e->getTraceAsString();
         echo "</pre>";
     } else {
+        ob_clean(); // Limpiar cualquier salida anterior
         include __DIR__ . '/app/views/error.php';
     }
 });
@@ -183,6 +195,7 @@ try {
     error_log("Stack trace: " . $e->getTraceAsString());
     
     if (APP_DEBUG) {
+        ob_clean(); // Limpiar cualquier salida anterior
         // Mostrar error detallado en desarrollo
         echo "<h1>Error Crítico</h1>";
         echo "<pre>";
@@ -192,7 +205,11 @@ try {
         echo "Stack trace:\n" . $e->getTraceAsString();
         echo "</pre>";
     } else {
+        ob_clean(); // Limpiar cualquier salida anterior
         // Mostrar error amigable en producción
         include __DIR__ . '/app/views/error.php';
     }
-} 
+}
+
+// Enviar la salida almacenada en el buffer
+ob_end_flush(); 

@@ -42,6 +42,11 @@ class AuthController {
     }
     
     public function login() {
+        // Asegurarse de que no haya salida antes
+        if (headers_sent($filename, $line)) {
+            error_log("Headers already sent in $filename:$line");
+        }
+        
         if (!$this->security->validateCsrfToken($_POST['csrf_token'] ?? '')) {
             $_SESSION['error'] = 'Token de seguridad inválido';
             header('Location: ' . BASE_URL . '/login');
