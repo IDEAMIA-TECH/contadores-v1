@@ -39,6 +39,12 @@ ini_set('session.gc_maxlifetime', 7200);
 ini_set('session.cookie_lifetime', 7200);
 session_start();
 
+// Debug: Verificar estado de la sesión
+error_log("=== Estado de la sesión ===");
+error_log("Session ID: " . session_id());
+error_log("Session status: " . session_status());
+error_log("Session name: " . session_name());
+
 // Configuración de archivos
 define('MAX_UPLOAD_SIZE', 10 * 1024 * 1024); // 10MB
 

@@ -24,8 +24,9 @@ class AuthController {
             exit;
         }
         
+        // Generar nuevo token CSRF
         $token = $this->security->generateCsrfToken();
-        error_log("Token CSRF generado: " . $token);
+        error_log("Token CSRF generado en showLogin: " . $token);
         
         include __DIR__ . '/../views/auth/login.php';
     }

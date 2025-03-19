@@ -3,6 +3,10 @@ class Security {
     private $config;
     
     public function __construct() {
+        error_log("=== Inicializando Security ===");
+        error_log("Session ID: " . session_id());
+        error_log("CSRF Token en sesión: " . ($_SESSION['csrf_token'] ?? 'no existe'));
+        
         $this->config = require_once __DIR__ . '/../config/security.php';
         $this->initSession();
     }
@@ -22,17 +26,32 @@ class Security {
     }
     
     public function generateCsrfToken() {
+        error_log("Generando nuevo token CSRF");
+        
         if (!isset($_SESSION['csrf_token'])) {
             $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
+            error_log("Nuevo token generado: " . $_SESSION['csrf_token']);
+        } else {
+            error_log("Usando token existente: " . $_SESSION['csrf_token']);
         }
+        
         return $_SESSION['csrf_token'];
     }
     
     public function validateCsrfToken($token) {
+        error_log("Validando token CSRF");
+        error_log("Token recibido: " . ($token ?: 'vacío'));
+        error_log("Token en sesión: " . ($_SESSION['csrf_token'] ?? 'no existe'));
+        
         if (empty($token) || empty($_SESSION['csrf_token'])) {
+            error_log("Token vacío o no existe en sesión");
             return false;
         }
-        return hash_equals($_SESSION['csrf_token'], $token);
+        
+        $result = hash_equals($_SESSION['csrf_token'], $token);
+        error_log("Resultado de validación: " . ($result ? 'válido' : 'inválido'));
+        
+        return $result;
     }
     
     public function hashPassword($password) {

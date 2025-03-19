@@ -21,10 +21,11 @@
             <?php endif; ?>
 
             <form method="POST" action="<?php echo BASE_URL; ?>/login" class="space-y-6">
-                <?php
-                error_log("Token CSRF generado en vista login: " . htmlspecialchars($token));
+                <?php 
+                // Debug: Verificar que el token esté disponible
+                error_log("Token CSRF en vista login: " . ($token ?? 'no definido'));
                 ?>
-                <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($token); ?>">
+                <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($token ?? ''); ?>">
                 
                 <div>
                     <label for="username" class="block text-sm font-medium text-gray-700">Usuario</label>
