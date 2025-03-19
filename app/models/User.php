@@ -40,6 +40,9 @@ class User {
     
     public function saveResetToken($userId, $token, $expiry) {
         try {
+            // Debug: Verificar los valores antes de la consulta
+            error_log("Saving reset token - User ID: $userId, Token: $token, Expiry: $expiry");
+            
             $stmt = $this->db->prepare("
                 UPDATE users 
                 SET reset_token = :token,
@@ -47,13 +50,44 @@ class User {
                 WHERE id = :id
             ");
             
-            return $stmt->execute([
+            $result = $stmt->execute([
                 'id' => $userId,
                 'token' => $token,
                 'expiry' => $expiry
             ]);
+            
+            // Verificar si la actualización fue exitosa
+            if (!$result) {
+                error_log("Error al ejecutar la consulta de actualización del token");
+                error_log(print_r($stmt->errorInfo(), true));
+                return false;
+            }
+            
+            // Verificar si se actualizó alguna fila
+            if ($stmt->rowCount() === 0) {
+                error_log("No se actualizó ninguna fila al guardar el token");
+                return false;
+            }
+            
+            // Verificar que los datos se guardaron correctamente
+            $verifyStmt = $this->db->prepare("
+                SELECT reset_token, reset_token_expiry 
+                FROM users 
+                WHERE id = ?
+            ");
+            $verifyStmt->execute([$userId]);
+            $result = $verifyStmt->fetch();
+            
+            if ($result['reset_token'] !== $token) {
+                error_log("El token guardado no coincide con el token original");
+                return false;
+            }
+            
+            return true;
+            
         } catch (PDOException $e) {
             error_log("Error en saveResetToken: " . $e->getMessage());
+            error_log("Stack trace: " . $e->getTraceAsString());
             throw new Exception("Error al guardar el token de recuperación");
         }
     }

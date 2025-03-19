@@ -115,4 +115,16 @@ ON DUPLICATE KEY UPDATE id=id;
 -- Insertar contador de prueba
 INSERT INTO users (username, password, email, role) VALUES 
 ('contador_test', '$argon2id$v=19$m=65536,t=4,p=3$WHpVeUVhS3FxWVFXVHNGbg$2Bxm9h1W4QEpDCBHzPV+PLJWx0XVHoHFjV/FQZ+kK8Y', 'contador@test.com', 'contador')
-ON DUPLICATE KEY UPDATE id=id; 
+ON DUPLICATE KEY UPDATE id=id;
+
+-- Verificar y actualizar la estructura de la tabla users
+ALTER TABLE users 
+MODIFY COLUMN reset_token VARCHAR(64) DEFAULT NULL,
+MODIFY COLUMN reset_token_expiry DATETIME DEFAULT NULL;
+
+-- Limpiar tokens antiguos
+UPDATE users 
+SET reset_token = NULL, 
+    reset_token_expiry = NULL 
+WHERE reset_token_expiry < NOW() 
+   OR reset_token_expiry IS NULL; 

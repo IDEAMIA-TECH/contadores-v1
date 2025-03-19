@@ -124,25 +124,38 @@ class AuthController {
             exit;
         }
         
-        $user = $this->user->findByEmail($email);
-        
-        if ($user) {
-            // Generar token único
-            $token = bin2hex(random_bytes(32));
-            $expiry = date('Y-m-d H:i:s', strtotime('+1 hour'));
+        try {
+            $user = $this->user->findByEmail($email);
             
-            if ($this->user->saveResetToken($user['id'], $token, $expiry)) {
-                // Enviar email
-                $resetLink = APP_URL . BASE_URL . "/reset-password?token=" . $token;
-                $this->sendResetEmail($email, $resetLink);
+            if ($user) {
+                // Generar token único
+                $token = bin2hex(random_bytes(32));
+                $expiry = date('Y-m-d H:i:s', strtotime('+1 hour'));
                 
-                $_SESSION['success'] = 'Se ha enviado un enlace de recuperación a su email';
+                // Guardar el token en la base de datos
+                if ($this->user->saveResetToken($user['id'], $token, $expiry)) {
+                    // Enviar email
+                    $resetLink = APP_URL . "/reset-password?token=" . $token;
+                    
+                    // Debug: Verificar los valores
+                    error_log("Reset Token: " . $token);
+                    error_log("Expiry: " . $expiry);
+                    error_log("User ID: " . $user['id']);
+                    error_log("Reset Link: " . $resetLink);
+                    
+                    $this->sendResetEmail($email, $resetLink);
+                    $_SESSION['success'] = 'Se ha enviado un enlace de recuperación a su email';
+                } else {
+                    throw new Exception('Error al guardar el token de recuperación');
+                }
             } else {
-                $_SESSION['error'] = 'Error al procesar la solicitud';
+                // Por seguridad, no revelamos si el email existe o no
+                $_SESSION['success'] = 'Si el email existe, recibirá instrucciones para restablecer su contraseña';
             }
-        } else {
-            // Por seguridad, no revelamos si el email existe o no
-            $_SESSION['success'] = 'Si el email existe, recibirá instrucciones para restablecer su contraseña';
+            
+        } catch (Exception $e) {
+            error_log("Error en processForgotPassword: " . $e->getMessage());
+            $_SESSION['error'] = 'Error al procesar la solicitud. Por favor intente nuevamente.';
         }
         
         header('Location: ' . BASE_URL . '/forgot-password');
@@ -235,6 +248,9 @@ class AuthController {
             'Reply-To: soporte@ideamia.tech'
         ];
         
-        mail($to, $subject, $message, implode("\r\n", $headers));
+        if (!mail($to, $subject, $message, implode("\r\n", $headers))) {
+            error_log("Error al enviar email de recuperación a: " . $email);
+            throw new Exception("Error al enviar el email de recuperación");
+        }
     }
 } 
