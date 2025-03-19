@@ -40,8 +40,8 @@ try {
     require_once __DIR__ . '/maintenance.php';
 
     // Cargar clases necesarias
-    require_once __DIR__ . '/app/config/Database.php';
-    require_once __DIR__ . '/app/config/Security.php';
+    require_once __DIR__ . '/app/config/database.php';
+    require_once __DIR__ . '/app/config/security.php';
     require_once __DIR__ . '/app/controllers/AuthController.php';
     require_once __DIR__ . '/app/controllers/ClientController.php';
 
