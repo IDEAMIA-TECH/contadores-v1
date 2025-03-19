@@ -125,7 +125,7 @@ try {
                 header('Location: /login');
                 exit;
             }
-            include __DIR__ . '/app/views/dashboard.php';
+            include __DIR__ . '/app/views/dashboard/index.php';
             break;
 
         case '/profile':

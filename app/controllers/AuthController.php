@@ -17,12 +17,19 @@ class AuthController {
     
     public function showLogin() {
         if (isset($_SESSION['user_id'])) {
-            header('Location: /dashboard');
+            switch ($_SESSION['role']) {
+                case 'contador':
+                    header('Location: /clients');
+                    break;
+                default:
+                    header('Location: /dashboard');
+                    break;
+            }
             exit;
         }
         
         $token = $this->security->generateCsrfToken();
-        require_once __DIR__ . '/../views/auth/login.php';
+        include __DIR__ . '/../views/auth/login.php';
     }
     
     public function login() {
@@ -66,10 +73,10 @@ class AuthController {
         // Redirigir según el rol
         switch ($user['role']) {
             case 'contador':
-                header('Location: /accountant/dashboard');
+                header('Location: /clients');
                 break;
             case 'admin':
-                header('Location: /admin/dashboard');
+                header('Location: /dashboard');
                 break;
             default:
                 header('Location: /dashboard');

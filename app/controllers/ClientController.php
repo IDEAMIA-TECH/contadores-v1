@@ -22,7 +22,7 @@ class ClientController {
         
         // Obtener lista de clientes del contador actual
         $clients = $this->client->getByAccountant($_SESSION['user_id']);
-        require_once __DIR__ . '/../views/clients/index.php';
+        include __DIR__ . '/../views/clients/index.php';
     }
     
     public function showCreateForm() {
@@ -32,7 +32,7 @@ class ClientController {
         }
         
         $token = $this->security->generateCsrfToken();
-        require_once __DIR__ . '/../views/clients/create.php';
+        include __DIR__ . '/../views/clients/create.php';
     }
     
     public function create() {
