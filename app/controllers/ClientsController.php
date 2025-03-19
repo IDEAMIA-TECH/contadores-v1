@@ -15,20 +15,28 @@ class ClientsController {
         }
     }
 
-    public function satPortal($clientId) {
-        // Verificar autenticación y permisos
+    public function satPortal($id) {
+        // Verificar autenticación
         $this->checkAuth();
         
         // Verificar que el cliente existe
-        $client = $this->clientModel->find($clientId);
+        $client = $this->clientModel->find($id);
         if (!$client) {
             $_SESSION['error'] = 'Cliente no encontrado';
             redirect('/clients');
         }
 
-        // Pasar el ID del cliente a la vista
+        // Verificar permisos
+        if (!$this->hasPermission('view_client')) {
+            $_SESSION['error'] = 'No tiene permisos para ver este cliente';
+            redirect('/clients');
+        }
+
+        // Preparar datos para la vista
         $data = [
-            'client_id' => $clientId
+            'client_id' => $id,
+            'client' => $client,
+            'token' => $_SESSION['csrf_token']
         ];
 
         // Renderizar la vista

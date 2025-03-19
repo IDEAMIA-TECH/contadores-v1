@@ -41,7 +41,7 @@
                 </div>
             </div>
 
-            <!-- Contenedor del iframe con mensaje de fallback -->
+            <!-- Contenedor del iframe -->
             <div class="relative" style="height: 800px;">
                 <iframe 
                     src="https://cfdiau.sat.gob.mx/nidp/wsfed/ep?id=SATUPCFDiCon&sid=0&option=credential&sid=0"
@@ -51,7 +51,7 @@
                 >
                 </iframe>
                 
-                <!-- Mensaje de fallback si el iframe no carga -->
+                <!-- Mensaje de fallback -->
                 <div id="fallback-message" class="hidden absolute inset-0 flex items-center justify-center bg-gray-50 rounded-lg">
                     <div class="text-center p-6">
                         <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -91,11 +91,13 @@
         const iframe = document.getElementById('sat-iframe');
         const fallbackMessage = document.getElementById('fallback-message');
 
-        // Detectar si el iframe no se puede cargar
+        function showFallbackMessage() {
+            iframe.style.display = 'none';
+            fallbackMessage.classList.remove('hidden');
+        }
+
         iframe.addEventListener('load', function() {
             try {
-                // Intentar acceder al contenido del iframe
-                // Si hay restricciones de seguridad, esto lanzará un error
                 const iframeContent = iframe.contentWindow.document;
                 console.log('Iframe cargado correctamente');
             } catch (e) {
@@ -106,14 +108,12 @@
 
         iframe.addEventListener('error', showFallbackMessage);
 
-        function showFallbackMessage() {
-            iframe.style.display = 'none';
-            fallbackMessage.classList.remove('hidden');
-        }
-
-        // Si después de 5 segundos no se ha cargado, mostrar el mensaje de fallback
         setTimeout(() => {
-            if (!iframe.contentWindow.document) {
+            try {
+                if (!iframe.contentWindow.document) {
+                    showFallbackMessage();
+                }
+            } catch (e) {
                 showFallbackMessage();
             }
         }, 5000);
