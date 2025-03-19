@@ -51,6 +51,7 @@
                 </div>
 
                 <div class="col-span-full flex justify-end space-x-4">
+                    <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($token); ?>">
                     <button type="submit" class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded">
                         Generar Reporte
                     </button>
@@ -180,50 +181,77 @@
         const exportExcel = document.getElementById('export-excel');
         const exportPdf = document.getElementById('export-pdf');
 
-        // Manejar la búsqueda
+        // Manejar la búsqueda/generación de reporte
         form.addEventListener('submit', function(e) {
             e.preventDefault();
             const formData = new FormData(form);
-            const params = new URLSearchParams(formData);
-            window.location.href = `${BASE_URL}/reports?${params.toString()}`;
+            const searchParams = new URLSearchParams();
+            
+            // Agregar solo los parámetros con valor
+            for (const [key, value] of formData.entries()) {
+                if (value) {
+                    searchParams.append(key, value);
+                }
+            }
+            
+            window.location.href = `${BASE_URL}/reports?${searchParams.toString()}`;
         });
+
+        // Función común para exportar
+        async function exportReport(format) {
+            try {
+                const formData = new FormData(form);
+                formData.append('format', format);
+                formData.append('csrf_token', '<?php echo $token; ?>');
+
+                // Obtener los filtros actuales
+                const currentParams = new URLSearchParams(window.location.search);
+                for (const [key, value] of currentParams.entries()) {
+                    formData.append(key, value);
+                }
+
+                const response = await fetch(`${BASE_URL}/reports/export`, {
+                    method: 'POST',
+                    body: formData
+                });
+
+                if (!response.ok) {
+                    throw new Error('Error en la respuesta del servidor');
+                }
+
+                const contentType = response.headers.get('content-type');
+                if (contentType && contentType.includes('application/json')) {
+                    // Si es JSON, probablemente sea un mensaje de error
+                    const jsonResponse = await response.json();
+                    throw new Error(jsonResponse.message || 'Error al exportar');
+                }
+
+                // Si no es JSON, es el archivo para descargar
+                const blob = await response.blob();
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `reporte_${format === 'excel' ? 'xlsx' : 'pdf'}`;
+                document.body.appendChild(a);
+                a.click();
+                window.URL.revokeObjectURL(url);
+                document.body.removeChild(a);
+
+            } catch (error) {
+                console.error('Error:', error);
+                alert(error.message || 'Error al exportar el reporte');
+            }
+        }
 
         // Manejar exportación a Excel
         exportExcel.addEventListener('click', function() {
-            const formData = new FormData(form);
-            formData.append('format', 'excel');
-            submitExport(formData);
+            exportReport('excel');
         });
 
         // Manejar exportación a PDF
         exportPdf.addEventListener('click', function() {
-            const formData = new FormData(form);
-            formData.append('format', 'pdf');
-            submitExport(formData);
+            exportReport('pdf');
         });
-
-        function submitExport(formData) {
-            formData.append('csrf_token', '<?php echo $token; ?>');
-            
-            fetch(`${BASE_URL}/reports/export`, {
-                method: 'POST',
-                body: formData
-            })
-            .then(response => response.blob())
-            .then(blob => {
-                const url = window.URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                a.href = url;
-                a.download = `reporte.${formData.get('format')}`;
-                document.body.appendChild(a);
-                a.click();
-                window.URL.revokeObjectURL(url);
-            })
-            .catch(error => {
-                console.error('Error:', error);
-                alert('Error al exportar el reporte');
-            });
-        }
     });
     </script>
 

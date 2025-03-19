@@ -70,14 +70,31 @@ class ReportController {
                 'format' => filter_input(INPUT_POST, 'format')
             ];
             
-            // Generar y exportar reporte
-            $this->report->exportReport($filters);
+            if (!in_array($filters['format'], ['excel', 'pdf'])) {
+                throw new Exception('Formato de exportación no válido');
+            }
+
+            // Obtener los datos del reporte
+            $reportData = $this->report->generateReport($filters);
+            
+            // Exportar según el formato
+            if ($filters['format'] === 'excel') {
+                header('Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+                header('Content-Disposition: attachment;filename="reporte.xlsx"');
+                $this->report->exportToExcel($reportData);
+            } else {
+                header('Content-Type: application/pdf');
+                header('Content-Disposition: attachment;filename="reporte.pdf"');
+                $this->report->exportToPdf($reportData);
+            }
             
         } catch (Exception $e) {
             error_log("Error en reports/export: " . $e->getMessage());
-            $_SESSION['error'] = $e->getMessage();
-            header('Location: ' . BASE_URL . '/reports');
-            exit;
+            header('Content-Type: application/json');
+            echo json_encode([
+                'success' => false,
+                'message' => $e->getMessage()
+            ]);
         }
     }
 } 
