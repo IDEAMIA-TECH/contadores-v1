@@ -4,10 +4,11 @@ class TestCase {
     protected $lastInsertId;
     
     public function __construct() {
+        $testDbName = DB_NAME . '_test';
         $this->pdo = new PDO(
-            "mysql:host=" . getenv('DB_HOST') . ";dbname=ideamia_cobranza_test;charset=utf8mb4",
-            getenv('DB_USER'),
-            getenv('DB_PASS'),
+            "mysql:host=" . DB_HOST . ";dbname=$testDbName;charset=utf8mb4",
+            DB_USER,
+            DB_PASS,
             [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]
         );
     }
