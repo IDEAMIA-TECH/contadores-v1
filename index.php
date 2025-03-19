@@ -23,17 +23,12 @@ ini_set('log_errors', 1);
 
 // Configurar el manejador de errores
 set_error_handler(function($errno, $errstr, $errfile, $errline) {
-    // Registrar el error en el log
     error_log("Error [$errno] $errstr en $errfile:$errline");
-    
-    // Solo mostrar errores en modo debug
     if (APP_DEBUG) {
-        ob_clean(); // Limpiar cualquier salida anterior
+        ob_clean();
         echo "<h1>Error</h1>";
         echo "<p>$errstr</p>";
-        if (APP_DEBUG) {
-            echo "<p>En archivo: $errfile:$errline</p>";
-        }
+        echo "<p>En archivo: $errfile:$errline</p>";
     }
     return true;
 });
@@ -51,14 +46,34 @@ $requestUri = trim($requestUri, '/');
 error_log("Request URI: " . $requestUri);
 
 try {
+    // Rutas públicas (no requieren autenticación)
+    $publicRoutes = ['login', 'forgot-password', 'reset-password'];
+    
+    // Si no es una ruta pública y no hay sesión, redirigir al login
+    if (!in_array($requestUri, $publicRoutes) && !isset($_SESSION['user_id'])) {
+        header('Location: ' . BASE_URL . '/login');
+        exit;
+    }
+    
     // Enrutamiento básico
     $route = $requestUri ?: 'dashboard';
     error_log("Ruta procesada: /" . $route);
     
-    // Dividir la ruta en controlador/acción
+    // Dividir la ruta en controlador/acción/parámetros
     $parts = explode('/', $route);
-    $controller = ucfirst($parts[0] ?? 'Dashboard') . 'Controller';
+    $controllerName = ucfirst($parts[0] ?? 'Dashboard');
     $action = $parts[1] ?? 'index';
+    
+    // Mapear rutas a controladores
+    $controllerMap = [
+        'Dashboard' => 'DashboardController',
+        'Clients' => 'ClientController',
+        'Auth' => 'AuthController',
+        'Reports' => 'ReportController'
+    ];
+    
+    // Obtener el nombre real del controlador
+    $controller = $controllerMap[$controllerName] ?? $controllerName . 'Controller';
     
     // Cargar el controlador
     $controllerFile = __DIR__ . "/app/controllers/{$controller}.php";
@@ -99,6 +114,5 @@ try {
             }
     }
 } finally {
-    // Enviar la salida almacenada en el buffer
     ob_end_flush();
 } 
