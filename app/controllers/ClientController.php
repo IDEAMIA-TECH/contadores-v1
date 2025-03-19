@@ -3,7 +3,7 @@ require_once __DIR__ . '/../config/database.php';
 require_once __DIR__ . '/../models/Client.php';
 require_once __DIR__ . '/../helpers/PdfParser.php';
 require_once __DIR__ . '/../models/ClientXml.php';
-require_once __DIR__ . '/../helpers/XmlParser.php';
+require_once __DIR__ . '/../helpers/CfdiXmlParser.php';
 
 class ClientController {
     private $db;
@@ -152,7 +152,7 @@ class ClientController {
         
         try {
             $xmlPath = $this->processXmlFile($_FILES['xml']);
-            $parser = new XmlParser();
+            $parser = new CfdiXmlParser();
             $xmlData = $parser->parse($xmlPath);
             
             $xmlData['client_id'] = $clientId;
