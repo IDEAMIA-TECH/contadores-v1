@@ -1,16 +1,14 @@
 <?php
 class Database {
     private static $instance = null;
-    private $connection;
+    private $connection = null;
     
     private function __construct() {
-        $config = require_once 'database.php';
-        
         try {
             $this->connection = new PDO(
-                "mysql:host={$config['host']};dbname={$config['database']};charset={$config['charset']}",
-                $config['username'],
-                $config['password'],
+                "mysql:host=" . DB_HOST . ";dbname=" . DB_NAME . ";charset=utf8mb4",
+                DB_USER,
+                DB_PASS,
                 [
                     PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
                     PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
@@ -18,7 +16,12 @@ class Database {
                 ]
             );
         } catch (PDOException $e) {
-            die("Error de conexión: " . $e->getMessage());
+            error_log("Error de conexión a la base de datos: " . $e->getMessage());
+            if (APP_DEBUG) {
+                throw new Exception("Error de conexión a la base de datos: " . $e->getMessage());
+            } else {
+                throw new Exception("Error de conexión a la base de datos. Por favor, contacte al administrador.");
+            }
         }
     }
     
@@ -30,6 +33,17 @@ class Database {
     }
     
     public function getConnection() {
+        if ($this->connection === null) {
+            throw new Exception("No hay conexión a la base de datos disponible.");
+        }
         return $this->connection;
+    }
+    
+    // Prevenir clonación
+    private function __clone() {}
+    
+    // Prevenir deserialización
+    public function __wakeup() {
+        throw new Exception("No se puede deserializar una instancia de Database.");
     }
 } 
