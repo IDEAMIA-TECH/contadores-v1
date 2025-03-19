@@ -84,26 +84,28 @@
                         foreach ($reportData as $row) {
                             $tasa = $row['tasa_o_cuota'];
                             $tasaPorcentaje = (string)round($tasa * 100);
-                            $impuesto = (float)$row['total_impuestos_trasladados'];
                             $subtotal = (float)$row['subtotal'];
                             
-                            error_log("Procesando registro - Tasa: $tasa, TasaPorcentaje: $tasaPorcentaje, Impuesto: $impuesto, Subtotal: $subtotal, TipoFactor: {$row['tipo_factor']}");
+                            error_log("Procesando registro - Tasa: $tasa, TasaPorcentaje: $tasaPorcentaje, Subtotal: $subtotal, TipoFactor: {$row['tipo_factor']}");
                             
                             if ($row['tipo_factor'] === 'Exento') {
-                                $resumenIVA['Exento']['total'] += $subtotal;
+                                $resumenIVA['Exento']['total'] += 0; // Exento no genera IVA
                                 $resumenIVA['Exento']['base'] += $subtotal;
                             } elseif (isset($resumenIVA[$tasaPorcentaje])) {
-                                $resumenIVA[$tasaPorcentaje]['total'] += $impuesto;
+                                // Calcular el IVA basado en el subtotal y la tasa
+                                $ivaCalculado = $subtotal * ($tasa); // tasa ya viene en decimal (0.16)
+                                $resumenIVA[$tasaPorcentaje]['total'] += $ivaCalculado;
                                 $resumenIVA[$tasaPorcentaje]['base'] += $subtotal;
+                                
+                                error_log("IVA Calculado para tasa $tasaPorcentaje%: Base: $subtotal, IVA: $ivaCalculado");
                             } else {
-                                $resumenIVA['Otros']['total'] += $impuesto;
+                                $resumenIVA['Otros']['total'] += ($subtotal * $tasa);
                                 $resumenIVA['Otros']['base'] += $subtotal;
                             }
                         }
 
-                        // Mostrar cada tipo de IVA
+                        // Mostrar cada tipo de IVA con información detallada
                         foreach ($resumenIVA as $key => $info): 
-                            // Solo mostrar categorías que tengan montos
                             if ($info['total'] > 0 || $info['base'] > 0): 
                         ?>
                             <div class="<?php echo htmlspecialchars($info['class']); ?> p-4 rounded-lg">
@@ -111,7 +113,10 @@
                                 <div class="mt-2">
                                     <p class="text-sm text-gray-600">Base: $<?php echo number_format($info['base'], 2); ?></p>
                                     <p class="text-2xl font-bold text-gray-900">
-                                        $<?php echo number_format($info['total'], 2); ?>
+                                        IVA: $<?php echo number_format($info['total'], 2); ?>
+                                    </p>
+                                    <p class="text-sm text-gray-600">
+                                        Total: $<?php echo number_format($info['base'] + $info['total'], 2); ?>
                                     </p>
                                 </div>
                             </div>
