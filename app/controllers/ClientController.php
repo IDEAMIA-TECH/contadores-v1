@@ -230,19 +230,50 @@ class ClientController {
                     throw new Exception('Error al guardar el archivo');
                 }
 
-                // Procesar XML
-                $xmlParser = new CfdiXmlParser();
-                $xmlData = $xmlParser->parse($filePath);
+                // Cargar y validar el XML
+                $xmlContent = file_get_contents($filePath);
+                if ($xmlContent === false) {
+                    throw new Exception('Error al leer el archivo XML');
+                }
 
-                // Preparar datos para guardar
-                $xmlData = array_merge($xmlData, [
+                // Cargar el XML como objeto
+                $xml = new SimpleXMLElement($xmlContent);
+                
+                // Registrar los namespaces
+                $namespaces = $xml->getNamespaces(true);
+                $cfdi = $xml->children($namespaces['cfdi']);
+                $tfd = $xml->Complemento->children($namespaces['tfd'] ?? '');
+
+                // Extraer datos del XML
+                $xmlData = [
                     'client_id' => $clientId,
                     'xml_path' => 'xml/' . $fileName,
+                    'uuid' => (string)$tfd->TimbreFiscalDigital['UUID'],
+                    'serie' => (string)$xml['Serie'],
+                    'folio' => (string)$xml['Folio'],
+                    'fecha' => (string)$xml['Fecha'],
+                    'fecha_timbrado' => (string)$tfd->TimbreFiscalDigital['FechaTimbrado'],
+                    'subtotal' => (float)$xml['SubTotal'],
+                    'total' => (float)$xml['Total'],
+                    'tipo_comprobante' => (string)$xml['TipoDeComprobante'],
+                    'forma_pago' => (string)$xml['FormaPago'],
+                    'metodo_pago' => (string)$xml['MetodoPago'],
+                    'moneda' => (string)$xml['Moneda'],
+                    'lugar_expedicion' => (string)$xml['LugarExpedicion'],
+                    'emisor_rfc' => (string)$cfdi->Emisor['Rfc'],
+                    'emisor_nombre' => (string)$cfdi->Emisor['Nombre'],
+                    'emisor_regimen_fiscal' => (string)$cfdi->Emisor['RegimenFiscal'],
+                    'receptor_rfc' => (string)$cfdi->Receptor['Rfc'],
+                    'receptor_nombre' => (string)$cfdi->Receptor['Nombre'],
+                    'receptor_regimen_fiscal' => (string)$cfdi->Receptor['RegimenFiscalReceptor'],
+                    'receptor_domicilio_fiscal' => (string)$cfdi->Receptor['DomicilioFiscalReceptor'],
+                    'receptor_uso_cfdi' => (string)$cfdi->Receptor['UsoCFDI'],
+                    'total_impuestos_trasladados' => (float)$cfdi->Impuestos['TotalImpuestosTrasladados'],
                     'created_at' => date('Y-m-d H:i:s'),
                     'updated_at' => date('Y-m-d H:i:s')
-                ]);
+                ];
 
-                // Guardar información en la base de datos
+                // Guardar en la base de datos
                 $xmlModel = new ClientXml($this->db);
                 if (!$xmlModel->create($xmlData)) {
                     // Si hay error, eliminar el archivo subido
