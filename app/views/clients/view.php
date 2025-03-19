@@ -173,7 +173,160 @@
                 </a>
             </div>
         </div>
+
+        <!-- Agregar después de la sección de carga de archivos y antes del footer -->
+        <div class="bg-white rounded-lg shadow-lg p-6 mt-6">
+            <h2 class="text-xl font-bold text-gray-800 mb-4">Descarga de XMLs desde el SAT</h2>
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <!-- Descarga de Facturas Emitidas -->
+                <div class="border rounded-lg p-4">
+                    <h3 class="text-lg font-semibold text-gray-700 mb-3">Facturas Emitidas</h3>
+                    <form id="form-emitidas" class="space-y-4">
+                        <input type="hidden" name="client_id" value="<?php echo htmlspecialchars($client['id']); ?>">
+                        <input type="hidden" name="tipo" value="emitidas">
+                        
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Fecha Inicio</label>
+                            <input type="date" name="fecha_inicio" required 
+                                   class="w-full rounded-md border-gray-300 focus:border-blue-500 focus:ring-blue-500">
+                        </div>
+                        
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Fecha Fin</label>
+                            <input type="date" name="fecha_fin" required 
+                                   class="w-full rounded-md border-gray-300 focus:border-blue-500 focus:ring-blue-500">
+                        </div>
+                        
+                        <div class="flex items-center space-x-2">
+                            <button type="submit" 
+                                    class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded flex items-center">
+                                <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                                          d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
+                                </svg>
+                                Descargar Emitidas
+                            </button>
+                            <div id="progress-emitidas" class="hidden flex-1">
+                                <div class="w-full bg-gray-200 rounded-full h-2.5">
+                                    <div class="bg-blue-600 h-2.5 rounded-full" style="width: 0%"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+
+                <!-- Descarga de Facturas Recibidas -->
+                <div class="border rounded-lg p-4">
+                    <h3 class="text-lg font-semibold text-gray-700 mb-3">Facturas Recibidas</h3>
+                    <form id="form-recibidas" class="space-y-4">
+                        <input type="hidden" name="client_id" value="<?php echo htmlspecialchars($client['id']); ?>">
+                        <input type="hidden" name="tipo" value="recibidas">
+                        
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Fecha Inicio</label>
+                            <input type="date" name="fecha_inicio" required 
+                                   class="w-full rounded-md border-gray-300 focus:border-blue-500 focus:ring-blue-500">
+                        </div>
+                        
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Fecha Fin</label>
+                            <input type="date" name="fecha_fin" required 
+                                   class="w-full rounded-md border-gray-300 focus:border-blue-500 focus:ring-blue-500">
+                        </div>
+                        
+                        <div class="flex items-center space-x-2">
+                            <button type="submit" 
+                                    class="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded flex items-center">
+                                <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                                          d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
+                                </svg>
+                                Descargar Recibidas
+                            </button>
+                            <div id="progress-recibidas" class="hidden flex-1">
+                                <div class="w-full bg-gray-200 rounded-full h-2.5">
+                                    <div class="bg-green-600 h-2.5 rounded-full" style="width: 0%"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
     </div>
+
+    <!-- Agregar el script para manejar las descargas -->
+    <script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const formEmitidas = document.getElementById('form-emitidas');
+        const formRecibidas = document.getElementById('form-recibidas');
+        const progressEmitidas = document.getElementById('progress-emitidas');
+        const progressRecibidas = document.getElementById('progress-recibidas');
+
+        async function handleDownload(e, form, progressElement) {
+            e.preventDefault();
+            
+            const submitBtn = form.querySelector('button[type="submit"]');
+            const progressBar = progressElement.querySelector('.bg-blue-600, .bg-green-600');
+            
+            try {
+                submitBtn.disabled = true;
+                progressElement.classList.remove('hidden');
+                
+                const formData = new FormData(form);
+                formData.append('csrf_token', '<?php echo $token; ?>');
+
+                const response = await fetch(`${BASE_URL}/clients/download-sat`, {
+                    method: 'POST',
+                    body: formData
+                });
+
+                if (!response.ok) {
+                    throw new Error('Error en la descarga');
+                }
+
+                const reader = response.body.getReader();
+                const contentLength = +response.headers.get('Content-Length');
+                let receivedLength = 0;
+
+                while(true) {
+                    const {done, value} = await reader.read();
+                    
+                    if (done) {
+                        break;
+                    }
+
+                    receivedLength += value.length;
+                    const progress = (receivedLength / contentLength) * 100;
+                    progressBar.style.width = progress + '%';
+                }
+
+                // Procesar la respuesta
+                const blob = await response.blob();
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `facturas_${formData.get('tipo')}.zip`;
+                document.body.appendChild(a);
+                a.click();
+                window.URL.revokeObjectURL(url);
+                document.body.removeChild(a);
+
+            } catch (error) {
+                console.error('Error:', error);
+                alert('Error al descargar los XMLs: ' + error.message);
+            } finally {
+                submitBtn.disabled = false;
+                progressElement.classList.add('hidden');
+                progressBar.style.width = '0%';
+            }
+        }
+
+        formEmitidas.addEventListener('submit', (e) => handleDownload(e, formEmitidas, progressEmitidas));
+        formRecibidas.addEventListener('submit', (e) => handleDownload(e, formRecibidas, progressRecibidas));
+    });
+    </script>
 
     <?php include __DIR__ . '/../partials/footer.php'; ?>
 </body>

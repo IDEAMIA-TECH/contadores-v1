@@ -36,6 +36,15 @@ Se generará un informe detallado con la separación de todos los IVAs posibles 
 - El sistema almacenará los datos procesados para futuras consultas.
 - Se podrá filtrar por cliente, rango de fechas y tipo de IVA.
 
+
+### 🤖 6. Implementación de Inteligencia Artificial
+- **Desarrollo de un modelo de IA** para detectar coincidencias entre transacciones bancarias y registros contables.
+- **Clasificación automática de transacciones** basada en patrones históricos.
+- **Sugerencias inteligentes** para la conciliación de movimientos no coincidentes.
+- **Autocorrección de errores comunes**, como diferencias menores en montos o fechas.
+- **Generación de reportes automáticos** con el estado de la conciliación.
+
+
 ## Estructura de la Base de Datos
 
 ### Tabla: accountants (Contadores)

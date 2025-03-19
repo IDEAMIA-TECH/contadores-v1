@@ -645,4 +645,55 @@ class ClientController {
             exit;
         }
     }
+
+    public function downloadSat() {
+        try {
+            if (!$this->security->isAuthenticated()) {
+                throw new Exception('No autorizado');
+            }
+
+            // Validar token CSRF
+            if (!$this->security->validateCsrfToken($_POST['csrf_token'] ?? '')) {
+                throw new Exception('Token de seguridad inválido');
+            }
+
+            // Validar parámetros
+            $clientId = filter_input(INPUT_POST, 'client_id', FILTER_VALIDATE_INT);
+            $tipo = filter_input(INPUT_POST, 'tipo');
+            $fechaInicio = filter_input(INPUT_POST, 'fecha_inicio');
+            $fechaFin = filter_input(INPUT_POST, 'fecha_fin');
+
+            if (!$clientId || !$tipo || !$fechaInicio || !$fechaFin) {
+                throw new Exception('Parámetros inválidos');
+            }
+
+            if (!in_array($tipo, ['emitidas', 'recibidas'])) {
+                throw new Exception('Tipo de descarga inválido');
+            }
+
+            // Obtener datos del cliente
+            $client = $this->client->getClientById($clientId);
+            if (!$client) {
+                throw new Exception('Cliente no encontrado');
+            }
+
+            // Aquí implementarías la lógica de conexión con el SAT
+            // Por ahora, simularemos la descarga
+            
+            // Simular proceso de descarga
+            sleep(1); // Simular tiempo de proceso
+
+            // Enviar respuesta
+            header('Content-Type: application/zip');
+            header('Content-Disposition: attachment; filename="facturas_' . $tipo . '.zip"');
+            
+            // Aquí implementarías la descarga real de los XMLs
+            echo "Simulación de descarga de XMLs del SAT";
+
+        } catch (Exception $e) {
+            error_log("Error en downloadSat: " . $e->getMessage());
+            http_response_code(500);
+            echo json_encode(['error' => $e->getMessage()]);
+        }
+    }
 } 
