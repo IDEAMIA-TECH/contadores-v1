@@ -40,6 +40,10 @@ if ($basePath && strpos($requestUri, $basePath) === 0) {
 }
 
 $requestUri = trim($requestUri, '/');
+
+// Separar la ruta de los parámetros GET
+$routeParts = explode('?', $requestUri);
+$route = $routeParts[0];
 error_log("Request URI: " . $requestUri);
 
 try {
@@ -47,13 +51,13 @@ try {
     $publicRoutes = ['login', 'forgot-password', 'reset-password'];
     
     // Si no es una ruta pública y no hay sesión, redirigir al login
-    if (!in_array($requestUri, $publicRoutes) && !isset($_SESSION['user_id'])) {
+    if (!in_array($route, $publicRoutes) && !isset($_SESSION['user_id'])) {
         header('Location: ' . BASE_URL . '/login');
         exit;
     }
     
     // Enrutamiento básico
-    $route = $requestUri ?: 'dashboard';
+    $route = $route ?: 'dashboard';
     error_log("Ruta procesada: /" . $route);
     
     // Dividir la ruta en controlador/acción/parámetros
@@ -61,6 +65,11 @@ try {
     $controllerName = ucfirst($parts[0] ?? 'Dashboard');
     $action = $parts[1] ?? 'index';
     $id = $parts[2] ?? null;
+
+    // Si no hay ID en la ruta pero existe en GET, usarlo
+    if (!$id && isset($_GET['id'])) {
+        $id = $_GET['id'];
+    }
 
     // Convertir action con guiones a camelCase
     $action = lcfirst(str_replace(' ', '', ucwords(str_replace('-', ' ', $action))));
