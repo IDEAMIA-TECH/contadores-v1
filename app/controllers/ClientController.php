@@ -179,4 +179,73 @@ class ClientController {
         
         throw new Exception('Error al guardar el archivo XML');
     }
+
+    public function processCSF() {
+        try {
+            if (!$this->security->isAuthenticated()) {
+                throw new Exception('No autorizado');
+            }
+
+            // Validar token CSRF
+            if (!$this->security->validateCsrfToken($_POST['csrf_token'] ?? '')) {
+                throw new Exception('Token de seguridad inválido');
+            }
+
+            // Validar archivo
+            if (!isset($_FILES['csf_file']) || $_FILES['csf_file']['error'] !== UPLOAD_ERR_OK) {
+                throw new Exception('Error al subir el archivo');
+            }
+
+            $file = $_FILES['csf_file'];
+            
+            // Validar tipo de archivo
+            if ($file['type'] !== 'application/pdf') {
+                throw new Exception('El archivo debe ser PDF');
+            }
+
+            // Procesar el archivo
+            $targetDir = UPLOAD_PATH . '/csf/';
+            if (!file_exists($targetDir)) {
+                mkdir($targetDir, 0777, true);
+            }
+
+            $fileName = uniqid() . '_' . basename($file['name']);
+            $targetFile = $targetDir . $fileName;
+
+            if (!move_uploaded_file($file['tmp_name'], $targetFile)) {
+                throw new Exception('Error al guardar el archivo');
+            }
+
+            // Aquí iría la lógica para extraer datos del PDF
+            // Por ahora retornamos datos de ejemplo
+            $data = [
+                'success' => true,
+                'data' => [
+                    'rfc' => 'XXXX999999XX9',
+                    'business_name' => 'Empresa de Ejemplo',
+                    'legal_name' => 'Razón Social de Ejemplo',
+                    'fiscal_regime' => '601',
+                    'street' => 'Calle Ejemplo',
+                    'exterior_number' => '123',
+                    'interior_number' => 'A',
+                    'neighborhood' => 'Colonia Ejemplo',
+                    'city' => 'Ciudad Ejemplo',
+                    'state' => 'Estado Ejemplo',
+                    'zip_code' => '12345',
+                    'csf_path' => $fileName
+                ]
+            ];
+
+            header('Content-Type: application/json');
+            echo json_encode($data);
+
+        } catch (Exception $e) {
+            error_log("Error en processCSF: " . $e->getMessage());
+            http_response_code(400);
+            echo json_encode([
+                'success' => false,
+                'message' => $e->getMessage()
+            ]);
+        }
+    }
 } 

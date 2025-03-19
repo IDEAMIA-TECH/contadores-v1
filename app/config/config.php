@@ -84,4 +84,9 @@ if (APP_DEBUG) {
     error_log("Host: " . DB_HOST);
     error_log("Base de datos: " . DB_NAME);
     error_log("Usuario: " . DB_USER);
+}
+
+// Crear directorio de uploads si no existe
+if (!file_exists(UPLOAD_PATH)) {
+    mkdir(UPLOAD_PATH, 0777, true);
 } 

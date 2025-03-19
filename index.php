@@ -140,6 +140,16 @@ try {
             }
             break;
 
+        case '/clients/process-csf':
+            if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+                header('HTTP/1.1 405 Method Not Allowed');
+                exit;
+            }
+            require_once __DIR__ . '/app/controllers/ClientController.php';
+            $controller = new ClientController();
+            $controller->processCSF();
+            break;
+
         case '/reports':
             require_once __DIR__ . '/app/controllers/ReportController.php';
             $controller = new ReportController();
