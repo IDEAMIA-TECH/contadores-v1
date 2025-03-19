@@ -32,7 +32,7 @@ class ClientTest extends TestCase {
             $this->assert($clientId > 0, "El cliente debería haberse creado con un ID válido");
             
             // Verificar que el cliente existe
-            $stmt = $this->pdo->prepare("SELECT * FROM clients WHERE id = ?");
+            $stmt = $this->pdo->prepare("SELECT * FROM clients_test WHERE id = ?");
             $stmt->execute([$clientId]);
             $savedClient = $stmt->fetch(PDO::FETCH_ASSOC);
             
@@ -63,7 +63,7 @@ class ClientTest extends TestCase {
             $clientId = $this->client->create($clientData);
             
             // Verificar que el contacto existe
-            $stmt = $this->pdo->prepare("SELECT * FROM client_contacts WHERE client_id = ?");
+            $stmt = $this->pdo->prepare("SELECT * FROM client_contacts_test WHERE client_id = ?");
             $stmt->execute([$clientId]);
             $contact = $stmt->fetch(PDO::FETCH_ASSOC);
             
