@@ -1,3 +1,10 @@
+<?php
+// Obtener la ruta actual
+$requestUri = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
+$route = str_starts_with($requestUri, BASE_URL) 
+    ? substr($requestUri, strlen(BASE_URL)) 
+    : $requestUri;
+?>
 <nav class="bg-white shadow-lg">
     <div class="max-w-7xl mx-auto px-4">
         <div class="flex justify-between h-16">

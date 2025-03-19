@@ -18,6 +18,12 @@ class DashboardController {
             exit;
         }
         
+        // Obtener la ruta actual
+        $requestUri = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
+        $route = str_starts_with($requestUri, BASE_URL) 
+            ? substr($requestUri, strlen(BASE_URL)) 
+            : $requestUri;
+        
         // Aquí podrías agregar lógica para obtener estadísticas
         
         include __DIR__ . '/../views/dashboard/index.php';
