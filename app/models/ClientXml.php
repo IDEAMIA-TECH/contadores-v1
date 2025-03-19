@@ -9,7 +9,7 @@ class ClientXml {
     public function create($data) {
         try {
             $stmt = $this->db->prepare("
-                INSERT INTO client_xml (
+                INSERT INTO client_xmls (
                     client_id,
                     xml_path,
                     uuid,
@@ -58,7 +58,7 @@ class ClientXml {
             $stmt = $this->db->prepare("
                 SELECT * FROM client_xmls 
                 WHERE client_id = ? 
-                ORDER BY emission_date DESC
+                ORDER BY fecha DESC
             ");
             $stmt->execute([$clientId]);
             return $stmt->fetchAll();
