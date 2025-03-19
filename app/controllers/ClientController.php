@@ -182,6 +182,9 @@ class ClientController {
 
     public function processCSF() {
         try {
+            // Asegurarnos de que no haya salida antes
+            ob_clean();
+            
             if (!$this->security->isAuthenticated()) {
                 throw new Exception('No autorizado');
             }
@@ -199,26 +202,47 @@ class ClientController {
             $file = $_FILES['csf_file'];
             
             // Validar tipo de archivo
-            if ($file['type'] !== 'application/pdf') {
-                throw new Exception('El archivo debe ser PDF');
+            $finfo = finfo_open(FILEINFO_MIME_TYPE);
+            $mimeType = finfo_file($finfo, $file['tmp_name']);
+            finfo_close($finfo);
+
+            if ($mimeType !== 'application/pdf') {
+                throw new Exception('El archivo debe ser PDF. Tipo detectado: ' . $mimeType);
             }
 
             // Procesar el archivo
             $targetDir = UPLOAD_PATH . '/csf/';
             if (!file_exists($targetDir)) {
-                mkdir($targetDir, 0777, true);
+                if (!mkdir($targetDir, 0777, true)) {
+                    throw new Exception('Error al crear el directorio para CSF');
+                }
+            }
+
+            if (!is_writable($targetDir)) {
+                throw new Exception('El directorio CSF no tiene permisos de escritura');
             }
 
             $fileName = uniqid() . '_' . basename($file['name']);
             $targetFile = $targetDir . $fileName;
 
+            error_log("Intentando mover archivo a: " . $targetFile);
+            
             if (!move_uploaded_file($file['tmp_name'], $targetFile)) {
-                throw new Exception('Error al guardar el archivo');
+                throw new Exception('Error al guardar el archivo. Código: ' . $file['error']);
+            }
+
+            // Verificar que el archivo existe y es legible
+            if (!file_exists($targetFile) || !is_readable($targetFile)) {
+                throw new Exception('El archivo guardado no es accesible');
             }
 
             // Usar PdfParser para extraer los datos
             $parser = new PdfParser();
             $extractedData = $parser->parseCSF($targetFile);
+
+            if (empty($extractedData)) {
+                throw new Exception('No se pudieron extraer datos del PDF');
+            }
 
             // Formatear la respuesta
             $data = [
@@ -242,12 +266,25 @@ class ClientController {
             error_log("Datos extraídos del PDF: " . print_r($extractedData, true));
             error_log("Datos formateados: " . print_r($data, true));
 
+            // Asegurar que no haya salida antes del JSON
+            if (headers_sent($file, $line)) {
+                error_log("Headers already sent in $file:$line");
+                throw new Exception('Error interno del servidor');
+            }
+
             header('Content-Type: application/json');
             echo json_encode($data);
 
         } catch (Exception $e) {
             error_log("Error en processCSF: " . $e->getMessage());
-            http_response_code(400);
+            error_log("Stack trace: " . $e->getTraceAsString());
+            
+            // Asegurar que no haya salida antes del JSON de error
+            if (!headers_sent()) {
+                header('Content-Type: application/json');
+                http_response_code(400);
+            }
+            
             echo json_encode([
                 'success' => false,
                 'message' => $e->getMessage()

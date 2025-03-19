@@ -9,8 +9,8 @@ require_once __DIR__ . '/app/middleware/Security.php';
 
 // Mostrar todos los errores en desarrollo
 error_reporting(E_ALL);
-ini_set('display_errors', APP_DEBUG ? 1 : 0);
-ini_set('display_startup_errors', APP_DEBUG ? 1 : 0);
+ini_set('display_errors', 0);
+ini_set('log_errors', 1);
 
 // Configurar el manejador de errores
 set_error_handler(function($errno, $errstr, $errfile, $errline) {
