@@ -165,6 +165,108 @@
             </div>
             <?php endif; ?>
 
+            <!-- Agregar después de la sección de documentos y antes de las acciones adicionales -->
+            <div class="mb-8">
+                <h2 class="text-lg font-semibold text-gray-900 mb-4">Credenciales SAT</h2>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <!-- Certificado -->
+                    <div>
+                        <p class="text-sm font-medium text-gray-500">Certificado (.cer)</p>
+                        <div class="mt-1 flex items-center">
+                            <?php if (!empty($client['cer_path'])): ?>
+                                <span class="text-sm text-green-600 flex items-center">
+                                    <svg class="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                                        <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+                                    </svg>
+                                    Archivo cargado
+                                    <a href="<?php echo BASE_URL . '/uploads/' . htmlspecialchars($client['cer_path']); ?>" 
+                                       class="ml-2 text-blue-600 hover:text-blue-800"
+                                       target="_blank">
+                                        Ver archivo
+                                    </a>
+                                </span>
+                            <?php else: ?>
+                                <span class="text-sm text-gray-500">No se ha cargado el certificado</span>
+                            <?php endif; ?>
+                        </div>
+                    </div>
+
+                    <!-- Llave Privada -->
+                    <div>
+                        <p class="text-sm font-medium text-gray-500">Llave Privada (.key)</p>
+                        <div class="mt-1 flex items-center">
+                            <?php if (!empty($client['key_path'])): ?>
+                                <span class="text-sm text-green-600 flex items-center">
+                                    <svg class="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                                        <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+                                    </svg>
+                                    Archivo cargado
+                                    <span class="ml-2 text-gray-600">(Archivo protegido)</span>
+                                </span>
+                            <?php else: ?>
+                                <span class="text-sm text-gray-500">No se ha cargado la llave privada</span>
+                            <?php endif; ?>
+                        </div>
+                    </div>
+
+                    <!-- Contraseña FIEL -->
+                    <div>
+                        <p class="text-sm font-medium text-gray-500">Contraseña FIEL</p>
+                        <div class="mt-1">
+                            <?php if (!empty($client['key_password'])): ?>
+                                <span class="text-sm text-green-600 flex items-center">
+                                    <svg class="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                                        <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+                                    </svg>
+                                    Contraseña configurada
+                                </span>
+                            <?php else: ?>
+                                <span class="text-sm text-gray-500">No se ha configurado la contraseña</span>
+                            <?php endif; ?>
+                        </div>
+                    </div>
+
+                    <!-- Estado de la configuración -->
+                    <div>
+                        <p class="text-sm font-medium text-gray-500">Estado de Configuración</p>
+                        <div class="mt-1">
+                            <?php 
+                            $isConfigured = !empty($client['cer_path']) && 
+                                           !empty($client['key_path']) && 
+                                           !empty($client['key_password']);
+                            ?>
+                            <?php if ($isConfigured): ?>
+                                <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-green-100 text-green-800">
+                                    <svg class="w-4 h-4 mr-1.5" fill="currentColor" viewBox="0 0 20 20">
+                                        <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+                                    </svg>
+                                    Configuración completa
+                                </span>
+                            <?php else: ?>
+                                <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-yellow-100 text-yellow-800">
+                                    <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+                                    </svg>
+                                    Configuración incompleta
+                                </span>
+                            <?php endif; ?>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Botón para editar credenciales -->
+                <div class="mt-4">
+                    <a href="<?php echo BASE_URL; ?>/clients/edit/<?php echo $client['id']; ?>#credenciales-sat" 
+                       class="inline-flex items-center text-sm text-blue-600 hover:text-blue-800">
+                        <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
+                        </svg>
+                        Editar credenciales
+                    </a>
+                </div>
+            </div>
+            <?php endif; ?>
+
             <!-- Acciones adicionales -->
             <div class="flex justify-end space-x-4 mt-8">
                 <a href="<?php echo BASE_URL; ?>/clients/upload-xml?id=<?php echo $client['id']; ?>" 
