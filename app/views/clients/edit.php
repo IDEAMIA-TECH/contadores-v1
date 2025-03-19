@@ -29,7 +29,10 @@
             <?php endif; ?>
 
             <form action="<?php echo BASE_URL; ?>/clients/update/<?php echo htmlspecialchars($client['id']); ?>" 
-                  method="POST" class="space-y-6" id="clientForm">
+                  method="POST" 
+                  class="space-y-6" 
+                  id="clientForm"
+                  enctype="multipart/form-data">
                 <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($_SESSION['csrf_token']); ?>">
                 
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
