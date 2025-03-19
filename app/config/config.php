@@ -11,15 +11,14 @@ define('APP_PATH', __DIR__ . '/..');
 define('UPLOAD_PATH', BASE_PATH . '/uploads');
 
 // Configuración de la aplicación
-define('APP_ENV', getenv('APP_ENV') ?: 'development');
+define('APP_ENV', getenv('APP_ENV') ?: 'production');
 define('APP_DEBUG', getenv('APP_DEBUG') ?: false);
-define('DEBUG', APP_DEBUG); // Definimos DEBUG después de APP_DEBUG
 
 // Configuración de URLs
-define('APP_URL', getenv('APP_URL') ?: 'http://localhost');
+define('APP_URL', getenv('APP_URL') ?: 'https://contadores.ideamia.dev');
 
 // Configuración de errores
-if (APP_DEBUG) { // Cambiamos DEBUG por APP_DEBUG
+if (APP_DEBUG) {
     ini_set('display_errors', 1);
     ini_set('display_startup_errors', 1);
     error_reporting(E_ALL);
@@ -35,11 +34,7 @@ date_default_timezone_set('America/Mexico_City');
 // Configuración de sesión
 ini_set('session.gc_maxlifetime', 7200);
 ini_set('session.cookie_lifetime', 7200);
+session_start();
 
-// Inicializar sesión si no está activa
-if (session_status() === PHP_SESSION_NONE) {
-    session_start();
-}
-
-// Configuración de rutas
+// Configuración de archivos
 define('MAX_UPLOAD_SIZE', 10 * 1024 * 1024); // 10MB 

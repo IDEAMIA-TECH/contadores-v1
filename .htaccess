@@ -7,14 +7,18 @@ Options -Indexes
     Deny from all
 </FilesMatch>
 
-# Proteger app y vendor
-<FilesMatch "(^app/|^vendor/)">
+# Proteger archivos sensibles
+<FilesMatch "\.(env|config|sql|md|gitignore|json|lock)$">
     Order allow,deny
     Deny from all
 </FilesMatch>
 
-# Redirigir todo a index.php excepto archivos estáticos
+# Forzar HTTPS
 RewriteEngine On
+RewriteCond %{HTTPS} off
+RewriteRule ^(.*)$ https://%{HTTP_HOST}%{REQUEST_FILENAME} [L,R=301]
+
+# Redirigir todo a index.php excepto archivos estáticos
 RewriteCond %{REQUEST_FILENAME} !-f
 RewriteCond %{REQUEST_FILENAME} !-d
 RewriteRule ^(.*)$ index.php/$1 [L]
@@ -27,8 +31,18 @@ RewriteRule ^(.*)$ index.php/$1 [L]
     Header always set Strict-Transport-Security "max-age=31536000; includeSubDomains"
 </IfModule>
 
-# Prevenir acceso a archivos sensibles
-<FilesMatch "\.(env|config|sql|md|gitignore|json|lock)$">
-    Order allow,deny
-    Deny from all
-</FilesMatch> 
+# Comprimir respuestas
+<IfModule mod_deflate.c>
+    AddOutputFilterByType DEFLATE text/html text/plain text/xml text/css text/javascript application/javascript application/x-javascript application/json
+</IfModule>
+
+# Cache de archivos estáticos
+<IfModule mod_expires.c>
+    ExpiresActive On
+    ExpiresByType image/jpg "access plus 1 year"
+    ExpiresByType image/jpeg "access plus 1 year"
+    ExpiresByType image/gif "access plus 1 year"
+    ExpiresByType image/png "access plus 1 year"
+    ExpiresByType text/css "access plus 1 month"
+    ExpiresByType application/javascript "access plus 1 month"
+</IfModule> 
