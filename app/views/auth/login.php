@@ -22,10 +22,17 @@
 
             <form method="POST" action="<?php echo BASE_URL; ?>/login" class="space-y-6">
                 <?php 
-                // Debug: Verificar que el token esté disponible
-                error_log("Token CSRF en vista login: " . ($token ?? 'no definido'));
+                error_log("=== Renderizando formulario de login ===");
+                error_log("Token disponible en la vista: " . (isset($token) ? $token : 'no definido'));
+                
+                if (!isset($token)) {
+                    error_log("ADVERTENCIA: Token no definido en la vista");
+                    $token = bin2hex(random_bytes(32));
+                    $_SESSION['csrf_token'] = $token;
+                    error_log("Generado token de emergencia: " . $token);
+                }
                 ?>
-                <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($token ?? ''); ?>">
+                <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($token); ?>">
                 
                 <div>
                     <label for="username" class="block text-sm font-medium text-gray-700">Usuario</label>

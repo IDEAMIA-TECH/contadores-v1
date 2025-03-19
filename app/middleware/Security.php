@@ -4,36 +4,37 @@ class Security {
     
     public function __construct() {
         error_log("=== Inicializando Security ===");
-        error_log("Session ID: " . session_id());
-        error_log("CSRF Token en sesión: " . ($_SESSION['csrf_token'] ?? 'no existe'));
         
         $this->config = require_once __DIR__ . '/../config/security.php';
+        
+        // Inicializar sesión primero
         $this->initSession();
+        
+        error_log("Session ID después de init: " . session_id());
+        error_log("CSRF Token después de init: " . ($_SESSION['csrf_token'] ?? 'no existe'));
     }
     
     public function initSession() {
+        error_log("=== Iniciando sesión ===");
+        
         if (session_status() === PHP_SESSION_NONE) {
+            error_log("Iniciando nueva sesión");
             session_start();
+        } else {
+            error_log("Sesión ya iniciada - ID: " . session_id());
         }
         
-        // Inicializar variables de sesión si no existen
-        if (!isset($_SESSION['csrf_token'])) {
-            $_SESSION['csrf_token'] = '';
-        }
-        if (!isset($_SESSION['token_expiry'])) {
-            $_SESSION['token_expiry'] = 0;
-        }
+        // Siempre generar un nuevo token al inicializar
+        $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
+        error_log("Nuevo token CSRF generado en initSession: " . $_SESSION['csrf_token']);
     }
     
     public function generateCsrfToken() {
         error_log("Generando nuevo token CSRF");
         
-        if (!isset($_SESSION['csrf_token'])) {
-            $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
-            error_log("Nuevo token generado: " . $_SESSION['csrf_token']);
-        } else {
-            error_log("Usando token existente: " . $_SESSION['csrf_token']);
-        }
+        // Siempre generar un nuevo token
+        $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
+        error_log("Nuevo token generado: " . $_SESSION['csrf_token']);
         
         return $_SESSION['csrf_token'];
     }
@@ -42,6 +43,12 @@ class Security {
         error_log("Validando token CSRF");
         error_log("Token recibido: " . ($token ?: 'vacío'));
         error_log("Token en sesión: " . ($_SESSION['csrf_token'] ?? 'no existe'));
+        
+        // Durante desarrollo, generar un token si no existe
+        if (APP_ENV === 'development' && empty($_SESSION['csrf_token'])) {
+            error_log("Generando token CSRF de emergencia en validateCsrfToken");
+            $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
+        }
         
         if (empty($token) || empty($_SESSION['csrf_token'])) {
             error_log("Token vacío o no existe en sesión");

@@ -37,7 +37,21 @@ date_default_timezone_set('America/Mexico_City');
 // Configuración de sesión
 ini_set('session.gc_maxlifetime', 7200);
 ini_set('session.cookie_lifetime', 7200);
-session_start();
+
+// Iniciar sesión al principio del archivo
+if (session_status() === PHP_SESSION_NONE) {
+    error_log("Iniciando sesión desde config.php");
+    session_start();
+    
+    // Generar token CSRF si no existe
+    if (!isset($_SESSION['csrf_token'])) {
+        $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
+        error_log("Generado token CSRF inicial en config: " . $_SESSION['csrf_token']);
+    }
+} else {
+    error_log("Sesión ya iniciada en config.php - ID: " . session_id());
+    error_log("Token CSRF actual: " . ($_SESSION['csrf_token'] ?? 'no existe'));
+}
 
 // Debug: Verificar estado de la sesión
 error_log("=== Estado de la sesión ===");
