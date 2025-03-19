@@ -1,5 +1,6 @@
 <?php
 require_once __DIR__ . '/../config/database.php';
+require_once __DIR__ . '/../middleware/Security.php';
 require_once __DIR__ . '/../models/Client.php';
 require_once __DIR__ . '/../helpers/PdfParser.php';
 require_once __DIR__ . '/../models/ClientXml.php';
@@ -7,88 +8,81 @@ require_once __DIR__ . '/../helpers/CfdiXmlParser.php';
 
 class ClientController {
     private $db;
-    private $client;
     private $security;
+    private $client;
     
     public function __construct() {
         $this->db = Database::getInstance()->getConnection();
-        $this->client = new Client($this->db);
         $this->security = new Security();
+        $this->client = new Client($this->db);
     }
     
     public function index() {
-        if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'contador') {
+        if (!$this->security->isAuthenticated()) {
             header('Location: ' . BASE_URL . '/login');
             exit;
         }
         
-        // Obtener lista de clientes del contador actual
-        $clients = $this->client->getByAccountant($_SESSION['user_id']);
+        // Obtener lista de clientes
+        $clients = $this->client->getAllClients();
         include __DIR__ . '/../views/clients/index.php';
     }
     
-    public function showCreateForm() {
-        if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'contador') {
+    public function create() {
+        if (!$this->security->isAuthenticated()) {
             header('Location: ' . BASE_URL . '/login');
             exit;
         }
         
+        // Generar token CSRF para el formulario
         $token = $this->security->generateCsrfToken();
         include __DIR__ . '/../views/clients/create.php';
     }
     
-    public function create() {
-        if (!$this->security->validateCsrfToken($_POST['csrf_token'] ?? '')) {
-            $_SESSION['error'] = 'Token de seguridad inválido';
-            header('Location: /clients/create');
+    public function store() {
+        if (!$this->security->isAuthenticated()) {
+            header('Location: ' . BASE_URL . '/login');
             exit;
         }
         
-        // Procesar archivo CSF si fue enviado
-        $csfPath = '';
-        if (isset($_FILES['csf']) && $_FILES['csf']['error'] === UPLOAD_ERR_OK) {
-            $csfPath = $this->processCsfFile($_FILES['csf']);
+        if (!$this->security->validateCsrfToken($_POST['csrf_token'] ?? '')) {
+            $_SESSION['error'] = 'Token de seguridad inválido';
+            header('Location: ' . BASE_URL . '/clients/create');
+            exit;
         }
         
-        $clientData = [
-            'rfc' => $_POST['rfc'],
-            'business_name' => $_POST['business_name'],
-            'legal_name' => $_POST['legal_name'],
-            'fiscal_regime' => $_POST['fiscal_regime'],
-            'address' => $_POST['address'],
-            'email' => $_POST['email'],
-            'phone' => $_POST['phone'],
-            'contact_name' => $_POST['contact_name'] ?? '',
-            'contact_email' => $_POST['contact_email'] ?? '',
-            'contact_phone' => $_POST['contact_phone'] ?? '',
-            'accountant_id' => $_SESSION['user_id'],
-            'csf_path' => $csfPath
-        ];
-        
+        // Validar y guardar el nuevo cliente
         try {
-            $this->client->create($clientData);
-            $_SESSION['success'] = 'Cliente creado exitosamente';
-            header('Location: /clients');
+            $data = [
+                'rfc' => $_POST['rfc'] ?? '',
+                'business_name' => $_POST['business_name'] ?? '',
+                'legal_name' => $_POST['legal_name'] ?? '',
+                'fiscal_regime' => $_POST['fiscal_regime'] ?? '',
+                'address' => $_POST['address'] ?? '',
+                'email' => $_POST['email'] ?? '',
+                'phone' => $_POST['phone'] ?? '',
+                'contact_name' => $_POST['contact_name'] ?? '',
+                'contact_email' => $_POST['contact_email'] ?? '',
+                'contact_phone' => $_POST['contact_phone'] ?? ''
+            ];
+            
+            // Validar datos
+            if (empty($data['rfc']) || empty($data['business_name']) || empty($data['email'])) {
+                throw new Exception('Por favor complete los campos obligatorios');
+            }
+            
+            if ($this->client->create($data)) {
+                $_SESSION['success'] = 'Cliente creado exitosamente';
+                header('Location: ' . BASE_URL . '/clients');
+            } else {
+                throw new Exception('Error al crear el cliente');
+            }
+            
         } catch (Exception $e) {
-            $_SESSION['error'] = 'Error al crear el cliente: ' . $e->getMessage();
-            header('Location: /clients/create');
+            $_SESSION['error'] = $e->getMessage();
+            header('Location: ' . BASE_URL . '/clients/create');
         }
-    }
-    
-    private function processCsfFile($file) {
-        $targetDir = UPLOAD_PATH . '/csf/';
-        if (!file_exists($targetDir)) {
-            mkdir($targetDir, 0777, true);
-        }
-        
-        $fileName = uniqid() . '_' . basename($file['name']);
-        $targetFile = $targetDir . $fileName;
-        
-        if (move_uploaded_file($file['tmp_name'], $targetFile)) {
-            return $targetFile;
-        }
-        
-        throw new Exception('Error al subir el archivo CSF');
+        exit;
     }
     
     public function extractCsfData() {

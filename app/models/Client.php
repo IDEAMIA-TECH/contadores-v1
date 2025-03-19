@@ -8,6 +8,20 @@ class Client {
         $this->tablePrefix = $isTest ? '_test' : '';
     }
     
+    public function getAllClients() {
+        try {
+            $stmt = $this->db->query("
+                SELECT * FROM clients{$this->tablePrefix} 
+                WHERE status = 'active' 
+                ORDER BY business_name ASC
+            ");
+            return $stmt->fetchAll();
+        } catch (PDOException $e) {
+            error_log("Error en getAllClients: " . $e->getMessage());
+            throw new Exception("Error al obtener los clientes");
+        }
+    }
+    
     public function create($data) {
         try {
             $this->db->beginTransaction();
@@ -86,9 +100,10 @@ class Client {
             $this->db->commit();
             return $clientId;
             
-        } catch (Exception $e) {
+        } catch (PDOException $e) {
             $this->db->rollBack();
-            throw $e;
+            error_log("Error en create: " . $e->getMessage());
+            throw new Exception("Error al crear el cliente");
         }
     }
 } 
