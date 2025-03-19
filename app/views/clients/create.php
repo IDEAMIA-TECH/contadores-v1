@@ -9,11 +9,6 @@
 <body class="bg-gray-100">
     <?php include __DIR__ . '/../partials/navbar.php'; ?>
 
-    <?php 
-    $token = $_SESSION['csrf_token']; // Usar el token existente en lugar de generar uno nuevo
-    error_log("Token en formulario: " . $token);
-    ?>
-
     <div class="container mx-auto px-4 py-8">
         <div class="bg-white rounded-lg shadow-lg p-6">
             <div class="flex justify-between items-center mb-6">
@@ -52,7 +47,7 @@
             </div>
 
             <form action="<?php echo BASE_URL; ?>/clients/store" method="POST" class="space-y-6">
-                <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($token); ?>">
+                <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($_SESSION['csrf_token']); ?>">
                 <input type="hidden" name="csf_path" id="csf_path" value="">
                 
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -268,6 +263,13 @@
                 uploadButton.disabled = false;
                 uploadButton.textContent = 'Cargar y Procesar';
             });
+        });
+
+        // Actualizar el token CSRF antes de enviar el formulario
+        const form = document.querySelector('form');
+        form.addEventListener('submit', function() {
+            const csrfToken = document.querySelector('input[name="csrf_token"]');
+            csrfToken.value = '<?php echo $_SESSION['csrf_token']; ?>';
         });
     });
     </script>

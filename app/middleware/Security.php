@@ -35,34 +35,23 @@ class Security {
     }
     
     public function generateCsrfToken() {
-        error_log("Generando nuevo token CSRF");
-        
-        // Siempre generar un nuevo token y guardarlo en sesión
-        $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
-        error_log("Nuevo token generado: " . $_SESSION['csrf_token']);
-        
+        if (empty($_SESSION['csrf_token'])) {
+            $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
+            error_log("Generando nuevo token CSRF: " . $_SESSION['csrf_token']);
+        }
         return $_SESSION['csrf_token'];
     }
     
     public function validateCsrfToken($token) {
-        error_log("=== Validando token CSRF ===");
-        error_log("Token recibido: " . ($token ?: 'vacío'));
-        error_log("Token en sesión: " . ($_SESSION['csrf_token'] ?? 'no existe'));
+        error_log("Validando token CSRF");
+        error_log("Token recibido: " . ($token ?? 'no token'));
+        error_log("Token en sesión: " . ($_SESSION['csrf_token'] ?? 'no token'));
         
         if (empty($token) || empty($_SESSION['csrf_token'])) {
-            error_log("Token vacío o no existe en sesión");
             return false;
         }
         
-        $result = hash_equals($_SESSION['csrf_token'], $token);
-        error_log("Resultado de validación: " . ($result ? 'válido' : 'inválido'));
-        
-        if ($result) {
-            // Si la validación fue exitosa, generar un nuevo token para la siguiente solicitud
-            $this->generateCsrfToken();
-        }
-        
-        return $result;
+        return hash_equals($_SESSION['csrf_token'], $token);
     }
     
     public function hashPassword($password) {

@@ -34,25 +34,22 @@ class ClientController {
             exit;
         }
         
-        // Usar el token existente en lugar de generar uno nuevo
-        $token = $_SESSION['csrf_token'];
-        error_log("Token en create: " . $token);
-        
+        // Generar token CSRF para el formulario
+        $token = $this->security->generateCsrfToken();
         include __DIR__ . '/../views/clients/create.php';
     }
     
     public function store() {
         try {
             if (!$this->security->isAuthenticated()) {
-                header('Location: ' . BASE_URL . '/login');
-                exit;
+                throw new Exception('No autorizado');
             }
             
-            // Debug de tokens
-            error_log("Token recibido en POST: " . ($_POST['csrf_token'] ?? 'no token'));
+            error_log("Token recibido en store: " . ($_POST['csrf_token'] ?? 'no token'));
             error_log("Token en sesión: " . ($_SESSION['csrf_token'] ?? 'no token'));
             
             if (!$this->security->validateCsrfToken($_POST['csrf_token'] ?? '')) {
+                error_log("Token CSRF inválido en store");
                 throw new Exception('Token de seguridad inválido. Por favor, intente nuevamente.');
             }
             
@@ -62,13 +59,7 @@ class ClientController {
                 'business_name' => $_POST['business_name'] ?? '',
                 'legal_name' => $_POST['legal_name'] ?? '',
                 'fiscal_regime' => $_POST['fiscal_regime'] ?? '',
-                'street' => $_POST['street'] ?? '',
-                'exterior_number' => $_POST['exterior_number'] ?? '',
-                'interior_number' => $_POST['interior_number'] ?? '',
-                'neighborhood' => $_POST['neighborhood'] ?? '',
-                'city' => $_POST['city'] ?? '',
-                'state' => $_POST['state'] ?? '',
-                'zip_code' => $_POST['zip_code'] ?? '',
+                'address' => $this->formatAddress($_POST),
                 'email' => $_POST['email'] ?? '',
                 'phone' => $_POST['phone'] ?? '',
                 'contact_name' => $_POST['contact_name'] ?? '',
@@ -76,15 +67,11 @@ class ClientController {
                 'contact_phone' => $_POST['contact_phone'] ?? ''
             ];
             
-            // Validar datos requeridos
-            $requiredFields = ['rfc', 'business_name', 'email'];
-            foreach ($requiredFields as $field) {
-                if (empty($data[$field])) {
-                    throw new Exception("El campo {$field} es obligatorio");
-                }
+            // Validar datos
+            if (empty($data['rfc']) || empty($data['business_name']) || empty($data['email'])) {
+                throw new Exception('Por favor complete los campos obligatorios');
             }
             
-            // Crear el cliente
             if ($this->client->create($data)) {
                 $_SESSION['success'] = 'Cliente creado exitosamente';
                 header('Location: ' . BASE_URL . '/clients');
@@ -95,9 +82,23 @@ class ClientController {
         } catch (Exception $e) {
             error_log("Error en store: " . $e->getMessage());
             $_SESSION['error'] = $e->getMessage();
+            $_SESSION['form_data'] = $_POST; // Mantener los datos del formulario
             header('Location: ' . BASE_URL . '/clients/create');
         }
         exit;
+    }
+    
+    private function formatAddress($data) {
+        $parts = [];
+        if (!empty($data['street'])) $parts[] = $data['street'];
+        if (!empty($data['exterior_number'])) $parts[] = "Ext. " . $data['exterior_number'];
+        if (!empty($data['interior_number'])) $parts[] = "Int. " . $data['interior_number'];
+        if (!empty($data['neighborhood'])) $parts[] = $data['neighborhood'];
+        if (!empty($data['city'])) $parts[] = $data['city'];
+        if (!empty($data['state'])) $parts[] = $data['state'];
+        if (!empty($data['zip_code'])) $parts[] = "C.P. " . $data['zip_code'];
+        
+        return implode(', ', array_filter($parts));
     }
     
     public function extractCsfData() {
