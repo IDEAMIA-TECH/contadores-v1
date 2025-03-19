@@ -2,6 +2,15 @@
 // Evitar cualquier salida antes de las redirecciones
 ob_start();
 
+// Definir la URL base
+define('BASE_URL', '/contadores-v1');
+
+// Definir la ruta base del sistema
+define('ROOT_PATH', __DIR__);
+
+// Definir la ruta para los assets
+define('ASSETS_URL', BASE_URL . '/public');
+
 // Cargar configuración y dependencias comunes
 require_once __DIR__ . '/app/config/config.php';
 require_once __DIR__ . '/app/config/database.php';
@@ -22,183 +31,74 @@ set_error_handler(function($errno, $errstr, $errfile, $errline) {
         ob_clean(); // Limpiar cualquier salida anterior
         echo "<h1>Error</h1>";
         echo "<p>$errstr</p>";
-        echo "<p>Archivo: $errfile</p>";
-        echo "<p>Línea: $errline</p>";
+        if (APP_DEBUG) {
+            echo "<p>En archivo: $errfile:$errline</p>";
+        }
     }
-    return true; // Evitar que PHP maneje el error
+    return true;
 });
 
-// Configurar el manejador de excepciones
-set_exception_handler(function($e) {
-    // Registrar la excepción en el log
-    error_log("Excepción no capturada: " . $e->getMessage());
-    error_log("Stack trace: " . $e->getTraceAsString());
-    
-    if (APP_DEBUG) {
-        ob_clean(); // Limpiar cualquier salida anterior
-        echo "<h1>Error</h1>";
-        echo "<pre>";
-        echo "Mensaje: " . $e->getMessage() . "\n\n";
-        echo "Archivo: " . $e->getFile() . "\n";
-        echo "Línea: " . $e->getLine() . "\n\n";
-        echo "Stack trace:\n" . $e->getTraceAsString();
-        echo "</pre>";
-    } else {
-        ob_clean(); // Limpiar cualquier salida anterior
-        include __DIR__ . '/app/views/error.php';
-    }
-});
+// Procesar la URL
+$requestUri = $_SERVER['REQUEST_URI'];
+$basePath = parse_url(BASE_URL, PHP_URL_PATH);
+
+// Remover el base path de la URL si existe
+if ($basePath && strpos($requestUri, $basePath) === 0) {
+    $requestUri = substr($requestUri, strlen($basePath));
+}
+
+$requestUri = trim($requestUri, '/');
+error_log("Request URI: " . $requestUri);
 
 try {
-    // Obtener la ruta actual
-    $requestUri = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
-    error_log("Request URI: " . $requestUri);
+    // Enrutamiento básico
+    $route = $requestUri ?: 'dashboard';
+    error_log("Ruta procesada: /" . $route);
     
-    // Remover BASE_URL del inicio de la ruta si existe
-    $route = str_starts_with($requestUri, BASE_URL) 
-        ? substr($requestUri, strlen(BASE_URL)) 
-        : $requestUri;
+    // Dividir la ruta en controlador/acción
+    $parts = explode('/', $route);
+    $controller = ucfirst($parts[0] ?? 'Dashboard') . 'Controller';
+    $action = $parts[1] ?? 'index';
     
-    error_log("Ruta procesada: " . $route);
-
-    // Rutas públicas (no requieren autenticación)
-    $publicRoutes = [
-        '/login',
-        '/forgot-password',
-        '/reset-password'
-    ];
-
-    // Si no es una ruta pública y no hay sesión, redirigir al login
-    if (!in_array($route, $publicRoutes) && !isset($_SESSION['user_id'])) {
-        error_log("Ruta protegida sin autenticación, redirigiendo a login");
-        header('Location: ' . BASE_URL . '/login');
-        exit;
+    // Cargar el controlador
+    $controllerFile = __DIR__ . "/app/controllers/{$controller}.php";
+    if (!file_exists($controllerFile)) {
+        throw new Exception('Página no encontrada', 404);
     }
-
-    // Enrutamiento principal
-    switch ($route) {
-        case '/':
-        case '':
-            if (isset($_SESSION['user_id'])) {
-                header('Location: ' . BASE_URL . '/dashboard');
-            } else {
-                header('Location: ' . BASE_URL . '/login');
-            }
-            exit;
-
-        case '/login':
-            require_once __DIR__ . '/app/controllers/AuthController.php';
-            $controller = new AuthController();
-            if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-                $controller->login();
-            } else {
-                $controller->showLogin();
-            }
-            break;
-
-        case '/logout':
-            require_once __DIR__ . '/app/controllers/AuthController.php';
-            $controller = new AuthController();
-            $controller->logout();
-            break;
-
-        case '/dashboard':
-            require_once __DIR__ . '/app/controllers/DashboardController.php';
-            $controller = new DashboardController();
-            $controller->index();
-            break;
-
-        case '/clients':
-            require_once __DIR__ . '/app/controllers/ClientController.php';
-            $controller = new ClientController();
-            $controller->index();
-            break;
-
-        case '/clients/create':
-            require_once __DIR__ . '/app/controllers/ClientController.php';
-            $controller = new ClientController();
-            $controller->create();
-            break;
-
-        case '/clients/store':
-            if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-                header('Location: ' . BASE_URL . '/clients/create');
-                exit;
-            }
-            require_once __DIR__ . '/app/controllers/ClientController.php';
-            $controller = new ClientController();
-            $controller->store();
-            break;
-
-        case '/clients/upload-xml':
-            require_once __DIR__ . '/app/controllers/ClientController.php';
-            $controller = new ClientController();
-            if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-                $controller->uploadXml();
-            } else {
-                $controller->showUploadXml();
-            }
-            break;
-
-        case '/clients/process-csf':
-            if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-                header('HTTP/1.1 405 Method Not Allowed');
-                exit;
-            }
-            require_once __DIR__ . '/app/controllers/ClientController.php';
-            $controller = new ClientController();
-            $controller->processCSF();
-            break;
-
-        case '/reports':
-            require_once __DIR__ . '/app/controllers/ReportController.php';
-            $controller = new ReportController();
-            $controller->index();
-            break;
-
-        case '/forgot-password':
-            require_once __DIR__ . '/app/controllers/AuthController.php';
-            $controller = new AuthController();
-            if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-                $controller->processForgotPassword();
-            } else {
-                $controller->showForgotPassword();
-            }
-            break;
-
-        case '/reset-password':
-            require_once __DIR__ . '/app/controllers/AuthController.php';
-            $controller = new AuthController();
-            if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-                $controller->processResetPassword();
-            } else {
-                $controller->showResetPassword();
-            }
-            break;
-
-        default:
-            // Página 404
+    
+    require_once $controllerFile;
+    $controllerInstance = new $controller();
+    
+    // Verificar si el método existe
+    if (!method_exists($controllerInstance, $action)) {
+        throw new Exception('Página no encontrada', 404);
+    }
+    
+    // Ejecutar la acción
+    $controllerInstance->$action();
+    
+} catch (Exception $e) {
+    error_log("Error en enrutamiento: " . $e->getMessage());
+    
+    switch ($e->getCode()) {
+        case 404:
             header("HTTP/1.0 404 Not Found");
             include __DIR__ . '/app/views/404.php';
             break;
+        default:
+            if (APP_DEBUG) {
+                echo "<h1>Error</h1>";
+                echo "<pre>";
+                echo "Mensaje: " . $e->getMessage() . "\n\n";
+                echo "Archivo: " . $e->getFile() . "\n";
+                echo "Línea: " . $e->getLine() . "\n\n";
+                echo "Stack trace:\n" . $e->getTraceAsString();
+                echo "</pre>";
+            } else {
+                include __DIR__ . '/app/views/error.php';
+            }
     }
-
-} catch (Throwable $e) {
-    error_log("Error crítico: " . $e->getMessage());
-    error_log("Stack trace: " . $e->getTraceAsString());
-    
-    if (APP_DEBUG) {
-        echo "<h1>Error Crítico</h1>";
-        echo "<pre>";
-        echo "Mensaje: " . $e->getMessage() . "\n\n";
-        echo "Archivo: " . $e->getFile() . "\n";
-        echo "Línea: " . $e->getLine() . "\n\n";
-        echo "Stack trace:\n" . $e->getTraceAsString();
-        echo "</pre>";
-    } else {
-        include __DIR__ . '/app/views/error.php';
-    }
-}
-
-// Enviar la salida almacenada en el buffer
-ob_end_flush(); 
+} finally {
+    // Enviar la salida almacenada en el buffer
+    ob_end_flush();
+} 

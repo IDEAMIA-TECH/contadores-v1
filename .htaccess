@@ -45,4 +45,19 @@ RewriteRule ^(.*)$ index.php/$1 [L]
     ExpiresByType image/png "access plus 1 year"
     ExpiresByType text/css "access plus 1 month"
     ExpiresByType application/javascript "access plus 1 month"
+</IfModule>
+
+RewriteEngine On
+RewriteBase /contadores-v1/
+
+# Si el archivo o directorio existe, servirlo directamente
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+
+# Redirigir todo lo demás a index.php
+RewriteRule ^(.*)$ index.php [QSA,L]
+
+# Permitir acceso a la carpeta public
+<IfModule mod_headers.c>
+    Header set Access-Control-Allow-Origin "*"
 </IfModule> 
