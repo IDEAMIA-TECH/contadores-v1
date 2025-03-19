@@ -1,13 +1,16 @@
 <?php
+// Cargar configuración primero
+require_once __DIR__ . '/app/config/config.php';
+
 // Mostrar todos los errores en desarrollo
 error_reporting(E_ALL);
-ini_set('display_errors', 1);
-ini_set('display_startup_errors', 1);
+ini_set('display_errors', APP_DEBUG ? 1 : 0);
+ini_set('display_startup_errors', APP_DEBUG ? 1 : 0);
 
 // Configurar el manejador de errores
 set_error_handler(function($errno, $errstr, $errfile, $errline) {
     error_log("Error [$errno] $errstr en $errfile:$errline");
-    if (APP_ENV !== 'production') {
+    if (APP_DEBUG) {
         echo "<h1>Error</h1>";
         echo "<p>$errstr</p>";
         echo "<p>Archivo: $errfile</p>";
@@ -19,7 +22,7 @@ set_error_handler(function($errno, $errstr, $errfile, $errline) {
 set_exception_handler(function($e) {
     error_log("Excepción no capturada: " . $e->getMessage());
     error_log("Stack trace: " . $e->getTraceAsString());
-    if (APP_ENV !== 'production') {
+    if (APP_DEBUG) {
         echo "<h1>Error</h1>";
         echo "<pre>";
         echo "Mensaje: " . $e->getMessage() . "\n\n";
@@ -27,6 +30,8 @@ set_exception_handler(function($e) {
         echo "Línea: " . $e->getLine() . "\n\n";
         echo "Stack trace:\n" . $e->getTraceAsString();
         echo "</pre>";
+    } else {
+        include __DIR__ . '/app/views/error.php';
     }
 });
 
@@ -34,8 +39,7 @@ try {
     // Verificar mantenimiento
     require_once __DIR__ . '/maintenance.php';
 
-    // Cargar configuración y clases necesarias
-    require_once __DIR__ . '/app/config/config.php';
+    // Cargar clases necesarias
     require_once __DIR__ . '/app/config/Database.php';
     require_once __DIR__ . '/app/config/Security.php';
     require_once __DIR__ . '/app/controllers/AuthController.php';
@@ -48,8 +52,10 @@ try {
 
     // Debug: Mostrar información de la ruta
     $uri = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
-    error_log("URI solicitada: " . $uri);
-    error_log("Método HTTP: " . $_SERVER['REQUEST_METHOD']);
+    if (APP_DEBUG) {
+        error_log("URI solicitada: " . $uri);
+        error_log("Método HTTP: " . $_SERVER['REQUEST_METHOD']);
+    }
 
     // Enrutador básico
     switch ($uri) {
@@ -154,10 +160,7 @@ try {
     error_log("Error crítico: " . $e->getMessage());
     error_log("Stack trace: " . $e->getTraceAsString());
     
-    // Mostrar error amigable en producción
-    if (APP_ENV === 'production') {
-        include __DIR__ . '/app/views/error.php';
-    } else {
+    if (APP_DEBUG) {
         // Mostrar error detallado en desarrollo
         echo "<h1>Error Crítico</h1>";
         echo "<pre>";
@@ -166,5 +169,8 @@ try {
         echo "Línea: " . $e->getLine() . "\n\n";
         echo "Stack trace:\n" . $e->getTraceAsString();
         echo "</pre>";
+    } else {
+        // Mostrar error amigable en producción
+        include __DIR__ . '/app/views/error.php';
     }
 } 
