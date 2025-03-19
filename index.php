@@ -2,8 +2,10 @@
 // Evitar cualquier salida antes de las redirecciones
 ob_start();
 
-// Cargar configuración primero
+// Cargar configuración y dependencias comunes
 require_once __DIR__ . '/app/config/config.php';
+require_once __DIR__ . '/app/config/database.php';
+require_once __DIR__ . '/app/middleware/Security.php';
 
 // Mostrar todos los errores en desarrollo
 error_reporting(E_ALL);

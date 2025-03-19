@@ -1,4 +1,8 @@
 <?php
+require_once __DIR__ . '/../config/database.php';
+require_once __DIR__ . '/../middleware/Security.php';
+require_once __DIR__ . '/../models/Client.php';
+
 class DashboardController {
     private $db;
     private $security;

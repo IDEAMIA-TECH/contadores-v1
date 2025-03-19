@@ -1,7 +1,7 @@
 <?php
 class Database {
     private static $instance = null;
-    private $connection = null;
+    private $connection;
     
     private function __construct() {
         try {
@@ -16,12 +16,8 @@ class Database {
                 ]
             );
         } catch (PDOException $e) {
-            error_log("Error de conexión a la base de datos: " . $e->getMessage());
-            if (APP_DEBUG) {
-                throw new Exception("Error de conexión a la base de datos: " . $e->getMessage());
-            } else {
-                throw new Exception("Error de conexión a la base de datos. Por favor, contacte al administrador.");
-            }
+            error_log("Error de conexión: " . $e->getMessage());
+            throw new Exception("Error de conexión a la base de datos");
         }
     }
     
@@ -33,17 +29,14 @@ class Database {
     }
     
     public function getConnection() {
-        if ($this->connection === null) {
-            throw new Exception("No hay conexión a la base de datos disponible.");
-        }
         return $this->connection;
     }
     
-    // Prevenir clonación
+    // Prevenir clonación del objeto
     private function __clone() {}
     
-    // Prevenir deserialización
+    // Prevenir deserialización del objeto
     public function __wakeup() {
-        throw new Exception("No se puede deserializar una instancia de Database.");
+        throw new Exception("Cannot unserialize singleton");
     }
 } 
