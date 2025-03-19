@@ -191,8 +191,15 @@
             }
 
             const formData = new FormData(form);
+            const submitBtn = document.getElementById('submit-btn');
+            const progressContainer = document.getElementById('progress-container');
+            const progressBar = document.getElementById('progress-bar');
             
             try {
+                // Deshabilitar botón y mostrar progreso
+                submitBtn.disabled = true;
+                progressContainer.classList.remove('hidden');
+                
                 const response = await fetch(form.action, {
                     method: 'POST',
                     body: formData
@@ -201,13 +208,35 @@
                 const result = await response.json();
                 
                 if (result.success) {
-                    window.location.href = `${BASE_URL}/clients/view/${formData.get('client_id')}`;
+                    // Mostrar mensaje de éxito
+                    const message = `Se procesaron ${result.files_processed} archivos correctamente.`;
+                    alert(message);
+                    
+                    // Redireccionar
+                    if (result.redirect_url) {
+                        window.location.href = result.redirect_url;
+                    }
                 } else {
-                    alert(result.message || 'Error al procesar los archivos');
+                    // Mostrar errores si existen
+                    if (result.errors && result.errors.length > 0) {
+                        alert('Errores encontrados:\n' + result.errors.join('\n'));
+                    } else {
+                        alert(result.message || 'Error al procesar los archivos');
+                    }
+                    
+                    // Redireccionar en caso de error si hay URL
+                    if (result.redirect_url) {
+                        window.location.href = result.redirect_url;
+                    }
                 }
             } catch (error) {
                 console.error('Error:', error);
                 alert('Error al subir los archivos');
+            } finally {
+                // Restaurar estado del formulario
+                submitBtn.disabled = false;
+                progressContainer.classList.add('hidden');
+                progressBar.style.width = '0%';
             }
         });
     });

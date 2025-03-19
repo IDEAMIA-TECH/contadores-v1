@@ -418,7 +418,8 @@ class ClientController {
                     'success' => empty($errors),
                     'message' => empty($errors) ? 'Archivos procesados correctamente' : 'Errores al procesar archivos',
                     'errors' => $errors,
-                    'files_processed' => count($uploadedFiles)
+                    'files_processed' => count($uploadedFiles),
+                    'redirect_url' => BASE_URL . '/clients/view/' . $clientId
                 ];
 
                 // Enviar respuesta JSON
@@ -434,7 +435,8 @@ class ClientController {
                 header('Content-Type: application/json');
                 echo json_encode([
                     'success' => false,
-                    'message' => $e->getMessage()
+                    'message' => $e->getMessage(),
+                    'redirect_url' => BASE_URL . '/clients/upload-xml?id=' . ($clientId ?? '')
                 ]);
             } else {
                 $_SESSION['error'] = $e->getMessage();
