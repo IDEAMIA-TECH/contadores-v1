@@ -171,62 +171,93 @@ class ClientController {
                 throw new Exception('No autorizado');
             }
 
-            // Validar token CSRF
-            if (!$this->security->validateCsrfToken($_POST['csrf_token'] ?? '')) {
-                throw new Exception('Token de seguridad inválido');
+            // Si es una solicitud GET, mostrar el formulario
+            if ($_SERVER['REQUEST_METHOD'] === 'GET') {
+                // Obtener el ID del cliente de la URL
+                $id = filter_input(INPUT_GET, 'id', FILTER_VALIDATE_INT);
+                if (!$id) {
+                    throw new Exception('ID de cliente no válido');
+                }
+
+                // Obtener datos del cliente
+                $client = $this->client->getClientById($id);
+                if (!$client) {
+                    throw new Exception('Cliente no encontrado');
+                }
+
+                // Generar token CSRF para el formulario
+                $token = $this->security->generateCsrfToken();
+                
+                include __DIR__ . '/../views/clients/upload-xml.php';
+                return;
             }
 
-            $clientId = filter_input(INPUT_POST, 'client_id', FILTER_VALIDATE_INT);
-            if (!$clientId) {
-                throw new Exception('Cliente no válido');
+            // Para solicitudes POST, procesar la carga del archivo
+            if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+                // Validar token CSRF
+                if (!$this->security->validateCsrfToken($_POST['csrf_token'] ?? '')) {
+                    throw new Exception('Token de seguridad inválido');
+                }
+
+                $clientId = filter_input(INPUT_POST, 'client_id', FILTER_VALIDATE_INT);
+                if (!$clientId) {
+                    throw new Exception('Cliente no válido');
+                }
+
+                // Validar que se haya subido un archivo
+                if (!isset($_FILES['xml_file']) || $_FILES['xml_file']['error'] !== UPLOAD_ERR_OK) {
+                    throw new Exception('No se recibió el archivo XML correctamente');
+                }
+
+                // Validar tipo de archivo
+                $fileInfo = pathinfo($_FILES['xml_file']['name']);
+                if (strtolower($fileInfo['extension']) !== 'xml') {
+                    throw new Exception('El archivo debe ser un XML');
+                }
+
+                // Crear directorio si no existe
+                $uploadDir = ROOT_PATH . '/uploads/xml/';
+                if (!is_dir($uploadDir)) {
+                    mkdir($uploadDir, 0755, true);
+                }
+
+                // Generar nombre único para el archivo
+                $fileName = uniqid('xml_') . '.xml';
+                $filePath = $uploadDir . $fileName;
+
+                // Mover archivo
+                if (!move_uploaded_file($_FILES['xml_file']['tmp_name'], $filePath)) {
+                    throw new Exception('Error al guardar el archivo');
+                }
+
+                // Procesar XML
+                $xmlParser = new CfdiXmlParser();
+                $xmlData = $xmlParser->parse($filePath);
+
+                // Guardar información en la base de datos
+                $xmlModel = new ClientXml($this->db);
+                $xmlData['client_id'] = $clientId;
+                $xmlData['file_path'] = 'xml/' . $fileName;
+                
+                if (!$xmlModel->create($xmlData)) {
+                    throw new Exception('Error al guardar la información del XML');
+                }
+
+                $_SESSION['success'] = 'XML procesado correctamente';
+                header('Location: ' . BASE_URL . '/clients/view/' . $clientId);
+                exit;
             }
-
-            // Validar que se haya subido un archivo
-            if (!isset($_FILES['xml_file']) || $_FILES['xml_file']['error'] !== UPLOAD_ERR_OK) {
-                throw new Exception('No se recibió el archivo XML correctamente');
-            }
-
-            // Validar tipo de archivo
-            $fileInfo = pathinfo($_FILES['xml_file']['name']);
-            if (strtolower($fileInfo['extension']) !== 'xml') {
-                throw new Exception('El archivo debe ser un XML');
-            }
-
-            // Crear directorio si no existe
-            $uploadDir = ROOT_PATH . '/uploads/xml/';
-            if (!is_dir($uploadDir)) {
-                mkdir($uploadDir, 0755, true);
-            }
-
-            // Generar nombre único para el archivo
-            $fileName = uniqid('xml_') . '.xml';
-            $filePath = $uploadDir . $fileName;
-
-            // Mover archivo
-            if (!move_uploaded_file($_FILES['xml_file']['tmp_name'], $filePath)) {
-                throw new Exception('Error al guardar el archivo');
-            }
-
-            // Procesar XML
-            $xmlParser = new CfdiXmlParser();
-            $xmlData = $xmlParser->parse($filePath);
-
-            // Guardar información en la base de datos
-            $xmlModel = new ClientXml($this->db);
-            $xmlData['client_id'] = $clientId;
-            $xmlData['file_path'] = 'xml/' . $fileName;
-            
-            if (!$xmlModel->create($xmlData)) {
-                throw new Exception('Error al guardar la información del XML');
-            }
-
-            $_SESSION['success'] = 'XML procesado correctamente';
-            header('Location: ' . BASE_URL . '/clients/view/' . $clientId);
 
         } catch (Exception $e) {
             error_log("Error en uploadXml: " . $e->getMessage());
             $_SESSION['error'] = $e->getMessage();
-            header('Location: ' . BASE_URL . '/clients/upload-xml?id=' . ($clientId ?? ''));
+            
+            // Redirigir según el tipo de solicitud
+            if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+                header('Location: ' . BASE_URL . '/clients/upload-xml?id=' . ($clientId ?? ''));
+            } else {
+                header('Location: ' . BASE_URL . '/clients');
+            }
             exit;
         }
     }
