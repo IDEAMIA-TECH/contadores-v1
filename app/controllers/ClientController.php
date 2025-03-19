@@ -237,45 +237,104 @@ class ClientController {
                 }
 
                 try {
-                    // Cargar el XML como objeto y registrar los namespaces
+                    // Cargar el XML como objeto
                     $xml = new SimpleXMLElement($xmlContent);
-                    $xml->registerXPathNamespace('cfdi', 'http://www.sat.gob.mx/cfd/4');
-                    $xml->registerXPathNamespace('tfd', 'http://www.sat.gob.mx/TimbreFiscalDigital');
+                    error_log("XML cargado correctamente");
                     
-                    error_log("Contenido del XML: " . $xmlContent);
+                    // Registrar todos los namespaces disponibles
+                    $namespaces = $xml->getDocNamespaces(true);
+                    error_log("Namespaces encontrados: " . print_r($namespaces, true));
                     
-                    // Obtener el TimbreFiscalDigital usando XPath
-                    $tfdNodes = $xml->xpath('//tfd:TimbreFiscalDigital');
-                    if (empty($tfdNodes)) {
-                        throw new Exception('No se encontró el TimbreFiscalDigital en el XML');
+                    // Registrar los namespaces manualmente
+                    foreach ($namespaces as $prefix => $namespace) {
+                        $xml->registerXPathNamespace($prefix ?: 'cfdi', $namespace);
                     }
-                    $tfd = $tfdNodes[0];
                     
-                    error_log("TFD encontrado: " . print_r($tfd, true));
-                    
-                    // Extraer datos del XML con validación
-                    $xmlData = [
-                        'client_id' => $clientId,
-                        'xml_path' => 'xml/' . $fileName,
-                        'uuid' => (string)$tfd['UUID'],
-                        'serie' => (string)$xml['Serie'],
-                        'folio' => (string)$xml['Folio'],
-                        'fecha' => (string)$xml['Fecha'],
-                        'fecha_timbrado' => (string)$tfd['FechaTimbrado'],
-                        'subtotal' => (float)$xml['SubTotal'],
-                        'total' => (float)$xml['Total'],
-                        'tipo_comprobante' => (string)$xml['TipoDeComprobante'],
-                        'forma_pago' => (string)$xml['FormaPago'],
-                        'metodo_pago' => (string)$xml['MetodoPago'],
-                        'moneda' => (string)$xml['Moneda'],
-                        'lugar_expedicion' => (string)$xml['LugarExpedicion']
+                    // Intentar diferentes rutas XPath para encontrar el TimbreFiscalDigital
+                    $tfdPaths = [
+                        '//tfd:TimbreFiscalDigital',
+                        '//TimbreFiscalDigital',
+                        '//*[local-name()="TimbreFiscalDigital"]'
                     ];
                     
-                    // Obtener datos del Emisor y Receptor usando XPath
-                    $emisor = $xml->xpath('//cfdi:Emisor')[0];
-                    $receptor = $xml->xpath('//cfdi:Receptor')[0];
+                    $tfd = null;
+                    foreach ($tfdPaths as $path) {
+                        error_log("Intentando ruta XPath: " . $path);
+                        $nodes = $xml->xpath($path);
+                        if (!empty($nodes)) {
+                            $tfd = $nodes[0];
+                            error_log("TFD encontrado usando: " . $path);
+                            break;
+                        }
+                    }
                     
-                    // Agregar datos del emisor y receptor
+                    if (!$tfd) {
+                        error_log("XML completo: " . $xml->asXML());
+                        throw new Exception('No se encontró el TimbreFiscalDigital en el XML');
+                    }
+                    
+                    // Extraer datos del XML con validación y logs
+                    $xmlData = [
+                        'client_id' => $clientId,
+                        'xml_path' => 'xml/' . $fileName
+                    ];
+                    
+                    // Extraer UUID y fecha de timbrado
+                    $uuid = (string)$tfd['UUID'];
+                    $fechaTimbrado = (string)$tfd['FechaTimbrado'];
+                    
+                    error_log("UUID encontrado: " . $uuid);
+                    error_log("Fecha de timbrado encontrada: " . $fechaTimbrado);
+                    
+                    if (empty($uuid)) {
+                        throw new Exception('UUID no encontrado en el XML');
+                    }
+                    
+                    $xmlData['uuid'] = $uuid;
+                    $xmlData['fecha_timbrado'] = $fechaTimbrado;
+                    
+                    // Extraer datos del comprobante
+                    $comprobante = [
+                        'Serie' => (string)$xml['Serie'],
+                        'Folio' => (string)$xml['Folio'],
+                        'Fecha' => (string)$xml['Fecha'],
+                        'SubTotal' => (float)$xml['SubTotal'],
+                        'Total' => (float)$xml['Total'],
+                        'TipoDeComprobante' => (string)$xml['TipoDeComprobante'],
+                        'FormaPago' => (string)$xml['FormaPago'],
+                        'MetodoPago' => (string)$xml['MetodoPago'],
+                        'Moneda' => (string)$xml['Moneda'],
+                        'LugarExpedicion' => (string)$xml['LugarExpedicion']
+                    ];
+                    
+                    error_log("Datos del comprobante: " . print_r($comprobante, true));
+                    
+                    // Agregar datos del comprobante al array principal
+                    $xmlData = array_merge($xmlData, [
+                        'serie' => $comprobante['Serie'],
+                        'folio' => $comprobante['Folio'],
+                        'fecha' => $comprobante['Fecha'],
+                        'subtotal' => $comprobante['SubTotal'],
+                        'total' => $comprobante['Total'],
+                        'tipo_comprobante' => $comprobante['TipoDeComprobante'],
+                        'forma_pago' => $comprobante['FormaPago'],
+                        'metodo_pago' => $comprobante['MetodoPago'],
+                        'moneda' => $comprobante['Moneda'],
+                        'lugar_expedicion' => $comprobante['LugarExpedicion']
+                    ]);
+                    
+                    // Extraer datos del emisor y receptor
+                    $emisor = $xml->xpath('//cfdi:Emisor')[0] ?? null;
+                    $receptor = $xml->xpath('//cfdi:Receptor')[0] ?? null;
+                    
+                    if (!$emisor || !$receptor) {
+                        throw new Exception('No se encontraron datos de emisor o receptor');
+                    }
+                    
+                    error_log("Datos del emisor: " . print_r($emisor, true));
+                    error_log("Datos del receptor: " . print_r($receptor, true));
+                    
+                    // Agregar datos de emisor y receptor
                     $xmlData = array_merge($xmlData, [
                         'emisor_rfc' => (string)$emisor['Rfc'],
                         'emisor_nombre' => (string)$emisor['Nombre'],
@@ -287,15 +346,15 @@ class ClientController {
                         'receptor_uso_cfdi' => (string)$receptor['UsoCFDI']
                     ]);
                     
-                    // Obtener impuestos
-                    $impuestos = $xml->xpath('//cfdi:Impuestos')[0];
-                    $xmlData['total_impuestos_trasladados'] = (float)($impuestos['TotalImpuestosTrasladados'] ?? 0);
+                    // Extraer impuestos
+                    $impuestos = $xml->xpath('//cfdi:Impuestos')[0] ?? null;
+                    $xmlData['total_impuestos_trasladados'] = $impuestos ? (float)$impuestos['TotalImpuestosTrasladados'] : 0;
                     
                     // Agregar timestamps
                     $xmlData['created_at'] = date('Y-m-d H:i:s');
                     $xmlData['updated_at'] = date('Y-m-d H:i:s');
                     
-                    error_log("Datos extraídos del XML: " . print_r($xmlData, true));
+                    error_log("Datos finales a guardar: " . print_r($xmlData, true));
                     
                     // Validar campos requeridos antes de guardar
                     $requiredFields = [
