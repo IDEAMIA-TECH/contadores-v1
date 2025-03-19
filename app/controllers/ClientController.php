@@ -2,6 +2,8 @@
 require_once __DIR__ . '/../config/database.php';
 require_once __DIR__ . '/../models/Client.php';
 require_once __DIR__ . '/../helpers/PdfParser.php';
+require_once __DIR__ . '/../models/ClientXml.php';
+require_once __DIR__ . '/../helpers/XmlParser.php';
 
 class ClientController {
     private $db;
@@ -102,5 +104,85 @@ class ClientController {
         } catch (Exception $e) {
             echo json_encode(['error' => $e->getMessage()]);
         }
+    }
+    
+    public function showUploadXml() {
+        if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'contador') {
+            header('Location: ' . BASE_URL . '/login');
+            exit;
+        }
+        
+        $clientId = filter_input(INPUT_GET, 'id', FILTER_VALIDATE_INT);
+        if (!$clientId) {
+            $_SESSION['error'] = 'Cliente no válido';
+            header('Location: ' . BASE_URL . '/clients');
+            exit;
+        }
+        
+        $client = $this->client->find($clientId);
+        if (!$client) {
+            $_SESSION['error'] = 'Cliente no encontrado';
+            header('Location: ' . BASE_URL . '/clients');
+            exit;
+        }
+        
+        $token = $this->security->generateCsrfToken();
+        include __DIR__ . '/../views/clients/upload-xml.php';
+    }
+    
+    public function uploadXml() {
+        if (!$this->security->validateCsrfToken($_POST['csrf_token'] ?? '')) {
+            $_SESSION['error'] = 'Token de seguridad inválido';
+            header('Location: ' . BASE_URL . '/clients');
+            exit;
+        }
+        
+        $clientId = filter_input(INPUT_POST, 'client_id', FILTER_VALIDATE_INT);
+        if (!$clientId) {
+            $_SESSION['error'] = 'Cliente no válido';
+            header('Location: ' . BASE_URL . '/clients');
+            exit;
+        }
+        
+        if (!isset($_FILES['xml']) || $_FILES['xml']['error'] !== UPLOAD_ERR_OK) {
+            $_SESSION['error'] = 'Error al subir el archivo';
+            header('Location: ' . BASE_URL . "/clients/upload-xml?id=$clientId");
+            exit;
+        }
+        
+        try {
+            $xmlPath = $this->processXmlFile($_FILES['xml']);
+            $parser = new XmlParser();
+            $xmlData = $parser->parse($xmlPath);
+            
+            $xmlData['client_id'] = $clientId;
+            $xmlData['xml_path'] = $xmlPath;
+            
+            $clientXml = new ClientXml($this->db);
+            $clientXml->create($xmlData);
+            
+            $_SESSION['success'] = 'XML procesado correctamente';
+            header('Location: ' . BASE_URL . "/clients/view?id=$clientId");
+        } catch (Exception $e) {
+            $_SESSION['error'] = $e->getMessage();
+            header('Location: ' . BASE_URL . "/clients/upload-xml?id=$clientId");
+        }
+        exit;
+    }
+    
+    private function processXmlFile($file) {
+        $targetDir = UPLOAD_PATH . '/xml/';
+        if (!file_exists($targetDir)) {
+            mkdir($targetDir, 0777, true);
+        }
+        
+        $fileName = uniqid() . '_' . basename($file['name']);
+        $targetFile = $targetDir . $fileName;
+        
+        if (move_uploaded_file($file['tmp_name'], $targetFile)) {
+            return $targetFile;
+        }
+        
+        throw new Exception('Error al guardar el archivo XML');
     }
 } 

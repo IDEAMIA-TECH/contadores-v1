@@ -154,6 +154,19 @@ try {
             }
             break;
 
+        case BASE_URL . '/clients/upload-xml':
+            if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'contador') {
+                header('Location: ' . BASE_URL . '/login');
+                exit;
+            }
+            $controller = new ClientController();
+            if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+                $controller->uploadXml();
+            } else {
+                $controller->showUploadXml();
+            }
+            break;
+
         default:
             if (!isset($_SESSION['user_id'])) {
                 header('Location: ' . BASE_URL . '/login');
