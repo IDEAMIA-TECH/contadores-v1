@@ -680,23 +680,44 @@ class ClientController {
                 throw new Exception('Cliente no encontrado');
             }
 
-            // Aquí implementarías la lógica de conexión con el SAT
-            // Por ahora, simularemos la descarga
+            // Crear un archivo ZIP temporal
+            $tempFile = tempnam(sys_get_temp_dir(), 'sat_');
+            $zip = new ZipArchive();
             
-            // Simular proceso de descarga
-            sleep(1); // Simular tiempo de proceso
+            if ($zip->open($tempFile, ZipArchive::CREATE) !== TRUE) {
+                throw new Exception('No se pudo crear el archivo ZIP');
+            }
 
-            // Enviar respuesta
-            header('Content-Type: application/zip');
-            header('Content-Disposition: attachment; filename="facturas_' . $tipo . '.zip"');
+            // Aquí implementarías la lógica real de conexión con el SAT
+            // Por ahora, creamos un archivo de ejemplo
+            $dummyContent = "Simulación de XML {$tipo} para el cliente {$client['business_name']}\n";
+            $dummyContent .= "Fecha Inicio: {$fechaInicio}\n";
+            $dummyContent .= "Fecha Fin: {$fechaFin}\n";
             
-            // Aquí implementarías la descarga real de los XMLs
-            echo "Simulación de descarga de XMLs del SAT";
+            // Agregar archivo de ejemplo al ZIP
+            $zip->addFromString("ejemplo_{$tipo}.txt", $dummyContent);
+            $zip->close();
+
+            // Enviar el archivo
+            header('Content-Type: application/zip');
+            header('Content-Disposition: attachment; filename="facturas_' . $tipo . '_' . date('Y-m-d') . '.zip"');
+            header('Content-Length: ' . filesize($tempFile));
+            header('Pragma: no-cache');
+            header('Expires: 0');
+            
+            readfile($tempFile);
+            unlink($tempFile); // Eliminar archivo temporal
+            exit;
 
         } catch (Exception $e) {
             error_log("Error en downloadSat: " . $e->getMessage());
             http_response_code(500);
-            echo json_encode(['error' => $e->getMessage()]);
+            header('Content-Type: application/json');
+            echo json_encode([
+                'success' => false,
+                'error' => $e->getMessage()
+            ]);
+            exit;
         }
     }
 } 

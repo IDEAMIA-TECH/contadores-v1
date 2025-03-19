@@ -256,7 +256,7 @@
         </div>
     </div>
 
-    <!-- Agregar el script para manejar las descargas -->
+    <!-- Actualizar el script de manejo de descargas -->
     <script>
     document.addEventListener('DOMContentLoaded', function() {
         const formEmitidas = document.getElementById('form-emitidas');
@@ -271,6 +271,20 @@
             const progressBar = progressElement.querySelector('.bg-blue-600, .bg-green-600');
             
             try {
+                // Validar fechas
+                const fechaInicio = form.querySelector('[name="fecha_inicio"]').value;
+                const fechaFin = form.querySelector('[name="fecha_fin"]').value;
+                
+                if (!fechaInicio || !fechaFin) {
+                    alert('Por favor, seleccione las fechas de inicio y fin');
+                    return;
+                }
+
+                if (new Date(fechaInicio) > new Date(fechaFin)) {
+                    alert('La fecha de inicio no puede ser posterior a la fecha final');
+                    return;
+                }
+
                 submitBtn.disabled = true;
                 progressElement.classList.remove('hidden');
                 
@@ -283,39 +297,35 @@
                 });
 
                 if (!response.ok) {
-                    throw new Error('Error en la descarga');
+                    const errorData = await response.json();
+                    throw new Error(errorData.error || 'Error en la descarga');
                 }
 
-                const reader = response.body.getReader();
-                const contentLength = +response.headers.get('Content-Length');
-                let receivedLength = 0;
-
-                while(true) {
-                    const {done, value} = await reader.read();
-                    
-                    if (done) {
-                        break;
+                // Verificar si es una respuesta JSON (error) o un archivo
+                const contentType = response.headers.get('content-type');
+                if (contentType && contentType.includes('application/json')) {
+                    const jsonResponse = await response.json();
+                    if (!jsonResponse.success) {
+                        throw new Error(jsonResponse.error || 'Error en la descarga');
                     }
-
-                    receivedLength += value.length;
-                    const progress = (receivedLength / contentLength) * 100;
-                    progressBar.style.width = progress + '%';
+                } else {
+                    // Es un archivo, proceder con la descarga
+                    const blob = await response.blob();
+                    const url = window.URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    const fileName = `facturas_${formData.get('tipo')}_${fechaInicio}_${fechaFin}.zip`;
+                    
+                    a.href = url;
+                    a.download = fileName;
+                    document.body.appendChild(a);
+                    a.click();
+                    window.URL.revokeObjectURL(url);
+                    document.body.removeChild(a);
                 }
-
-                // Procesar la respuesta
-                const blob = await response.blob();
-                const url = window.URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                a.href = url;
-                a.download = `facturas_${formData.get('tipo')}.zip`;
-                document.body.appendChild(a);
-                a.click();
-                window.URL.revokeObjectURL(url);
-                document.body.removeChild(a);
 
             } catch (error) {
                 console.error('Error:', error);
-                alert('Error al descargar los XMLs: ' + error.message);
+                alert(error.message || 'Error al descargar los XMLs');
             } finally {
                 submitBtn.disabled = false;
                 progressElement.classList.add('hidden');
@@ -323,8 +333,13 @@
             }
         }
 
-        formEmitidas.addEventListener('submit', (e) => handleDownload(e, formEmitidas, progressEmitidas));
-        formRecibidas.addEventListener('submit', (e) => handleDownload(e, formRecibidas, progressRecibidas));
+        if (formEmitidas) {
+            formEmitidas.addEventListener('submit', (e) => handleDownload(e, formEmitidas, progressEmitidas));
+        }
+        
+        if (formRecibidas) {
+            formRecibidas.addEventListener('submit', (e) => handleDownload(e, formRecibidas, progressRecibidas));
+        }
     });
     </script>
 
