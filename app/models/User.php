@@ -7,14 +7,18 @@ class User {
     }
     
     public function findByUsername($username) {
-        $stmt = $this->db->prepare('
-            SELECT u.* 
-            FROM users u 
-            WHERE u.username = :username
-        ');
-        
-        $stmt->execute(['username' => $username]);
-        return $stmt->fetch();
+        try {
+            $stmt = $this->db->prepare("
+                SELECT * FROM users 
+                WHERE username = ? 
+                LIMIT 1
+            ");
+            $stmt->execute([$username]);
+            return $stmt->fetch();
+        } catch (PDOException $e) {
+            error_log("Error en findByUsername: " . $e->getMessage());
+            throw new Exception("Error al buscar usuario");
+        }
     }
     
     public function updateLastLogin($userId) {
