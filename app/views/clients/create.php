@@ -196,13 +196,19 @@
         
         uploadButton.addEventListener('click', function() {
             if (!csfFile.files.length) {
+                console.error('No se seleccionó ningún archivo');
                 alert('Por favor seleccione un archivo PDF');
                 return;
             }
 
+            console.log('Archivo seleccionado:', csfFile.files[0].name);
+            
             const formData = new FormData();
             formData.append('csf_file', csfFile.files[0]);
             formData.append('csrf_token', document.querySelector('input[name="csrf_token"]').value);
+
+            console.log('Iniciando carga del archivo...');
+            console.log('CSRF Token:', document.querySelector('input[name="csrf_token"]').value);
 
             // Mostrar indicador de carga
             uploadButton.disabled = true;
@@ -212,10 +218,18 @@
                 method: 'POST',
                 body: formData
             })
-            .then(response => response.json())
+            .then(response => {
+                console.log('Respuesta del servidor:', response.status, response.statusText);
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                return response.json();
+            })
             .then(data => {
+                console.log('Datos recibidos:', data);
                 if (data.success) {
                     // Actualizar los campos del formulario
+                    console.log('Actualizando campos del formulario...');
                     document.getElementById('rfc').value = data.data.rfc || '';
                     document.getElementById('business_name').value = data.data.business_name || '';
                     document.getElementById('legal_name').value = data.data.legal_name || '';
@@ -229,16 +243,23 @@
                     document.getElementById('zip_code').value = data.data.zip_code || '';
                     document.getElementById('csf_path').value = data.data.csf_path || '';
                     
+                    console.log('Formulario actualizado correctamente');
                     alert('Constancia procesada correctamente');
                 } else {
+                    console.error('Error en la respuesta:', data);
                     alert(data.message || 'Error al procesar el archivo');
                 }
             })
             .catch(error => {
-                console.error('Error:', error);
-                alert('Error al procesar el archivo');
+                console.error('Error detallado:', {
+                    message: error.message,
+                    name: error.name,
+                    stack: error.stack
+                });
+                alert('Error al procesar el archivo: ' + error.message);
             })
             .finally(() => {
+                console.log('Proceso finalizado');
                 uploadButton.disabled = false;
                 uploadButton.textContent = 'Cargar y Procesar';
             });
