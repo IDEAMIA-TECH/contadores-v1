@@ -19,27 +19,34 @@
                     <label class="block text-sm font-medium text-gray-700 mb-2">Cliente</label>
                     <select name="client_id" class="w-full rounded-md border-gray-300">
                         <option value="">Todos los clientes</option>
-                        <!-- Agregar opciones de clientes dinámicamente -->
+                        <?php foreach ($clients as $client): ?>
+                            <option value="<?php echo htmlspecialchars($client['id']); ?>" 
+                                    <?php echo ($filters['client_id'] == $client['id']) ? 'selected' : ''; ?>>
+                                <?php echo htmlspecialchars($client['business_name']); ?>
+                            </option>
+                        <?php endforeach; ?>
                     </select>
                 </div>
 
                 <div>
                     <label class="block text-sm font-medium text-gray-700 mb-2">Fecha Inicio</label>
-                    <input type="date" name="start_date" class="w-full rounded-md border-gray-300">
+                    <input type="date" name="start_date" class="w-full rounded-md border-gray-300" 
+                           value="<?php echo htmlspecialchars($filters['start_date'] ?? ''); ?>">
                 </div>
 
                 <div>
                     <label class="block text-sm font-medium text-gray-700 mb-2">Fecha Fin</label>
-                    <input type="date" name="end_date" class="w-full rounded-md border-gray-300">
+                    <input type="date" name="end_date" class="w-full rounded-md border-gray-300"
+                           value="<?php echo htmlspecialchars($filters['end_date'] ?? ''); ?>">
                 </div>
 
                 <div>
                     <label class="block text-sm font-medium text-gray-700 mb-2">Tipo de Comprobante</label>
                     <select name="type" class="w-full rounded-md border-gray-300">
                         <option value="">Todos</option>
-                        <option value="I">Ingreso</option>
-                        <option value="E">Egreso</option>
-                        <option value="P">Pago</option>
+                        <option value="I" <?php echo ($filters['type'] == 'I') ? 'selected' : ''; ?>>Ingreso</option>
+                        <option value="E" <?php echo ($filters['type'] == 'E') ? 'selected' : ''; ?>>Egreso</option>
+                        <option value="P" <?php echo ($filters['type'] == 'P') ? 'selected' : ''; ?>>Pago</option>
                     </select>
                 </div>
 

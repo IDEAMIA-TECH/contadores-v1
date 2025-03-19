@@ -2,16 +2,19 @@
 require_once __DIR__ . '/../config/database.php';
 require_once __DIR__ . '/../middleware/Security.php';
 require_once __DIR__ . '/../models/Report.php';
+require_once __DIR__ . '/../models/Client.php';
 
 class ReportController {
     private $db;
     private $security;
     private $report;
+    private $client;
     
     public function __construct() {
         $this->db = Database::getInstance()->getConnection();
         $this->security = new Security();
         $this->report = new Report($this->db);
+        $this->client = new Client($this->db);
     }
     
     public function index() {
@@ -19,6 +22,9 @@ class ReportController {
             if (!$this->security->isAuthenticated()) {
                 throw new Exception('No autorizado');
             }
+            
+            // Obtener lista de clientes para el dropdown
+            $clients = $this->client->getAllClients();
             
             // Obtener parámetros de filtrado
             $filters = [
