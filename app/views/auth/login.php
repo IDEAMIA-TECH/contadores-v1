@@ -43,8 +43,8 @@
                     </button>
                 </div>
                 <div class="text-center mt-4">
-                    <a href="/forgot-password" class="text-sm text-blue-600 hover:text-blue-800">
-                        ¿Olvidó su contraseña?
+                    <a href="<?php echo BASE_URL; ?>/forgot-password" class="text-sm text-blue-600 hover:text-blue-800">
+                        ¿Olvidaste tu contraseña?
                     </a>
                 </div>
             </form>

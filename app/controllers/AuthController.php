@@ -107,7 +107,7 @@ class AuthController {
     public function processForgotPassword() {
         if (!$this->security->validateCsrfToken($_POST['csrf_token'] ?? '')) {
             $_SESSION['error'] = 'Token de seguridad inválido';
-            header('Location: /forgot-password');
+            header('Location: ' . BASE_URL . '/forgot-password');
             exit;
         }
         
@@ -115,7 +115,7 @@ class AuthController {
         
         if (!$email || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
             $_SESSION['error'] = 'Por favor ingrese un email válido';
-            header('Location: /forgot-password');
+            header('Location: ' . BASE_URL . '/forgot-password');
             exit;
         }
         
@@ -128,7 +128,7 @@ class AuthController {
             
             if ($this->user->saveResetToken($user['id'], $token, $expiry)) {
                 // Enviar email
-                $resetLink = APP_URL . "/reset-password?token=" . $token;
+                $resetLink = APP_URL . BASE_URL . "/reset-password?token=" . $token;
                 $this->sendResetEmail($email, $resetLink);
                 
                 $_SESSION['success'] = 'Se ha enviado un enlace de recuperación a su email';
@@ -140,7 +140,7 @@ class AuthController {
             $_SESSION['success'] = 'Si el email existe, recibirá instrucciones para restablecer su contraseña';
         }
         
-        header('Location: /forgot-password');
+        header('Location: ' . BASE_URL . '/forgot-password');
         exit;
     }
     
@@ -149,18 +149,18 @@ class AuthController {
         
         if (empty($token) || !$this->user->findByResetToken($token)) {
             $_SESSION['error'] = 'Token inválido o expirado';
-            header('Location: /login');
+            header('Location: ' . BASE_URL . '/login');
             exit;
         }
         
         $csrfToken = $this->security->generateCsrfToken();
-        require_once __DIR__ . '/../views/auth/reset-password.php';
+        include __DIR__ . '/../views/auth/reset-password.php';
     }
     
     public function processResetPassword() {
         if (!$this->security->validateCsrfToken($_POST['csrf_token'] ?? '')) {
             $_SESSION['error'] = 'Token de seguridad inválido';
-            header('Location: /login');
+            header('Location: ' . BASE_URL . '/login');
             exit;
         }
         
@@ -170,13 +170,13 @@ class AuthController {
         
         if (empty($password) || strlen($password) < 8) {
             $_SESSION['error'] = 'La contraseña debe tener al menos 8 caracteres';
-            header("Location: /reset-password?token=$token");
+            header('Location: ' . BASE_URL . '/reset-password?token=' . $token);
             exit;
         }
         
         if ($password !== $passwordConfirm) {
             $_SESSION['error'] = 'Las contraseñas no coinciden';
-            header("Location: /reset-password?token=$token");
+            header('Location: ' . BASE_URL . '/reset-password?token=' . $token);
             exit;
         }
         
@@ -184,7 +184,7 @@ class AuthController {
         
         if (!$user) {
             $_SESSION['error'] = 'Token inválido o expirado';
-            header('Location: /login');
+            header('Location: ' . BASE_URL . '/login');
             exit;
         }
         
@@ -192,10 +192,10 @@ class AuthController {
         
         if ($this->user->updatePassword($user['id'], $hashedPassword)) {
             $_SESSION['success'] = 'Contraseña actualizada correctamente';
-            header('Location: /login');
+            header('Location: ' . BASE_URL . '/login');
         } else {
             $_SESSION['error'] = 'Error al actualizar la contraseña';
-            header("Location: /reset-password?token=$token");
+            header('Location: ' . BASE_URL . '/reset-password?token=' . $token);
         }
         exit;
     }

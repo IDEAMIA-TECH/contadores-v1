@@ -136,12 +136,21 @@ try {
             include __DIR__ . '/app/views/profile.php';
             break;
 
+        case BASE_URL . '/forgot-password':
+            $controller = new AuthController();
+            if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+                $controller->processForgotPassword();
+            } else {
+                $controller->showForgotPassword();
+            }
+            break;
+
         case BASE_URL . '/reset-password':
             $controller = new AuthController();
             if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-                $controller->resetPassword();
+                $controller->processResetPassword();
             } else {
-                $controller->showResetForm();
+                $controller->showResetPassword();
             }
             break;
 
