@@ -143,6 +143,11 @@
                 return;
             }
 
+            // Validar tamaño de archivos
+            if (!validateFiles(xmlFiles)) {
+                return;
+            }
+
             // Agregar nuevos archivos
             files = [...files, ...xmlFiles];
             updateFileList();
@@ -200,12 +205,27 @@
                 submitBtn.disabled = true;
                 progressContainer.classList.remove('hidden');
                 
+                // Agregar log de la petición
+                console.log('Enviando petición a:', form.action);
+                console.log('Número de archivos:', files.length);
+
                 const response = await fetch(form.action, {
                     method: 'POST',
                     body: formData
                 });
 
+                // Agregar log de la respuesta
+                console.log('Código de respuesta:', response.status);
+                console.log('Headers:', response.headers);
+
+                // Verificar si la respuesta es JSON
+                const contentType = response.headers.get('content-type');
+                if (!contentType || !contentType.includes('application/json')) {
+                    throw new Error(`Respuesta no válida del servidor (${response.status}): ${await response.text()}`);
+                }
+
                 const result = await response.json();
+                console.log('Respuesta del servidor:', result);
                 
                 if (result.success) {
                     // Mostrar mensaje de éxito
@@ -217,12 +237,19 @@
                         window.location.href = result.redirect_url;
                     }
                 } else {
-                    // Mostrar errores si existen
+                    // Mostrar errores detallados
+                    let errorMessage = 'Errores encontrados:\n';
+                    
                     if (result.errors && result.errors.length > 0) {
-                        alert('Errores encontrados:\n' + result.errors.join('\n'));
+                        errorMessage += result.errors.join('\n');
+                    } else if (result.message) {
+                        errorMessage += result.message;
                     } else {
-                        alert(result.message || 'Error al procesar los archivos');
+                        errorMessage += 'Error desconocido al procesar los archivos';
                     }
+                    
+                    console.error('Error detallado:', errorMessage);
+                    alert(errorMessage);
                     
                     // Redireccionar en caso de error si hay URL
                     if (result.redirect_url) {
@@ -230,8 +257,17 @@
                     }
                 }
             } catch (error) {
-                console.error('Error:', error);
-                alert('Error al subir los archivos');
+                // Mejorar el mensaje de error
+                console.error('Error detallado:', error);
+                let errorMessage = 'Error al subir los archivos:\n';
+                errorMessage += error.message || 'Error de conexión con el servidor';
+                
+                // Verificar si hay error de tamaño de archivo
+                if (error.name === 'TypeError' && files.some(f => f.size > 50 * 1024 * 1024)) {
+                    errorMessage += '\nAlgunos archivos pueden ser demasiado grandes.';
+                }
+                
+                alert(errorMessage);
             } finally {
                 // Restaurar estado del formulario
                 submitBtn.disabled = false;
@@ -239,6 +275,32 @@
                 progressBar.style.width = '0%';
             }
         });
+
+        // Agregar función para mostrar el progreso
+        function updateProgress(processed, total) {
+            const progress = (processed / total) * 100;
+            const progressBar = document.getElementById('progress-bar');
+            progressBar.style.width = `${progress}%`;
+        }
+
+        // Agregar validación de tamaño de archivo
+        function validateFiles(fileList) {
+            const maxSize = 50 * 1024 * 1024; // 50MB
+            const invalidFiles = [];
+            
+            for (let file of fileList) {
+                if (file.size > maxSize) {
+                    invalidFiles.push(`${file.name} (${(file.size / 1024 / 1024).toFixed(2)}MB)`);
+                }
+            }
+            
+            if (invalidFiles.length > 0) {
+                alert(`Los siguientes archivos son demasiado grandes (máximo 50MB):\n${invalidFiles.join('\n')}`);
+                return false;
+            }
+            
+            return true;
+        }
     });
     </script>
 
