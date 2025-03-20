@@ -801,8 +801,8 @@ class ClientController {
                     throw new Exception('La llave privada no corresponde al certificado');
                 }
 
-                // Verificar que el certificado esté vigente
-                $now = new \DateTime();
+                // Verificar que el certificado esté vigente usando DateTimeImmutable
+                $now = new \DateTimeImmutable();
                 if (!$certificate->validOn($now)) {
                     throw new Exception('El certificado no está vigente. Válido desde: ' . 
                         $certificate->validFrom()->format('Y-m-d H:i:s') . 
