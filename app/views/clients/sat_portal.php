@@ -182,8 +182,6 @@
         const form = e.target;
         const status = document.getElementById('requestStatus');
         const statusMessage = document.getElementById('statusMessage');
-        const progressBar = document.getElementById('progressBar');
-        const downloadLinks = document.getElementById('downloadLinks');
         
         try {
             status.classList.remove('hidden');
@@ -193,10 +191,20 @@
                 </div>
             `;
             
+            // Crear FormData y agregar datos adicionales si es necesario
+            const formData = new FormData(form);
+            
+            // Debug de los datos que se envían
+            console.log('Enviando datos:', Object.fromEntries(formData));
+            
             const response = await fetch('<?php echo BASE_URL; ?>/clients/download-sat-masivo', {
                 method: 'POST',
-                body: new FormData(form)
+                body: formData
             });
+            
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
             
             const data = await response.json();
             
@@ -209,21 +217,14 @@
                         </div>
                     </div>
                 `;
-                
-                // Iniciar verificación periódica
-                checkRequestStatus(data.requestId);
             } else {
-                statusMessage.innerHTML = `
-                    <div class="bg-red-50 text-red-800 p-4 rounded-md">
-                        ${data.error}
-                    </div>
-                `;
+                throw new Error(data.error || 'Error desconocido');
             }
         } catch (error) {
             console.error('Error:', error);
             statusMessage.innerHTML = `
                 <div class="bg-red-50 text-red-800 p-4 rounded-md">
-                    Error al procesar la solicitud
+                    ${error.message || 'Error al procesar la solicitud'}
                 </div>
             `;
         }

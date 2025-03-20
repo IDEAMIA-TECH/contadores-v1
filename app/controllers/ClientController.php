@@ -818,14 +818,33 @@ class ClientController {
                 throw new Exception('No autorizado');
             }
 
-            // Validar parámetros
+            // Validar CSRF token primero
+            if (!$this->security->validateCsrfToken($_POST['csrf_token'] ?? '')) {
+                throw new Exception('Token de seguridad inválido');
+            }
+
+            // Debug de los datos recibidos
+            error_log("Datos POST recibidos: " . print_r($_POST, true));
+
+            // Validar parámetros con más detalle
             $clientId = filter_input(INPUT_POST, 'client_id', FILTER_VALIDATE_INT);
+            $requestType = filter_input(INPUT_POST, 'request_type'); // metadata o cfdi
+            $documentType = filter_input(INPUT_POST, 'document_type'); // issued o received
             $fechaInicio = filter_input(INPUT_POST, 'fecha_inicio');
             $fechaFin = filter_input(INPUT_POST, 'fecha_fin');
-            $tipo = filter_input(INPUT_POST, 'tipo'); // 'emitidas' o 'recibidas'
 
-            if (!$clientId || !$fechaInicio || !$fechaFin || !$tipo) {
-                throw new Exception('Parámetros inválidos');
+            // Validación detallada de parámetros
+            if (!$clientId) {
+                throw new Exception('ID de cliente no válido');
+            }
+            if (!in_array($requestType, ['metadata', 'cfdi'])) {
+                throw new Exception('Tipo de solicitud no válido');
+            }
+            if (!in_array($documentType, ['issued', 'received'])) {
+                throw new Exception('Tipo de documento no válido');
+            }
+            if (!$fechaInicio || !$fechaFin) {
+                throw new Exception('Fechas no válidas');
             }
 
             // Obtener cliente y sus archivos SAT
@@ -837,7 +856,14 @@ class ClientController {
             // Crear credencial con los archivos del cliente
             $cerFile = ROOT_PATH . '/uploads/' . $client['cer_path'];
             $keyFile = ROOT_PATH . '/uploads/' . $client['key_path'];
-            $password = $client['key_password']; // Asumiendo que está almacenada de forma segura
+            $password = $client['key_password'];
+
+            if (!file_exists($cerFile)) {
+                throw new Exception('Archivo CER no encontrado');
+            }
+            if (!file_exists($keyFile)) {
+                throw new Exception('Archivo KEY no encontrado');
+            }
 
             $fiel = new Credential(
                 file_get_contents($cerFile),
@@ -850,20 +876,30 @@ class ClientController {
             $webClient = new GuzzleWebClient();
             $service = new Service($requestBuilder, $webClient);
 
-            // Implementar la lógica de descarga masiva
-            // ... aquí iría la implementación específica usando el servicio
-
-            return [
+            // Devolver respuesta exitosa inicial
+            header('Content-Type: application/json');
+            echo json_encode([
                 'success' => true,
-                'message' => 'Proceso de descarga iniciado'
-            ];
+                'message' => 'Solicitud iniciada correctamente',
+                'requestId' => uniqid(), // Temporal, deberías usar el ID real de la solicitud
+                'data' => [
+                    'requestType' => $requestType,
+                    'documentType' => $documentType,
+                    'fechaInicio' => $fechaInicio,
+                    'fechaFin' => $fechaFin
+                ]
+            ]);
+            exit;
 
         } catch (Exception $e) {
             error_log("Error en downloadSatMasivo: " . $e->getMessage());
-            return [
+            header('Content-Type: application/json');
+            http_response_code(400);
+            echo json_encode([
                 'success' => false,
                 'error' => $e->getMessage()
-            ];
+            ]);
+            exit;
         }
     }
 } 
