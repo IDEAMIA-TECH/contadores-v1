@@ -19,6 +19,8 @@ use PhpCfdi\Credentials\Certificate;
 use PhpCfdi\Credentials\PrivateKey;
 use PhpCfdi\SatWsDescargaMasiva\Shared\DateTime as SatDateTime;
 use PhpCfdi\SatWsDescargaMasiva\Shared\DateTimePeriod;
+use PhpCfdi\SatWsDescargaMasiva\Shared\DownloadType;
+use PhpCfdi\SatWsDescargaMasiva\Shared\RequestType;
 
 class ClientController {
     private $db;
@@ -919,11 +921,11 @@ class ClientController {
                     $period = new DateTimePeriod($startDateTime, $endDateTime);
                     error_log("Periodo creado exitosamente");
 
-                    // Crear la solicitud con el periodo
+                    // Crear la solicitud con el periodo y los tipos enumerados correctos
                     $request = QueryParameters::create(
-                        $period,                                    // Periodo de tiempo
-                        $documentType === 'issued' ? 'I' : 'R',    // I para emitidos, R para recibidos
-                        $requestType === 'metadata' ? 'metadata' : 'xml'  // metadata o xml
+                        $period,
+                        $documentType === 'issued' ? RequestType::emitidos() : RequestType::recibidos(),
+                        $requestType === 'metadata' ? DownloadType::metadata() : DownloadType::cfdi()
                     );
                     error_log("Parámetros de consulta creados exitosamente");
 
