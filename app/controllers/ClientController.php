@@ -104,14 +104,22 @@ class ClientController {
 
             // Procesar contraseña de la FIEL si se proporcionó
             if (!empty($_POST['key_password'])) {
-                // Guardar la contraseña encriptada de manera reversible para la FIEL
-                $data['key_password'] = openssl_encrypt(
+                // Log de la contraseña original
+                error_log("Contraseña original a guardar: " . $_POST['key_password']);
+                
+                // Encriptar la contraseña
+                $encryptedPassword = openssl_encrypt(
                     $_POST['key_password'],
                     'AES-256-CBC',
                     getenv('APP_KEY'),
                     0,
                     substr(getenv('APP_KEY'), 0, 16)
                 );
+                
+                // Log de la contraseña encriptada
+                error_log("Contraseña encriptada para BD: " . $encryptedPassword);
+                
+                $data['key_password'] = $encryptedPassword;
             }
             
             if ($this->client->create($data)) {
@@ -899,37 +907,49 @@ class ClientController {
                     throw new Exception('No se ha configurado la contraseña de la FIEL');
                 }
 
-                // Intentar usar la contraseña directamente primero
-                $rawPassword = $client['key_password'];
+                // Log de la contraseña encriptada
+                error_log("Contraseña encriptada en BD: " . $client['key_password']);
+                
+                // Intentar desencriptar la contraseña
+                $decryptedPassword = openssl_decrypt(
+                    $client['key_password'],
+                    'AES-256-CBC',
+                    getenv('APP_KEY'),
+                    0,
+                    substr(getenv('APP_KEY'), 0, 16)
+                );
+                
+                // Log de la contraseña desencriptada
+                error_log("Contraseña desencriptada: " . ($decryptedPassword ?: 'ERROR AL DESENCRIPTAR'));
+                error_log("APP_KEY utilizada: " . substr(getenv('APP_KEY'), 0, 10) . '...');
+                
+                if ($decryptedPassword === false) {
+                    throw new Exception('Error al desencriptar la contraseña. Verifique APP_KEY.');
+                }
                 
                 try {
+                    // Intentar crear la llave privada con la contraseña desencriptada
                     $privateKey = new PrivateKey(
                         file_get_contents($keyFile),
-                        $rawPassword
+                        $decryptedPassword
                     );
-                } catch (Exception $firstTry) {
-                    // Si falla, intentar desencriptar la contraseña
+                    
+                    // Si llegamos aquí, la contraseña funcionó
+                    error_log("Llave privada creada exitosamente con la contraseña desencriptada");
+                    
+                } catch (Exception $e) {
+                    error_log("Error al crear llave privada: " . $e->getMessage());
+                    error_log("Longitud de la contraseña desencriptada: " . strlen($decryptedPassword));
+                    
+                    // Intentar con la contraseña sin desencriptar como fallback
                     try {
-                        $decryptedPassword = openssl_decrypt(
-                            $client['key_password'],
-                            'AES-256-CBC',
-                            getenv('APP_KEY'),
-                            0,
-                            substr(getenv('APP_KEY'), 0, 16)
+                        $privateKey = new PrivateKey(
+                            file_get_contents($keyFile),
+                            $client['key_password']
                         );
-                        
-                        if ($decryptedPassword !== false) {
-                            $privateKey = new PrivateKey(
-                                file_get_contents($keyFile),
-                                $decryptedPassword
-                            );
-                        } else {
-                            // Si la desencriptación falla, lanzar el error original
-                            throw $firstTry;
-                        }
-                    } catch (Exception $e) {
-                        error_log("Error detallado al procesar llave privada: " . $e->getMessage());
-                        throw new Exception('La contraseña de la llave privada es incorrecta. Por favor, verifique la contraseña.');
+                        error_log("Llave privada creada exitosamente con la contraseña encriptada (fallback)");
+                    } catch (Exception $e2) {
+                        throw new Exception('La contraseña de la llave privada es incorrecta. Error: ' . $e2->getMessage());
                     }
                 }
 
@@ -988,7 +1008,7 @@ class ClientController {
                 exit;
 
             } catch (Exception $e) {
-                error_log("Error en proceso de FIEL: " . $e->getMessage());
+                error_log("Error detallado en proceso de FIEL: " . $e->getMessage());
                 throw new Exception('Error al procesar la e.firma: ' . $e->getMessage());
             }
 
