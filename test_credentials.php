@@ -55,25 +55,25 @@ try {
         $requestBuilder = new FielRequestBuilder($fiel);
         $service = new Service($requestBuilder, $webClient);
 
-        // Crear los parámetros de consulta según la documentación
-        $parameters = QueryParameters::create(
-            DateTimePeriod::createFromValues('2024-01-01T00:00:00', '2024-01-31T23:59:59'),
-            new RequestType('RECIBIDOS'),  // RECIBIDOS o EMITIDOS en mayúsculas
-            new DownloadType('XML')        // XML o METADATA en mayúsculas
-        );
+       
+
+        $parameters = QueryParameters::create()
+        ->withPeriod(DateTimePeriod::createFromValues('2024-01-01 00:00:00', '2024-01-31 11:59:00'))
+        ->withDownloadType(DownloadType::received())
+        ->withRequestType(RequestType::xml())
+       
+    ;
+
+
+
 
         echo "\nRealizando consulta de prueba al SAT...\n";
-        echo "Periodo: 2024-01-01T00:00:00 a 2024-01-31T23:59:59\n";
-        echo "Tipo: RECIBIDOS\n";
-        echo "Formato: XML\n";
-
         $query = $service->query($parameters);
         
         if ($query->getStatus()->isAccepted()) {
             echo "Consulta aceptada. Request ID: " . $query->getRequestId() . "\n";
         } else {
-            echo "Consulta rechazada: " . $query->getStatus()->getMessage() . "\n";
-            echo "Código de estado: " . $query->getStatus()->getCode() . "\n";
+            echo "Consulta rechazada: " . $query->getStatus()->getCode() . "\n";
         }
 
     } else {
