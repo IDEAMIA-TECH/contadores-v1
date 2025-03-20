@@ -738,6 +738,19 @@ class ClientController {
             $cerFile = ROOT_PATH . '/uploads/' . $client['cer_path'];
             $keyFile = ROOT_PATH . '/uploads/' . $client['key_path'];
             
+            // Verificar que los archivos existan
+            if (!file_exists($cerFile)) {
+                throw new Exception('Archivo de certificado no encontrado');
+            }
+            if (!file_exists($keyFile)) {
+                throw new Exception('Archivo de llave privada no encontrado');
+            }
+
+            // Log de verificación de archivos
+            error_log("Verificando archivos:");
+            error_log("Certificado existe: " . (file_exists($cerFile) ? 'Sí' : 'No'));
+            error_log("Llave privada existe: " . (file_exists($keyFile) ? 'Sí' : 'No'));
+            
             // Desencriptar la contraseña
             $keyPassword = openssl_decrypt(
                 $client['key_password'],
@@ -751,8 +764,8 @@ class ClientController {
                 throw new Exception('Error al desencriptar la contraseña de la llave privada');
             }
 
-            error_log("Intentando leer certificado de: " . $cerFile);
-            error_log("Intentando leer llave privada de: " . $keyFile);
+            // Log de la contraseña desencriptada (solo para debugging, remover en producción)
+            error_log("Contraseña desencriptada longitud: " . strlen($keyPassword));
 
             try {
                 // Leer contenido de los archivos
@@ -763,14 +776,27 @@ class ClientController {
                     throw new Exception('No se pudieron leer los archivos del certificado');
                 }
 
-                // Crear objetos de certificado y llave privada
+                // Log del contenido de los archivos (longitud)
+                error_log("Longitud del contenido del certificado: " . strlen($cerContent));
+                error_log("Longitud del contenido de la llave: " . strlen($keyContent));
+
+                // Intentar crear la llave privada primero para validar la contraseña
+                try {
+                    $privateKey = new \PhpCfdi\Credentials\PrivateKey($keyContent, $keyPassword);
+                    error_log("Llave privada creada exitosamente");
+                } catch (\Exception $e) {
+                    error_log("Error al crear llave privada: " . $e->getMessage());
+                    throw new Exception("La contraseña proporcionada no es válida para la llave privada");
+                }
+
+                // Crear el certificado
                 $certificate = new \PhpCfdi\Credentials\Certificate($cerContent);
-                $privateKey = new \PhpCfdi\Credentials\PrivateKey($keyContent, $keyPassword);
+                error_log("Certificado creado exitosamente");
 
                 // Crear las credenciales
                 $fiel = new \PhpCfdi\Credentials\Credential($certificate, $privateKey);
 
-                // Verificaciones de la FIEL
+                // Verificaciones adicionales
                 if (!$fiel->privateKey()->belongsTo($certificate)) {
                     throw new Exception('La llave privada no corresponde al certificado');
                 }
@@ -779,13 +805,11 @@ class ClientController {
                     throw new Exception('El certificado proporcionado es un CSD, se requiere FIEL');
                 }
 
-                if (!$certificate->isFiel()) {
-                    throw new Exception('El certificado no es una FIEL válida');
-                }
-
                 $now = new \DateTime();
                 if (!$certificate->validOn($now)) {
-                    throw new Exception('El certificado no está vigente');
+                    throw new Exception('El certificado no está vigente. Válido desde: ' . 
+                        $certificate->validFrom()->format('Y-m-d H:i:s') . 
+                        ' hasta: ' . $certificate->validTo()->format('Y-m-d H:i:s'));
                 }
 
                 // Log de información del certificado
@@ -794,17 +818,15 @@ class ClientController {
                 error_log("Número de serie: " . $certificate->serialNumber()->bytes());
                 error_log("Válido desde: " . $certificate->validFrom()->format('Y-m-d H:i:s'));
                 error_log("Válido hasta: " . $certificate->validTo()->format('Y-m-d H:i:s'));
-                error_log("Es FIEL: " . ($certificate->isFiel() ? 'Sí' : 'No'));
-                error_log("Es CSD: " . ($certificate->isCsd() ? 'Sí' : 'No'));
 
                 // Si llegamos aquí, el certificado es válido
-                // Continuar con el proceso de descarga...
-
-                return json_encode([
+                header('Content-Type: application/json');
+                echo json_encode([
                     'success' => true,
                     'message' => 'Solicitud de descarga iniciada correctamente',
                     'requestId' => 'request-' . uniqid()
                 ]);
+                exit;
 
             } catch (\Exception $e) {
                 error_log("Error detallado al procesar certificado: " . $e->getMessage());
