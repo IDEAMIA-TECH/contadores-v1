@@ -104,7 +104,10 @@ class ClientController {
 
             // Procesar contraseña de la FIEL si se proporcionó
             if (!empty($_POST['key_password'])) {
-                $data['key_password'] = password_hash($_POST['key_password'], PASSWORD_DEFAULT);
+                // Guardar la contraseña en texto plano para la FIEL
+                $data['key_password'] = $_POST['key_password'];
+                // Nota: En un ambiente de producción, deberías usar encriptación segura
+                // en lugar de guardar en texto plano
             }
             
             if ($this->client->create($data)) {
@@ -873,10 +876,30 @@ class ClientController {
                     file_get_contents($cerFile)
                 );
                 
-                $privateKey = new PrivateKey(
-                    file_get_contents($keyFile),
-                    $password
-                );
+                // Desencriptar la contraseña almacenada
+                $rawPassword = '';
+                if (!empty($client['key_password'])) {
+                    // Si la contraseña está hasheada con password_hash, necesitamos la original
+                    if (str_starts_with($client['key_password'], '$2y$')) {
+                        throw new Exception('La contraseña de la FIEL debe estar en texto plano, no hasheada');
+                    }
+                    $rawPassword = $client['key_password'];
+                }
+                
+                try {
+                    $privateKey = new PrivateKey(
+                        file_get_contents($keyFile),
+                        $rawPassword
+                    );
+                } catch (Exception $e) {
+                    error_log("Error al abrir llave privada: " . $e->getMessage());
+                    throw new Exception('La contraseña de la llave privada es incorrecta');
+                }
+                
+                // Verificar que podemos usar la llave privada
+                if (!$privateKey->sign('test')) {
+                    throw new Exception('No se puede utilizar la llave privada');
+                }
                 
                 // Crear la credencial usando los objetos correctos
                 $fiel = new Credential($certificate, $privateKey);
