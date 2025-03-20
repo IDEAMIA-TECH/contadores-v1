@@ -31,6 +31,10 @@ $route = str_starts_with($requestUri, BASE_URL)
                               inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium text-gray-900">
                         Reportes
                     </a>
+                    <a href="<?php echo BASE_URL; ?>/profile" 
+                       class="text-gray-300 hover:text-white px-3 py-2 rounded-md text-sm font-medium">
+                        Mi Perfil
+                    </a>
                 </div>
             </div>
             

@@ -80,7 +80,8 @@ try {
         'Clients' => 'ClientController',
         'Auth' => 'AuthController',
         'Reports' => 'ReportController',
-        'Login' => 'AuthController'
+        'Login' => 'AuthController',
+        'Profile' => 'ProfileController'
     ];
     
     // Obtener el nombre real del controlador
@@ -104,11 +105,18 @@ try {
         }
     }
     
-    // Ejecutar la acción con el ID si existe
-    if ($id !== null) {
-        $controllerInstance->$action($id);
+    // Rutas para el perfil
+    if ($route === '/profile') {
+        $controllerInstance->index();
+    } elseif ($route === '/profile/update') {
+        $controllerInstance->update();
     } else {
-        $controllerInstance->$action();
+        // Ejecutar la acción con el ID si existe
+        if ($id !== null) {
+            $controllerInstance->$action($id);
+        } else {
+            $controllerInstance->$action();
+        }
     }
     
 } catch (Exception $e) {
