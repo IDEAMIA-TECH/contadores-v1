@@ -12,7 +12,7 @@ use PhpCfdi\SatWsDescargaMasiva\Service;
 use PhpCfdi\SatWsDescargaMasiva\WebClient\GuzzleWebClient;
 use PhpCfdi\SatWsDescargaMasiva\Shared\ServiceEndpoints;
 use PhpCfdi\SatWsDescargaMasiva\Services\Query\QueryParameters;
-use PhpCfdi\SatWsDescargaMasiva\RequestBuilder\RequestBuilderInterface;
+use PhpCfdi\SatWsDescargaMasiva\RequestBuilder\FielRequestBuilder\FielRequestBuilder;
 use PhpCfdi\Credentials\Credential;
 use PhpCfdi\Credentials\Certificate;
 use PhpCfdi\Credentials\PrivateKey;
@@ -891,7 +891,7 @@ class ClientController {
                 }
 
                 // Intentar cargar la clase FielRequestBuilder directamente
-                $fielRequestBuilderClass = 'PhpCfdi\SatWsDescargaMasiva\RequestBuilder\FielRequestBuilder';
+                $fielRequestBuilderClass = 'PhpCfdi\SatWsDescargaMasiva\RequestBuilder\FielRequestBuilder\FielRequestBuilder';
                 if (!class_exists($fielRequestBuilderClass)) {
                     error_log("Clase FielRequestBuilder no encontrada. Buscando en rutas alternativas...");
                     
@@ -908,8 +908,8 @@ class ClientController {
                 }
 
                 try {
-                    // Usar la ruta completa de la clase
-                    $requestBuilder = new \PhpCfdi\SatWsDescargaMasiva\RequestBuilder\FielRequestBuilder($fiel);
+                    // Usar el namespace correcto encontrado en el log
+                    $requestBuilder = new \PhpCfdi\SatWsDescargaMasiva\RequestBuilder\FielRequestBuilder\FielRequestBuilder($fiel);
                     error_log("FielRequestBuilder creado exitosamente");
                 } catch (\Exception $e) {
                     error_log("Error creando FielRequestBuilder: " . $e->getMessage());
@@ -1027,7 +1027,7 @@ class ClientController {
             $fiel = $this->createFielFromClient($client);
             $webClient = new GuzzleWebClient();
             $endpoints = ServiceEndpoints::cfdi();
-            $requestBuilder = new FielRequestBuilder($fiel);
+            $requestBuilder = new \PhpCfdi\SatWsDescargaMasiva\RequestBuilder\FielRequestBuilder\FielRequestBuilder($fiel);
             $service = new Service($webClient, $requestBuilder);
 
             // Verificar estado
