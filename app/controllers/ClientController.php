@@ -881,53 +881,69 @@ class ClientController {
             }
 
             try {
+                // Validar que los archivos existan
+                if (!file_exists($cerFile)) {
+                    throw new Exception('No se encontró el archivo del certificado (.cer)');
+                }
+                if (!file_exists($keyFile)) {
+                    throw new Exception('No se encontró el archivo de la llave privada (.key)');
+                }
+
+                // Crear el certificado
                 $certificate = new Certificate(
                     file_get_contents($cerFile)
                 );
                 
-                // Desencriptar la contraseña almacenada
-                $rawPassword = '';
-                if (!empty($client['key_password'])) {
-                    // Desencriptar la contraseña
-                    $rawPassword = openssl_decrypt(
-                        $client['key_password'],
-                        'AES-256-CBC',
-                        getenv('APP_KEY'),
-                        0,
-                        substr(getenv('APP_KEY'), 0, 16)
-                    );
-                    
-                    if ($rawPassword === false) {
-                        throw new Exception('Error al desencriptar la contraseña de la FIEL');
-                    }
+                // Obtener y validar la contraseña
+                if (empty($client['key_password'])) {
+                    throw new Exception('No se ha configurado la contraseña de la FIEL');
                 }
+
+                // Intentar usar la contraseña directamente primero
+                $rawPassword = $client['key_password'];
                 
                 try {
                     $privateKey = new PrivateKey(
                         file_get_contents($keyFile),
                         $rawPassword
                     );
-                } catch (Exception $e) {
-                    error_log("Error al abrir llave privada: " . $e->getMessage());
-                    throw new Exception('La contraseña de la llave privada es incorrecta');
+                } catch (Exception $firstTry) {
+                    // Si falla, intentar desencriptar la contraseña
+                    try {
+                        $decryptedPassword = openssl_decrypt(
+                            $client['key_password'],
+                            'AES-256-CBC',
+                            getenv('APP_KEY'),
+                            0,
+                            substr(getenv('APP_KEY'), 0, 16)
+                        );
+                        
+                        if ($decryptedPassword !== false) {
+                            $privateKey = new PrivateKey(
+                                file_get_contents($keyFile),
+                                $decryptedPassword
+                            );
+                        } else {
+                            // Si la desencriptación falla, lanzar el error original
+                            throw $firstTry;
+                        }
+                    } catch (Exception $e) {
+                        error_log("Error detallado al procesar llave privada: " . $e->getMessage());
+                        throw new Exception('La contraseña de la llave privada es incorrecta. Por favor, verifique la contraseña.');
+                    }
                 }
-                
-                // Verificar que podemos usar la llave privada
+
+                // Verificar que la llave privada funcione
                 if (!$privateKey->sign('test')) {
-                    throw new Exception('No se puede utilizar la llave privada');
+                    throw new Exception('La llave privada no es válida o está dañada');
                 }
-                
-                // Crear la credencial usando los objetos correctos
+
+                // Crear credencial
                 $fiel = new Credential($certificate, $privateKey);
 
-                // Verificar que la FIEL sea válida
-                if (!$fiel->certificate()->validOn()) {
-                    throw new Exception('El certificado no es válido o está expirado');
-                }
-
-                // Verificar que no sea un CSD
-                if (!$fiel->certificate()->satType()->isFiel()) {
-                    throw new Exception('El certificado no es una e.firma válida');
+                // Validar que sea FIEL y no CSD
+                if (!$fiel->certificate()->validForSign()) {
+                    throw new Exception('El certificado proporcionado no es una FIEL válida');
                 }
 
                 // Crear el servicio de descarga masiva
@@ -972,6 +988,7 @@ class ClientController {
                 exit;
 
             } catch (Exception $e) {
+                error_log("Error en proceso de FIEL: " . $e->getMessage());
                 throw new Exception('Error al procesar la e.firma: ' . $e->getMessage());
             }
 
