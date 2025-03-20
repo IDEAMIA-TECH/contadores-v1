@@ -105,18 +105,11 @@ try {
         }
     }
     
-    // Rutas para el perfil
-    if ($route === '/profile') {
-        $controllerInstance->index();
-    } elseif ($route === '/profile/update') {
-        $controllerInstance->update();
+    // Ejecutar la acción con el ID si existe
+    if ($id !== null) {
+        $controllerInstance->$action($id);
     } else {
-        // Ejecutar la acción con el ID si existe
-        if ($id !== null) {
-            $controllerInstance->$action($id);
-        } else {
-            $controllerInstance->$action();
-        }
+        $controllerInstance->$action();
     }
     
 } catch (Exception $e) {
