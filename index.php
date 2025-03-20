@@ -79,7 +79,8 @@ try {
         'Dashboard' => 'DashboardController',
         'Clients' => 'ClientController',
         'Auth' => 'AuthController',
-        'Reports' => 'ReportController'
+        'Reports' => 'ReportController',
+        'Login' => 'AuthController'
     ];
     
     // Obtener el nombre real del controlador
@@ -96,7 +97,11 @@ try {
     
     // Verificar si el método existe
     if (!method_exists($controllerInstance, $action)) {
-        throw new Exception('Página no encontrada', 404);
+        if ($route === 'login' && method_exists($controllerInstance, 'login')) {
+            $action = 'login';
+        } else {
+            throw new Exception('Página no encontrada', 404);
+        }
     }
     
     // Ejecutar la acción con el ID si existe
