@@ -824,8 +824,33 @@ class ClientController {
                 error_log("Información del certificado:");
                 error_log("- RFC: " . $certificate->rfc());
                 error_log("- Número de serie: " . $certificate->serialNumber()->bytes());
-                error_log("- Válido desde: " . $certificate->validFrom()->format('Y-m-d H:i:s'));
-                error_log("- Válido hasta: " . $certificate->validTo()->format('Y-m-d H:i:s'));
+
+                // Manejar las fechas de manera segura
+                try {
+                    $validFrom = $certificate->validFrom();
+                    $validTo = $certificate->validTo();
+                    
+                    error_log("- Válido desde: " . ($validFrom instanceof \DateTimeInterface ? 
+                        $validFrom->format('Y-m-d H:i:s') : 
+                        'No disponible'));
+                    error_log("- Válido hasta: " . ($validTo instanceof \DateTimeInterface ? 
+                        $validTo->format('Y-m-d H:i:s') : 
+                        'No disponible'));
+                } catch (\Exception $e) {
+                    error_log("Error al obtener fechas del certificado: " . $e->getMessage());
+                    error_log("- Válido desde: No disponible");
+                    error_log("- Válido hasta: No disponible");
+                }
+
+                // Verificar la vigencia del certificado de manera segura
+                $now = new \DateTimeImmutable();
+                try {
+                    $isValid = $certificate->validOn($now);
+                    error_log("Certificado vigente: " . ($isValid ? 'Sí' : 'No'));
+                } catch (\Exception $e) {
+                    error_log("Error al verificar vigencia del certificado: " . $e->getMessage());
+                    throw new Exception("No se pudo verificar la vigencia del certificado");
+                }
 
                 $privateKey = new PrivateKey($keyContent, $keyPassword);
                 error_log("Llave privada creada exitosamente");
@@ -854,7 +879,6 @@ class ClientController {
                 error_log("WebClient creado exitosamente");
 
                 // Crear el servicio con los argumentos en el orden correcto
-                // El orden correcto es: RequestBuilder, WebClient
                 $service = new Service($requestBuilder, $webClient);
                 error_log("Service creado exitosamente");
 
