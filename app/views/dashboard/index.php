@@ -17,17 +17,17 @@
                 <!-- Estadísticas -->
                 <div class="bg-blue-50 rounded-lg p-6">
                     <h3 class="text-lg font-semibold text-blue-800">Total Clientes</h3>
-                    <p class="text-3xl font-bold text-blue-600">0</p>
+                    <p class="text-3xl font-bold text-blue-600"><?php echo number_format($totalClients); ?></p>
                 </div>
                 
                 <div class="bg-green-50 rounded-lg p-6">
                     <h3 class="text-lg font-semibold text-green-800">XMLs Procesados</h3>
-                    <p class="text-3xl font-bold text-green-600">0</p>
+                    <p class="text-3xl font-bold text-green-600"><?php echo number_format($totalXmls); ?></p>
                 </div>
                 
                 <div class="bg-purple-50 rounded-lg p-6">
                     <h3 class="text-lg font-semibold text-purple-800">Reportes Generados</h3>
-                    <p class="text-3xl font-bold text-purple-600">0</p>
+                    <p class="text-3xl font-bold text-purple-600"><?php echo number_format($totalReports); ?></p>
                 </div>
             </div>
 

@@ -18,14 +18,47 @@ class DashboardController {
             exit;
         }
         
-        // Obtener la ruta actual
-        $requestUri = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
-        $route = str_starts_with($requestUri, BASE_URL) 
-            ? substr($requestUri, strlen(BASE_URL)) 
-            : $requestUri;
-        
-        // Aquí podrías agregar lógica para obtener estadísticas
-        
-        include __DIR__ . '/../views/dashboard/index.php';
+        try {
+            // Obtener el ID del contador actual
+            $accountantId = $_SESSION['user_id'];
+            
+            // Obtener total de clientes
+            $clientsQuery = "SELECT COUNT(*) as total FROM clients WHERE accountant_id = ?";
+            $stmt = $this->db->prepare($clientsQuery);
+            $stmt->execute([$accountantId]);
+            $totalClients = $stmt->fetch(PDO::FETCH_ASSOC)['total'];
+            
+            // Obtener total de XMLs procesados
+            $xmlsQuery = "SELECT COUNT(*) as total FROM client_xmls cx 
+                         INNER JOIN clients c ON cx.client_id = c.id 
+                         WHERE c.accountant_id = ?";
+            $stmt = $this->db->prepare($xmlsQuery);
+            $stmt->execute([$accountantId]);
+            $totalXmls = $stmt->fetch(PDO::FETCH_ASSOC)['total'];
+            
+            // Obtener total de reportes generados (si tienes una tabla de reportes)
+            $reportsQuery = "SELECT COUNT(*) as total FROM reports r 
+                           INNER JOIN clients c ON r.client_id = c.id 
+                           WHERE c.accountant_id = ?";
+            $stmt = $this->db->prepare($reportsQuery);
+            $stmt->execute([$accountantId]);
+            $totalReports = $stmt->fetch(PDO::FETCH_ASSOC)['total'];
+            
+            // Pasar los datos a la vista
+            $data = [
+                'totalClients' => $totalClients,
+                'totalXmls' => $totalXmls,
+                'totalReports' => $totalReports
+            ];
+            
+            // Incluir la vista con los datos
+            extract($data);
+            require_once __DIR__ . '/../views/dashboard/index.php';
+            
+        } catch (Exception $e) {
+            error_log("Error en Dashboard: " . $e->getMessage());
+            $_SESSION['error'] = 'Error al cargar el dashboard';
+            require_once __DIR__ . '/../views/dashboard/index.php';
+        }
     }
 } 
