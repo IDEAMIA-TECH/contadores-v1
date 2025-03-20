@@ -19,7 +19,7 @@ try {
     echo "=== Prueba de credenciales ===\n";
     
     $cerFile = __DIR__ . '/uploads/sat/sat_cer_67db47408517a.cer';  // Certificado .cer
-    $keyFile = __DIR__ . '/uploads/sat/sat_key_67db47408517a.key';  // Llave privada .key
+    $keyFile = __DIR__ . '/uploads/sat/sat_key_67db4740851a2.key';  // Llave privada .key
     $passPhrase = 'Japc20078';
 
     echo "Verificando archivos...\n";
