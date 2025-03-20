@@ -14,58 +14,94 @@ class CfdiXmlParser {
             
             // Extraer UUID y fecha de timbrado del Timbre Fiscal Digital
             $tfd = $xml->xpath('//tfd:TimbreFiscalDigital');
-            $uuid = isset($tfd[0]) ? (string)$tfd[0]['UUID'] : null;
-            $fechaTimbrado = isset($tfd[0]) ? (string)$tfd[0]['FechaTimbrado'] : null;
+            $uuid = isset($tfd[0]) ? (string)$tfd[0]['UUID'] : '';
+            $fechaTimbrado = isset($tfd[0]) ? (string)$tfd[0]['FechaTimbrado'] : '';
             
-            // Obtener impuestos trasladados
+            // Obtener impuestos trasladados con validación más estricta
             $impuestosTrasladados = 0;
             $impuesto = null;
             $tasaOCuota = null;
             $tipoFactor = null;
             
-            if (isset($xml->Impuestos) && isset($xml->Impuestos->Traslados)) {
-                foreach ($xml->Impuestos->Traslados->Traslado as $traslado) {
-                    $impuestosTrasladados += (float)($traslado['Importe'] ?? 0);
-                    // Tomamos el primer impuesto y tasa como referencia
-                    if ($impuesto === null) {
-                        $impuesto = (string)$traslado['Impuesto'];
-                        $tasaOCuota = (float)$traslado['TasaOCuota'];
-                        $tipoFactor = (string)$traslado['TipoFactor'];
-                    }
+            if (isset($xml->Impuestos)) {
+                $impuestosTrasladados = (float)($xml->Impuestos['TotalImpuestosTrasladados'] ?? 0);
+                
+                if (isset($xml->Impuestos->Traslados) && isset($xml->Impuestos->Traslados->Traslado)) {
+                    $traslado = $xml->Impuestos->Traslados->Traslado[0]; // Tomamos el primer traslado
+                    $impuesto = (string)($traslado['Impuesto'] ?? '');
+                    $tasaOCuota = (float)($traslado['TasaOCuota'] ?? 0);
+                    $tipoFactor = (string)($traslado['TipoFactor'] ?? '');
                 }
             }
             
-            // Extraer datos básicos del comprobante
+            // Validar y extraer datos del emisor
+            $emisorRfc = (string)($xml->Emisor['Rfc'] ?? '');
+            $emisorNombre = (string)($xml->Emisor['Nombre'] ?? '');
+            $emisorRegimenFiscal = (string)($xml->Emisor['RegimenFiscal'] ?? '');
+            
+            if (empty($emisorRfc) || empty($emisorNombre) || empty($emisorRegimenFiscal)) {
+                throw new Exception("Datos del emisor incompletos o inválidos");
+            }
+            
+            // Validar y extraer datos del receptor
+            $receptorRfc = (string)($xml->Receptor['Rfc'] ?? '');
+            $receptorNombre = (string)($xml->Receptor['Nombre'] ?? '');
+            $receptorRegimenFiscal = (string)($xml->Receptor['RegimenFiscalReceptor'] ?? '');
+            $receptorDomicilioFiscal = (string)($xml->Receptor['DomicilioFiscalReceptor'] ?? '');
+            $receptorUsoCfdi = (string)($xml->Receptor['UsoCFDI'] ?? '');
+            
+            if (empty($receptorRfc) || empty($receptorNombre) || empty($receptorRegimenFiscal) || 
+                empty($receptorDomicilioFiscal) || empty($receptorUsoCfdi)) {
+                throw new Exception("Datos del receptor incompletos o inválidos");
+            }
+            
+            // Extraer datos básicos del comprobante con validación
             $data = [
                 'uuid' => $uuid,
                 'fecha_timbrado' => $fechaTimbrado,
                 'fecha' => (string)$xml['Fecha'],
-                'lugar_expedicion' => (string)$xml['LugarExpedicion'],
-                'tipo_comprobante' => (string)$xml['TipoDeComprobante'],
-                'forma_pago' => (string)$xml['FormaPago'],
-                'metodo_pago' => (string)$xml['MetodoPago'],
-                'moneda' => (string)$xml['Moneda'] ?: 'MXN',
-                'serie' => (string)$xml['Serie'],
-                'folio' => (string)$xml['Folio'],
-                'subtotal' => (float)$xml['SubTotal'],
-                'total' => (float)$xml['Total'],
+                'lugar_expedicion' => (string)($xml['LugarExpedicion'] ?? ''),
+                'tipo_comprobante' => (string)($xml['TipoDeComprobante'] ?? ''),
+                'forma_pago' => (string)($xml['FormaPago'] ?? ''),
+                'metodo_pago' => (string)($xml['MetodoPago'] ?? ''),
+                'moneda' => (string)($xml['Moneda'] ?? 'MXN'),
+                'serie' => (string)($xml['Serie'] ?? ''),
+                'folio' => (string)($xml['Folio'] ?? ''),
+                'subtotal' => (float)($xml['SubTotal'] ?? 0),
+                'total' => (float)($xml['Total'] ?? 0),
+                
+                // Datos de impuestos
                 'total_impuestos_trasladados' => $impuestosTrasladados,
                 'impuesto' => $impuesto,
                 'tasa_o_cuota' => $tasaOCuota,
                 'tipo_factor' => $tipoFactor,
                 
                 // Datos del emisor
-                'emisor_rfc' => (string)$xml->Emisor['Rfc'],
-                'emisor_nombre' => (string)$xml->Emisor['Nombre'],
-                'emisor_regimen_fiscal' => (string)$xml->Emisor['RegimenFiscal'],
+                'emisor_rfc' => $emisorRfc,
+                'emisor_nombre' => $emisorNombre,
+                'emisor_regimen_fiscal' => $emisorRegimenFiscal,
                 
                 // Datos del receptor
-                'receptor_rfc' => (string)$xml->Receptor['Rfc'],
-                'receptor_nombre' => (string)$xml->Receptor['Nombre'],
-                'receptor_regimen_fiscal' => (string)$xml->Receptor['RegimenFiscalReceptor'],
-                'receptor_domicilio_fiscal' => (string)$xml->Receptor['DomicilioFiscalReceptor'],
-                'receptor_uso_cfdi' => (string)$xml->Receptor['UsoCFDI']
+                'receptor_rfc' => $receptorRfc,
+                'receptor_nombre' => $receptorNombre,
+                'receptor_regimen_fiscal' => $receptorRegimenFiscal,
+                'receptor_domicilio_fiscal' => $receptorDomicilioFiscal,
+                'receptor_uso_cfdi' => $receptorUsoCfdi
             ];
+            
+            // Validar campos requeridos
+            $requiredFields = [
+                'uuid', 'fecha', 'fecha_timbrado', 'lugar_expedicion', 'tipo_comprobante',
+                'emisor_rfc', 'emisor_nombre', 'emisor_regimen_fiscal',
+                'receptor_rfc', 'receptor_nombre', 'receptor_regimen_fiscal',
+                'receptor_domicilio_fiscal', 'receptor_uso_cfdi'
+            ];
+            
+            foreach ($requiredFields as $field) {
+                if (empty($data[$field])) {
+                    throw new Exception("Campo requerido faltante: {$field}");
+                }
+            }
             
             return $data;
 
