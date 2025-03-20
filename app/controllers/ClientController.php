@@ -709,7 +709,7 @@ class ClientController {
 
     public function downloadSatMasivo() {
         try {
-            // Verificar autenticación y token CSRF
+            // Verificaciones iniciales...
             if (!$this->security->isAuthenticated()) {
                 throw new Exception('No autorizado');
             }
@@ -718,7 +718,6 @@ class ClientController {
                 throw new Exception('Token de seguridad inválido');
             }
 
-            // Validar client_id
             if (empty($_POST['client_id'])) {
                 throw new Exception('ID de cliente no proporcionado');
             }
@@ -730,21 +729,28 @@ class ClientController {
                 throw new Exception('Cliente no encontrado');
             }
 
-            // Validar que existan los archivos de certificado
+            // Validar archivos y contraseña
             if (empty($client['cer_path']) || empty($client['key_path']) || empty($client['key_password'])) {
-                throw new Exception('Certificado o llave privada no configurados');
+                throw new Exception('Certificado, llave privada o contraseña no configurados');
             }
 
-            // Obtener rutas completas de los archivos
+            // Obtener rutas y desencriptar contraseña
             $cerFile = ROOT_PATH . '/uploads/' . $client['cer_path'];
             $keyFile = ROOT_PATH . '/uploads/' . $client['key_path'];
             
-            // Verificar que los archivos existan
-            if (!file_exists($cerFile) || !file_exists($keyFile)) {
-                throw new Exception('Archivos de certificado no encontrados');
+            // Desencriptar la contraseña
+            $keyPassword = openssl_decrypt(
+                $client['key_password'],
+                'AES-256-CBC',
+                getenv('APP_KEY'),
+                0,
+                substr(getenv('APP_KEY'), 0, 16)
+            );
+
+            if ($keyPassword === false) {
+                throw new Exception('Error al desencriptar la contraseña de la llave privada');
             }
 
-            // Log para debugging
             error_log("Intentando leer certificado de: " . $cerFile);
             error_log("Intentando leer llave privada de: " . $keyFile);
 
@@ -759,33 +765,30 @@ class ClientController {
 
                 // Crear objetos de certificado y llave privada
                 $certificate = new \PhpCfdi\Credentials\Certificate($cerContent);
-                $privateKey = new \PhpCfdi\Credentials\PrivateKey($keyContent);
+                $privateKey = new \PhpCfdi\Credentials\PrivateKey($keyContent, $keyPassword);
 
-                // Intentar crear las credenciales
+                // Crear las credenciales
                 $fiel = new \PhpCfdi\Credentials\Credential($certificate, $privateKey);
 
-                // Verificar si la llave privada corresponde al certificado
+                // Verificaciones de la FIEL
                 if (!$fiel->privateKey()->belongsTo($certificate)) {
                     throw new Exception('La llave privada no corresponde al certificado');
                 }
 
-                // Verificar que el certificado no sea CSD
                 if ($certificate->isCsd()) {
                     throw new Exception('El certificado proporcionado es un CSD, se requiere FIEL');
                 }
 
-                // Verificar que el certificado sea FIEL
                 if (!$certificate->isFiel()) {
                     throw new Exception('El certificado no es una FIEL válida');
                 }
 
-                // Verificar que el certificado esté vigente
                 $now = new \DateTime();
                 if (!$certificate->validOn($now)) {
                     throw new Exception('El certificado no está vigente');
                 }
 
-                // Log de información del certificado para debugging
+                // Log de información del certificado
                 error_log("Información del certificado:");
                 error_log("RFC: " . $certificate->rfc());
                 error_log("Número de serie: " . $certificate->serialNumber()->bytes());
