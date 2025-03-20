@@ -18,9 +18,9 @@ try {
     // 1. Primero probamos que podemos leer y usar las credenciales
     echo "=== Prueba de credenciales ===\n";
     
-    $cerFile = __DIR__ . '/uploads/sat/sat_cer_00001000000704625053.cer'; // Ajusta la ruta
-    $keyFile = __DIR__ . '/uploads/sat/sat_key_00001000000704625053.key'; // Ajusta la ruta
-    $passPhrase = '12345678a'; // Ajusta la contraseña
+    $cerFile = __DIR__ . '/uploads/sat/sat_cer_67db47408517a.cer'; // Ajusta la ruta
+    $keyFile = __DIR__ . '/uploads/sat/sat_cer_67db8df027215.cer'; // Ajusta la ruta
+    $passPhrase = 'Japc20078'; // Ajusta la contraseña
 
     echo "Verificando archivos...\n";
     echo "Certificado existe: " . (file_exists($cerFile) ? 'Sí' : 'No') . "\n";
