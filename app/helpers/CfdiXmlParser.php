@@ -20,7 +20,8 @@ class CfdiXmlParser {
             // Obtener impuestos trasladados
             $impuestosTrasladados = 0;
             $impuesto = null;
-            $tasaCuota = null;
+            $tasaOCuota = null;
+            $tipoFactor = null;
             
             if (isset($xml->Impuestos) && isset($xml->Impuestos->Traslados)) {
                 foreach ($xml->Impuestos->Traslados->Traslado as $traslado) {
@@ -28,7 +29,8 @@ class CfdiXmlParser {
                     // Tomamos el primer impuesto y tasa como referencia
                     if ($impuesto === null) {
                         $impuesto = (string)$traslado['Impuesto'];
-                        $tasaCuota = (string)$traslado['TasaOCuota'];
+                        $tasaOCuota = (float)$traslado['TasaOCuota'];
+                        $tipoFactor = (string)$traslado['TipoFactor'];
                     }
                 }
             }
@@ -42,14 +44,15 @@ class CfdiXmlParser {
                 'tipo_comprobante' => (string)$xml['TipoDeComprobante'],
                 'forma_pago' => (string)$xml['FormaPago'],
                 'metodo_pago' => (string)$xml['MetodoPago'],
-                'moneda' => (string)$xml['Moneda'],
+                'moneda' => (string)$xml['Moneda'] ?: 'MXN',
                 'serie' => (string)$xml['Serie'],
                 'folio' => (string)$xml['Folio'],
                 'subtotal' => (float)$xml['SubTotal'],
                 'total' => (float)$xml['Total'],
                 'total_impuestos_trasladados' => $impuestosTrasladados,
                 'impuesto' => $impuesto,
-                'tasa_cuota' => $tasaCuota,
+                'tasa_o_cuota' => $tasaOCuota,
+                'tipo_factor' => $tipoFactor,
                 
                 // Datos del emisor
                 'emisor_rfc' => (string)$xml->Emisor['Rfc'],
