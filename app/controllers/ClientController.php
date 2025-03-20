@@ -11,6 +11,8 @@ use PhpCfdi\SatWsDescargaMasiva\Service;
 use PhpCfdi\SatWsDescargaMasiva\WebClient\GuzzleWebClient;
 use PhpCfdi\SatWsDescargaMasiva\RequestBuilder\FielRequestBuilder;
 use PhpCfdi\Credentials\Credential;
+use PhpCfdi\Credentials\Certificate;
+use PhpCfdi\Credentials\PrivateKey;
 
 class ClientController {
     private $db;
@@ -865,31 +867,68 @@ class ClientController {
                 throw new Exception('Archivo KEY no encontrado');
             }
 
-            $fiel = new Credential(
-                file_get_contents($cerFile),
-                file_get_contents($keyFile),
-                $password
-            );
+            try {
+                // Crear el certificado y la llave privada correctamente
+                $certificate = Certificate::fromFile($cerFile);
+                $privateKey = PrivateKey::fromFile($keyFile, $password);
+                
+                // Crear la credencial usando los objetos correctos
+                $fiel = new Credential($certificate, $privateKey);
 
-            // Crear el servicio de descarga masiva
-            $requestBuilder = new FielRequestBuilder($fiel);
-            $webClient = new GuzzleWebClient();
-            $service = new Service($requestBuilder, $webClient);
+                // Verificar que la FIEL sea válida
+                if (!$fiel->certificate()->validOn()) {
+                    throw new Exception('El certificado no es válido o está expirado');
+                }
 
-            // Devolver respuesta exitosa inicial
-            header('Content-Type: application/json');
-            echo json_encode([
-                'success' => true,
-                'message' => 'Solicitud iniciada correctamente',
-                'requestId' => uniqid(), // Temporal, deberías usar el ID real de la solicitud
-                'data' => [
-                    'requestType' => $requestType,
-                    'documentType' => $documentType,
-                    'fechaInicio' => $fechaInicio,
-                    'fechaFin' => $fechaFin
-                ]
-            ]);
-            exit;
+                // Verificar que no sea un CSD
+                if (!$fiel->certificate()->satType()->isFiel()) {
+                    throw new Exception('El certificado no es una e.firma válida');
+                }
+
+                // Crear el servicio de descarga masiva
+                $requestBuilder = new FielRequestBuilder($fiel);
+                $webClient = new GuzzleWebClient();
+                $service = new Service($requestBuilder, $webClient);
+
+                // Crear el periodo de consulta
+                $period = new DateTimePeriod(
+                    new DateTime($fechaInicio),
+                    new DateTime($fechaFin)
+                );
+
+                // Crear los parámetros de consulta
+                $request = new QueryParameters(
+                    $period,
+                    $documentType === 'issued' ? QueryParameters::DOCUMENT_TYPE_ISSUED : QueryParameters::DOCUMENT_TYPE_RECEIVED,
+                    $requestType === 'metadata' ? QueryParameters::DOWNLOAD_TYPE_METADATA : QueryParameters::DOWNLOAD_TYPE_CFDI
+                );
+
+                // Realizar la consulta
+                $query = $service->query($request);
+
+                // Verificar el resultado
+                if (!$query->getStatus()->isAccepted()) {
+                    throw new Exception('Error al realizar la consulta: ' . $query->getStatus()->getMessage());
+                }
+
+                // Devolver respuesta exitosa
+                header('Content-Type: application/json');
+                echo json_encode([
+                    'success' => true,
+                    'message' => 'Solicitud iniciada correctamente',
+                    'requestId' => $query->getRequestId(),
+                    'data' => [
+                        'requestType' => $requestType,
+                        'documentType' => $documentType,
+                        'fechaInicio' => $fechaInicio,
+                        'fechaFin' => $fechaFin
+                    ]
+                ]);
+                exit;
+
+            } catch (Exception $e) {
+                throw new Exception('Error al procesar la e.firma: ' . $e->getMessage());
+            }
 
         } catch (Exception $e) {
             error_log("Error en downloadSatMasivo: " . $e->getMessage());
