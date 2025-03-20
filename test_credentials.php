@@ -60,9 +60,9 @@ try {
         $endDate = DateTime::create('2024-01-31T23:59:59');
         $period = new DateTimePeriod($startDate, $endDate);
 
-        // Crear tipos para la consulta
-        $downloadType = DownloadType::create('Metadata');
-        $requestType = RequestType::create('Emitidos');
+        // Crear tipos para la consulta usando los constructores directamente
+        $downloadType = new DownloadType('Metadata');
+        $requestType = new RequestType('Emitidos');
 
         // Crear parámetros de consulta
         $parameters = QueryParameters::create(
