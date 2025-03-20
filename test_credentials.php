@@ -6,6 +6,8 @@ use PhpCfdi\Credentials\Credential;
 use PhpCfdi\SatWsDescargaMasiva\Service;
 use PhpCfdi\SatWsDescargaMasiva\WebClient\GuzzleWebClient;
 use PhpCfdi\SatWsDescargaMasiva\RequestBuilder\FielRequestBuilder\Fiel;
+use PhpCfdi\SatWsDescargaMasiva\RequestBuilder\FielRequestBuilder\FielRequestBuilder;
+
 
 $cerFile = __DIR__ . '/uploads/sat/sat_cer_67db47408517a.cer';
 $pemKeyFile = __DIR__ . '/uploads/sat/sat_key_67db4740851a2.key';
@@ -33,10 +35,8 @@ echo "</br>Serial: </br>" . $certificado->serialNumber()->bytes() . PHP_EOL; // 
 
 
 
-use PhpCfdi\SatWsDescargaMasiva\RequestBuilder\FielRequestBuilder\Fiel;
-use PhpCfdi\SatWsDescargaMasiva\RequestBuilder\FielRequestBuilder\FielRequestBuilder;
-use PhpCfdi\SatWsDescargaMasiva\Service;
-use PhpCfdi\SatWsDescargaMasiva\WebClient\GuzzleWebClient;
+
+
 
 
 // verificar que la FIEL sea válida (no sea CSD y sea vigente acorde a la fecha del sistema)
