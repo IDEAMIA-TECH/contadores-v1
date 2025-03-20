@@ -171,9 +171,10 @@ class Report {
                 $row++;
             }
 
-            // Formato para columnas numéricas
-            $sheet->getStyle('G2:H' . ($row-1))->getNumberFormat()->setFormatCode(\PhpOffice\PhpSpreadsheet\Style\NumberFormat::FORMAT_CURRENCY_USD_SIMPLE);
-            $sheet->getStyle('K2:K' . ($row-1))->getNumberFormat()->setFormatCode(\PhpOffice\PhpSpreadsheet\Style\NumberFormat::FORMAT_CURRENCY_USD_SIMPLE);
+            // Formato para columnas numéricas (usando el formato correcto de moneda)
+            $currencyFormat = '_("$"* #,##0.00_);_("$"* \(#,##0.00\);_("$"* "-"??_);_(@_)';
+            $sheet->getStyle('G2:H' . ($row-1))->getNumberFormat()->setFormatCode($currencyFormat);
+            $sheet->getStyle('K2:K' . ($row-1))->getNumberFormat()->setFormatCode($currencyFormat);
 
             // Configurar la respuesta
             header('Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
