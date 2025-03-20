@@ -32,11 +32,11 @@
 
             <!-- Área de Drop -->
             <div id="drop-area" class="border-2 border-dashed border-gray-300 rounded-lg p-8 mb-6 text-center transition-all duration-300">
-                <p class="text-gray-600 mb-4">Arrastra y suelta hasta 25 archivos XML aquí o</p>
+                <p class="text-gray-600 mb-4">Arrastra y suelta hasta 500 archivos XML aquí o</p>
                 <label for="xml_files" class="bg-blue-500 hover:bg-blue-600 text-white px-6 py-2 rounded-md cursor-pointer inline-block mb-4">
                     Seleccionar archivos
                 </label>
-                <p class="text-sm text-gray-500">Máximo 25 archivos XML</p>
+                <p class="text-sm text-gray-500">Máximo 500 archivos XML</p>
                 <div id="file-list" class="mt-4 text-left max-h-60 overflow-y-auto"></div>
             </div>
 
@@ -87,7 +87,7 @@
         const fileList = document.getElementById('file-list');
         const submitBtn = document.getElementById('submit-btn');
         const form = document.getElementById('upload-form');
-        const MAX_FILES = 25;
+        const MAX_FILES = 500;
         let files = [];
 
         // Prevenir comportamiento por defecto del drop
