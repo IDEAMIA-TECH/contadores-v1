@@ -13,7 +13,6 @@ use PhpCfdi\SatWsDescargaMasiva\WebClient\GuzzleWebClient;
 use PhpCfdi\SatWsDescargaMasiva\Shared\ServiceEndpoints;
 use PhpCfdi\SatWsDescargaMasiva\Services\Query\QueryParameters;
 use PhpCfdi\SatWsDescargaMasiva\RequestBuilder\RequestBuilderInterface;
-use PhpCfdi\SatWsDescargaMasiva\RequestBuilder\Fiel\FielRequestBuilder;
 use PhpCfdi\Credentials\Credential;
 use PhpCfdi\Credentials\Certificate;
 use PhpCfdi\Credentials\PrivateKey;
@@ -713,6 +712,38 @@ class ClientController {
 
     public function downloadSatMasivo() {
         try {
+            // Verificar que las clases necesarias existen
+            $requiredClasses = [
+                'PhpCfdi\SatWsDescargaMasiva\Service' => false,
+                'PhpCfdi\SatWsDescargaMasiva\WebClient\GuzzleWebClient' => false,
+                'PhpCfdi\SatWsDescargaMasiva\Shared\ServiceEndpoints' => false,
+                'PhpCfdi\SatWsDescargaMasiva\Services\Query\QueryParameters' => false
+            ];
+
+            foreach ($requiredClasses as $class => $_) {
+                if (class_exists($class)) {
+                    error_log("Clase {$class} encontrada");
+                    $requiredClasses[$class] = true;
+                } else {
+                    error_log("Clase {$class} NO encontrada");
+                }
+            }
+
+            // Verificar el autoloader
+            error_log("Verificando autoloader...");
+            error_log("Vendor autoload path: " . __DIR__ . '/../../vendor/autoload.php');
+            error_log("Vendor directory exists: " . (is_dir(__DIR__ . '/../../vendor') ? 'Sí' : 'No'));
+            
+            // Verificar la estructura de directorios de la librería
+            $satWsPath = __DIR__ . '/../../vendor/phpcfdi/sat-ws-descarga-masiva';
+            error_log("Verificando estructura de la librería sat-ws-descarga-masiva...");
+            error_log("Path principal existe: " . (is_dir($satWsPath) ? 'Sí' : 'No'));
+            if (is_dir($satWsPath)) {
+                error_log("Contenido del directorio sat-ws-descarga-masiva:");
+                $files = scandir($satWsPath);
+                error_log(print_r($files, true));
+            }
+
             // Verificaciones iniciales...
             if (!$this->security->isAuthenticated()) {
                 throw new Exception('No autorizado');
@@ -840,11 +871,58 @@ class ClientController {
                 $startDateTime = new \DateTimeImmutable($startDate);
                 $endDateTime = new \DateTimeImmutable($endDate);
 
-                // Crear el servicio de descarga masiva
-                $webClient = new GuzzleWebClient();
-                $endpoints = ServiceEndpoints::cfdi();
-                $requestBuilder = new FielRequestBuilder($fiel);
-                $service = new Service($webClient, $requestBuilder);
+                // Crear el servicio de descarga masiva con validaciones
+                error_log("Creando instancias de las clases necesarias...");
+                
+                try {
+                    $webClient = new GuzzleWebClient();
+                    error_log("GuzzleWebClient creado exitosamente");
+                } catch (\Exception $e) {
+                    error_log("Error creando GuzzleWebClient: " . $e->getMessage());
+                    throw new Exception("Error creando el cliente web: " . $e->getMessage());
+                }
+
+                try {
+                    $endpoints = ServiceEndpoints::cfdi();
+                    error_log("ServiceEndpoints creado exitosamente");
+                } catch (\Exception $e) {
+                    error_log("Error creando ServiceEndpoints: " . $e->getMessage());
+                    throw new Exception("Error creando los endpoints: " . $e->getMessage());
+                }
+
+                // Intentar cargar la clase FielRequestBuilder directamente
+                $fielRequestBuilderClass = 'PhpCfdi\SatWsDescargaMasiva\RequestBuilder\FielRequestBuilder';
+                if (!class_exists($fielRequestBuilderClass)) {
+                    error_log("Clase FielRequestBuilder no encontrada. Buscando en rutas alternativas...");
+                    
+                    // Buscar archivos que contengan FielRequestBuilder
+                    $vendorDir = __DIR__ . '/../../vendor';
+                    $command = "find $vendorDir -type f -name '*FielRequestBuilder.php'";
+                    $output = [];
+                    exec($command, $output);
+                    
+                    error_log("Archivos encontrados que contienen FielRequestBuilder:");
+                    error_log(print_r($output, true));
+                    
+                    throw new Exception("La clase FielRequestBuilder no se encuentra. Por favor, verifica la instalación de la librería.");
+                }
+
+                try {
+                    // Usar la ruta completa de la clase
+                    $requestBuilder = new \PhpCfdi\SatWsDescargaMasiva\RequestBuilder\FielRequestBuilder($fiel);
+                    error_log("FielRequestBuilder creado exitosamente");
+                } catch (\Exception $e) {
+                    error_log("Error creando FielRequestBuilder: " . $e->getMessage());
+                    throw new Exception("Error creando el constructor de solicitudes: " . $e->getMessage());
+                }
+
+                try {
+                    $service = new Service($webClient, $requestBuilder);
+                    error_log("Service creado exitosamente");
+                } catch (\Exception $e) {
+                    error_log("Error creando Service: " . $e->getMessage());
+                    throw new Exception("Error creando el servicio: " . $e->getMessage());
+                }
 
                 // Crear la solicitud según el tipo
                 $request = new QueryParameters(
@@ -902,10 +980,16 @@ class ClientController {
 
         } catch (Exception $e) {
             error_log("Error en downloadSatMasivo: " . $e->getMessage());
+            error_log("Stack trace: " . $e->getTraceAsString());
             header('Content-Type: application/json');
             echo json_encode([
                 'success' => false,
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
+                'debug_info' => [
+                    'required_classes' => $requiredClasses ?? [],
+                    'vendor_path' => __DIR__ . '/../../vendor',
+                    'autoload_exists' => file_exists(__DIR__ . '/../../vendor/autoload.php')
+                ]
             ]);
             exit;
         }
