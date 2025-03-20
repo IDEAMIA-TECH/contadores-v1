@@ -18,13 +18,24 @@ try {
     // 1. Primero probamos que podemos leer y usar las credenciales
     echo "=== Prueba de credenciales ===\n";
     
-    $cerFile = __DIR__ . '/uploads/sat/sat_cer_67db47408517a.cer'; // Ajusta la ruta
-    $keyFile = __DIR__ . '/uploads/sat/sat_cer_67db8df027215.cer'; // Ajusta la ruta
-    $passPhrase = 'Japc20078'; // Ajusta la contraseña
+    $cerFile = __DIR__ . '/uploads/sat/sat_cer_67db47408517a.cer';  // Certificado .cer
+    $keyFile = __DIR__ . '/uploads/sat/sat_key_67db47408517a.key';  // Llave privada .key
+    $passPhrase = 'Japc20078';
 
     echo "Verificando archivos...\n";
     echo "Certificado existe: " . (file_exists($cerFile) ? 'Sí' : 'No') . "\n";
     echo "Llave existe: " . (file_exists($keyFile) ? 'Sí' : 'No') . "\n";
+
+    // Verificar el contenido de los archivos
+    if (file_exists($cerFile)) {
+        echo "Tamaño del certificado: " . filesize($cerFile) . " bytes\n";
+        echo "Contenido del certificado (primeros 50 bytes): " . bin2hex(substr(file_get_contents($cerFile), 0, 50)) . "\n";
+    }
+    
+    if (file_exists($keyFile)) {
+        echo "Tamaño de la llave: " . filesize($keyFile) . " bytes\n";
+        echo "Contenido de la llave (primeros 50 bytes): " . bin2hex(substr(file_get_contents($keyFile), 0, 50)) . "\n";
+    }
 
     // Crear credencial y mostrar información
     echo "\nCreando credencial...\n";
