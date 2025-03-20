@@ -17,6 +17,7 @@ use PhpCfdi\SatWsDescargaMasiva\RequestBuilder\FielRequestBuilder\Fiel;
 use PhpCfdi\Credentials\Credential;
 use PhpCfdi\Credentials\Certificate;
 use PhpCfdi\Credentials\PrivateKey;
+use PhpCfdi\SatWsDescargaMasiva\Shared\DateTimePeriod;
 
 class ClientController {
     private $db;
@@ -914,11 +915,19 @@ class ClientController {
                 error_log("- Tipo de documento: " . ($documentType === 'issued' ? 'Emitidos' : 'Recibidos'));
                 error_log("- Tipo de descarga: " . ($requestType === 'metadata' ? 'Metadata' : 'CFDI'));
 
+                // Crear el periodo de tiempo
+                try {
+                    $period = new DateTimePeriod($startDateTime, $endDateTime);
+                    error_log("Periodo creado exitosamente");
+                } catch (\Exception $e) {
+                    error_log("Error al crear periodo: " . $e->getMessage());
+                    throw new Exception("Error al crear el periodo de tiempo: " . $e->getMessage());
+                }
+
                 // Usar las constantes correctas según la documentación
                 $request = QueryParameters::create(
-                    $startDateTime,
-                    $endDateTime,
-                    $documentType === 'issued' ? 'I' : 'R',  // I para emitidos, R para recibidos
+                    $period,                                    // Periodo de tiempo
+                    $documentType === 'issued' ? 'I' : 'R',    // I para emitidos, R para recibidos
                     $requestType === 'metadata' ? 'metadata' : 'xml'  // metadata o xml
                 );
                 error_log("Parámetros de consulta creados exitosamente");
