@@ -13,6 +13,7 @@ use PhpCfdi\SatWsDescargaMasiva\WebClient\GuzzleWebClient;
 use PhpCfdi\SatWsDescargaMasiva\Shared\ServiceEndpoints;
 use PhpCfdi\SatWsDescargaMasiva\Services\Query\QueryParameters;
 use PhpCfdi\SatWsDescargaMasiva\RequestBuilder\FielRequestBuilder\FielRequestBuilder;
+use PhpCfdi\SatWsDescargaMasiva\RequestBuilder\FielRequestBuilder\Fiel;
 use PhpCfdi\Credentials\Credential;
 use PhpCfdi\Credentials\Certificate;
 use PhpCfdi\Credentials\PrivateKey;
@@ -815,61 +816,29 @@ class ClientController {
                 error_log("Longitud del contenido del certificado: " . strlen($cerContent));
                 error_log("Longitud del contenido de la llave: " . strlen($keyContent));
 
-                // Crear la llave privada primero
-                try {
-                    $privateKey = new \PhpCfdi\Credentials\PrivateKey($keyContent, $keyPassword);
-                    error_log("Llave privada creada exitosamente");
-                } catch (\Exception $e) {
-                    error_log("Error al crear llave privada: " . $e->getMessage());
-                    throw new Exception("La contraseña proporcionada no es válida para la llave privada");
-                }
-
                 // Crear el certificado
-                $certificate = new \PhpCfdi\Credentials\Certificate($cerContent);
+                $certificate = new Certificate($cerContent);
                 error_log("Certificado creado exitosamente");
 
-                // Crear las credenciales
-                $fiel = new \PhpCfdi\Credentials\Credential($certificate, $privateKey);
+                // Crear la llave privada
+                $privateKey = new PrivateKey($keyContent, $keyPassword);
+                error_log("Llave privada creada exitosamente");
 
-                // Verificar que el certificado esté vigente usando DateTimeImmutable
-                $now = new \DateTimeImmutable();
-                if (!$certificate->validOn($now)) {
-                    // Obtenemos las fechas como objetos DateTimeImmutable
-                    $validFrom = $certificate->validFrom();
-                    $validTo = $certificate->validTo();
-                    
-                    throw new Exception(sprintf(
-                        'El certificado no está vigente. Válido desde: %s hasta: %s',
-                        $validFrom instanceof \DateTimeInterface ? $validFrom->format('Y-m-d H:i:s') : 'fecha inválida',
-                        $validTo instanceof \DateTimeInterface ? $validTo->format('Y-m-d H:i:s') : 'fecha inválida'
-                    ));
-                }
+                // Crear el objeto Fiel para el FielRequestBuilder
+                $fiel = new Fiel(
+                    $certificate->rfc(),
+                    $certificate->serialNumber()->bytes(),
+                    $certificate->pemContents(),
+                    $privateKey->pemContents()
+                );
+                
+                error_log("Objeto Fiel creado exitosamente");
+                error_log("RFC del objeto Fiel: " . $fiel->rfc());
+                error_log("Número de serie del objeto Fiel: " . $fiel->certificateSerial());
 
-                // Verificar que la llave privada corresponde al certificado
-                if (!$fiel->privateKey()->belongsTo($certificate)) {
-                    throw new Exception('La llave privada no corresponde al certificado');
-                }
-
-                // Log de información del certificado
-                error_log("Información del certificado:");
-                error_log("RFC: " . $certificate->rfc());
-                error_log("Número de serie: " . $certificate->serialNumber()->bytes());
-                error_log("Válido desde: " . ($certificate->validFrom() instanceof \DateTimeInterface ? $certificate->validFrom()->format('Y-m-d H:i:s') : 'fecha inválida'));
-                error_log("Válido hasta: " . ($certificate->validTo() instanceof \DateTimeInterface ? $certificate->validTo()->format('Y-m-d H:i:s') : 'fecha inválida'));
-
-                // Obtener parámetros de la solicitud
-                $requestType = $_POST['request_type'] ?? ''; // metadata o cfdi
-                $documentType = $_POST['document_type'] ?? ''; // issued o received
-                $startDate = $_POST['fecha_inicio'] ?? '';
-                $endDate = $_POST['fecha_fin'] ?? '';
-
-                if (!$startDate || !$endDate) {
-                    throw new Exception('Las fechas son requeridas');
-                }
-
-                // Convertir fechas al formato requerido
-                $startDateTime = new \DateTimeImmutable($startDate);
-                $endDateTime = new \DateTimeImmutable($endDate);
+                // Crear el FielRequestBuilder con el objeto Fiel correcto
+                $requestBuilder = new FielRequestBuilder($fiel);
+                error_log("FielRequestBuilder creado exitosamente");
 
                 // Crear el servicio de descarga masiva con validaciones
                 error_log("Creando instancias de las clases necesarias...");
@@ -890,32 +859,6 @@ class ClientController {
                     throw new Exception("Error creando los endpoints: " . $e->getMessage());
                 }
 
-                // Intentar cargar la clase FielRequestBuilder directamente
-                $fielRequestBuilderClass = 'PhpCfdi\SatWsDescargaMasiva\RequestBuilder\FielRequestBuilder\FielRequestBuilder';
-                if (!class_exists($fielRequestBuilderClass)) {
-                    error_log("Clase FielRequestBuilder no encontrada. Buscando en rutas alternativas...");
-                    
-                    // Buscar archivos que contengan FielRequestBuilder
-                    $vendorDir = __DIR__ . '/../../vendor';
-                    $command = "find $vendorDir -type f -name '*FielRequestBuilder.php'";
-                    $output = [];
-                    exec($command, $output);
-                    
-                    error_log("Archivos encontrados que contienen FielRequestBuilder:");
-                    error_log(print_r($output, true));
-                    
-                    throw new Exception("La clase FielRequestBuilder no se encuentra. Por favor, verifica la instalación de la librería.");
-                }
-
-                try {
-                    // Usar el namespace correcto encontrado en el log
-                    $requestBuilder = new \PhpCfdi\SatWsDescargaMasiva\RequestBuilder\FielRequestBuilder\FielRequestBuilder($fiel);
-                    error_log("FielRequestBuilder creado exitosamente");
-                } catch (\Exception $e) {
-                    error_log("Error creando FielRequestBuilder: " . $e->getMessage());
-                    throw new Exception("Error creando el constructor de solicitudes: " . $e->getMessage());
-                }
-
                 try {
                     $service = new Service($webClient, $requestBuilder);
                     error_log("Service creado exitosamente");
@@ -923,6 +866,20 @@ class ClientController {
                     error_log("Error creando Service: " . $e->getMessage());
                     throw new Exception("Error creando el servicio: " . $e->getMessage());
                 }
+
+                // Obtener parámetros de la solicitud
+                $requestType = $_POST['request_type'] ?? ''; // metadata o cfdi
+                $documentType = $_POST['document_type'] ?? ''; // issued o received
+                $startDate = $_POST['fecha_inicio'] ?? '';
+                $endDate = $_POST['fecha_fin'] ?? '';
+
+                if (!$startDate || !$endDate) {
+                    throw new Exception('Las fechas son requeridas');
+                }
+
+                // Convertir fechas al formato requerido
+                $startDateTime = new \DateTimeImmutable($startDate);
+                $endDateTime = new \DateTimeImmutable($endDate);
 
                 // Crear la solicitud según el tipo
                 $request = new QueryParameters(
