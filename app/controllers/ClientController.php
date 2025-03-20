@@ -17,6 +17,7 @@ use PhpCfdi\SatWsDescargaMasiva\RequestBuilder\FielRequestBuilder\Fiel;
 use PhpCfdi\Credentials\Credential;
 use PhpCfdi\Credentials\Certificate;
 use PhpCfdi\Credentials\PrivateKey;
+use PhpCfdi\SatWsDescargaMasiva\Shared\DateTime as SatDateTime;
 use PhpCfdi\SatWsDescargaMasiva\Shared\DateTimePeriod;
 
 class ClientController {
@@ -897,78 +898,77 @@ class ClientController {
                 error_log("- Fecha inicio: " . $startDate);
                 error_log("- Fecha fin: " . $endDate);
 
-                if (!$startDate || !$endDate) {
-                    throw new Exception('Las fechas son requeridas');
+                if (!preg_match('/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/', $startDate) ||
+                    !preg_match('/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/', $endDate)) {
+                    throw new Exception('Las fechas deben estar en formato YYYY-MM-DDTHH:mm');
                 }
 
-                // Convertir fechas
-                $startDateTime = new \DateTimeImmutable($startDate);
-                $endDateTime = new \DateTimeImmutable($endDate);
-                error_log("Fechas convertidas exitosamente");
-
-                // Crear la solicitud
-                error_log("=== Creando solicitud de descarga ===");
-                
-                error_log("Creando parámetros de consulta con los siguientes valores:");
-                error_log("- Fecha inicio: " . $startDateTime->format('Y-m-d\TH:i:s'));
-                error_log("- Fecha fin: " . $endDateTime->format('Y-m-d\TH:i:s'));
-                error_log("- Tipo de documento: " . ($documentType === 'issued' ? 'Emitidos' : 'Recibidos'));
-                error_log("- Tipo de descarga: " . ($requestType === 'metadata' ? 'Metadata' : 'CFDI'));
-
-                // Crear el periodo de tiempo
+                // Convertir fechas al formato requerido por el SAT
                 try {
+                    error_log("Convirtiendo fechas al formato SAT...");
+                    
+                    // Crear objetos DateTime específicos del SAT
+                    $startDateTime = SatDateTime::create($startDate);
+                    $endDateTime = SatDateTime::create($endDate);
+                    
+                    error_log("Fechas convertidas exitosamente:");
+                    error_log("- Inicio: " . $startDateTime->format('Y-m-d\TH:i:s'));
+                    error_log("- Fin: " . $endDateTime->format('Y-m-d\TH:i:s'));
+
+                    // Crear el periodo usando los objetos DateTime del SAT
                     $period = new DateTimePeriod($startDateTime, $endDateTime);
                     error_log("Periodo creado exitosamente");
+
+                    // Crear la solicitud con el periodo
+                    $request = QueryParameters::create(
+                        $period,                                    // Periodo de tiempo
+                        $documentType === 'issued' ? 'I' : 'R',    // I para emitidos, R para recibidos
+                        $requestType === 'metadata' ? 'metadata' : 'xml'  // metadata o xml
+                    );
+                    error_log("Parámetros de consulta creados exitosamente");
+
+                    // Realizar la solicitud
+                    error_log("Enviando solicitud al SAT...");
+                    $query = $service->query($request);
+                    error_log("Respuesta recibida del SAT");
+                    
+                    if (!$query->getStatus()->isAccepted()) {
+                        error_log("La solicitud fue rechazada por el SAT: " . $query->getStatus()->getMessage());
+                        throw new Exception('La solicitud fue rechazada: ' . $query->getStatus()->getMessage());
+                    }
+
+                    error_log("Solicitud aceptada por el SAT");
+                    $requestId = $query->getRequestId();
+                    error_log("ID de solicitud generado: " . $requestId);
+
+                    // Guardar el ID de solicitud y devolver respuesta exitosa
+                    $stmt = $this->db->prepare("
+                        INSERT INTO sat_download_requests 
+                        (client_id, request_id, request_type, document_type, start_date, end_date, status, created_at) 
+                        VALUES (?, ?, ?, ?, ?, ?, 'REQUESTED', NOW())
+                    ");
+                    
+                    $stmt->execute([
+                        $clientId,
+                        $requestId,
+                        $requestType,
+                        $documentType,
+                        $startDate,
+                        $endDate
+                    ]);
+
+                    header('Content-Type: application/json');
+                    echo json_encode([
+                        'success' => true,
+                        'message' => 'Solicitud de descarga iniciada correctamente',
+                        'requestId' => $requestId
+                    ]);
+                    exit;
+
                 } catch (\Exception $e) {
-                    error_log("Error al crear periodo: " . $e->getMessage());
-                    throw new Exception("Error al crear el periodo de tiempo: " . $e->getMessage());
+                    error_log("Error al procesar las fechas o crear la solicitud: " . $e->getMessage());
+                    throw new Exception("Error al crear la solicitud: " . $e->getMessage());
                 }
-
-                // Usar las constantes correctas según la documentación
-                $request = QueryParameters::create(
-                    $period,                                    // Periodo de tiempo
-                    $documentType === 'issued' ? 'I' : 'R',    // I para emitidos, R para recibidos
-                    $requestType === 'metadata' ? 'metadata' : 'xml'  // metadata o xml
-                );
-                error_log("Parámetros de consulta creados exitosamente");
-
-                // Realizar la solicitud
-                error_log("Enviando solicitud al SAT...");
-                $query = $service->query($request);
-                error_log("Respuesta recibida del SAT");
-                
-                if (!$query->getStatus()->isAccepted()) {
-                    error_log("La solicitud fue rechazada por el SAT: " . $query->getStatus()->getMessage());
-                    throw new Exception('La solicitud fue rechazada: ' . $query->getStatus()->getMessage());
-                }
-
-                error_log("Solicitud aceptada por el SAT");
-                $requestId = $query->getRequestId();
-                error_log("ID de solicitud generado: " . $requestId);
-
-                // Guardar el ID de solicitud y devolver respuesta exitosa
-                $stmt = $this->db->prepare("
-                    INSERT INTO sat_download_requests 
-                    (client_id, request_id, request_type, document_type, start_date, end_date, status, created_at) 
-                    VALUES (?, ?, ?, ?, ?, ?, 'REQUESTED', NOW())
-                ");
-                
-                $stmt->execute([
-                    $clientId,
-                    $requestId,
-                    $requestType,
-                    $documentType,
-                    $startDate,
-                    $endDate
-                ]);
-
-                header('Content-Type: application/json');
-                echo json_encode([
-                    'success' => true,
-                    'message' => 'Solicitud de descarga iniciada correctamente',
-                    'requestId' => $requestId
-                ]);
-                exit;
 
             } catch (\Exception $e) {
                 error_log("Error detallado al procesar la solicitud: " . $e->getMessage());

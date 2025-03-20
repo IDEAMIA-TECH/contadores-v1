@@ -95,12 +95,18 @@
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div>
                                 <label class="block text-sm font-medium text-gray-700">Fecha Inicio</label>
-                                <input type="datetime-local" name="fecha_inicio" required 
+                                <input type="datetime-local" 
+                                       name="fecha_inicio" 
+                                       required 
+                                       pattern="\d{4}-\d{2}-\d{2}T\d{2}:\d{2}"
                                        class="mt-1 form-input block w-full rounded-md">
                             </div>
                             <div>
                                 <label class="block text-sm font-medium text-gray-700">Fecha Fin</label>
-                                <input type="datetime-local" name="fecha_fin" required 
+                                <input type="datetime-local" 
+                                name="fecha_fin" 
+                                required 
+                                pattern="\d{4}-\d{2}-\d{2}T\d{2}:\d{2}"
                                        class="mt-1 form-input block w-full rounded-md">
                             </div>
                         </div>
