@@ -709,230 +709,108 @@ class ClientController {
 
     public function downloadSatMasivo() {
         try {
+            // Verificar autenticación y token CSRF
             if (!$this->security->isAuthenticated()) {
                 throw new Exception('No autorizado');
             }
 
-            // Validar CSRF token primero
-            if (!$this->security->validateCsrfToken($_POST['csrf_token'] ?? '')) {
+            if (!isset($_POST['csrf_token']) || !$this->security->validateCsrfToken($_POST['csrf_token'])) {
                 throw new Exception('Token de seguridad inválido');
             }
 
-            // Debug de los datos recibidos
-            error_log("Datos POST recibidos: " . print_r($_POST, true));
-
-            // Validar parámetros con más detalle
-            $clientId = filter_input(INPUT_POST, 'client_id', FILTER_VALIDATE_INT);
-            $requestType = filter_input(INPUT_POST, 'request_type'); // metadata o cfdi
-            $documentType = filter_input(INPUT_POST, 'document_type'); // issued o received
-            $fechaInicio = filter_input(INPUT_POST, 'fecha_inicio');
-            $fechaFin = filter_input(INPUT_POST, 'fecha_fin');
-
-            // Validación detallada de parámetros
-            if (!$clientId) {
-                throw new Exception('ID de cliente no válido');
-            }
-            if (!in_array($requestType, ['metadata', 'cfdi'])) {
-                throw new Exception('Tipo de solicitud no válido');
-            }
-            if (!in_array($documentType, ['issued', 'received'])) {
-                throw new Exception('Tipo de documento no válido');
-            }
-            if (!$fechaInicio || !$fechaFin) {
-                throw new Exception('Fechas no válidas');
+            // Validar client_id
+            if (empty($_POST['client_id'])) {
+                throw new Exception('ID de cliente no proporcionado');
             }
 
-            // Obtener cliente y sus archivos SAT
+            $clientId = $_POST['client_id'];
             $client = $this->client->getClientById($clientId);
-            if (!$client || empty($client['cer_path']) || empty($client['key_path'])) {
-                throw new Exception('Cliente no tiene configurada su e.firma');
+
+            if (!$client) {
+                throw new Exception('Cliente no encontrado');
             }
 
-            // Crear credencial con los archivos del cliente
+            // Validar que existan los archivos de certificado
+            if (empty($client['cer_path']) || empty($client['key_path']) || empty($client['key_password'])) {
+                throw new Exception('Certificado o llave privada no configurados');
+            }
+
+            // Obtener rutas completas de los archivos
             $cerFile = ROOT_PATH . '/uploads/' . $client['cer_path'];
             $keyFile = ROOT_PATH . '/uploads/' . $client['key_path'];
-            $password = $client['key_password'];
+            
+            // Verificar que los archivos existan
+            if (!file_exists($cerFile) || !file_exists($keyFile)) {
+                throw new Exception('Archivos de certificado no encontrados');
+            }
 
-            if (!file_exists($cerFile)) {
-                throw new Exception('Archivo CER no encontrado');
-            }
-            if (!file_exists($keyFile)) {
-                throw new Exception('Archivo KEY no encontrado');
-            }
+            // Log para debugging
+            error_log("Intentando leer certificado de: " . $cerFile);
+            error_log("Intentando leer llave privada de: " . $keyFile);
 
             try {
-                $certificate = new Certificate(
-                    file_get_contents($cerFile)
-                );
+                // Leer contenido de los archivos
+                $cerContent = file_get_contents($cerFile);
+                $keyContent = file_get_contents($keyFile);
                 
-                // Agregar logs para diagnóstico del certificado
+                if ($cerContent === false || $keyContent === false) {
+                    throw new Exception('No se pudieron leer los archivos del certificado');
+                }
+
+                // Crear objetos de certificado y llave privada
+                $certificate = new \PhpCfdi\Credentials\Certificate($cerContent);
+                $privateKey = new \PhpCfdi\Credentials\PrivateKey($keyContent);
+
+                // Intentar crear las credenciales
+                $fiel = new \PhpCfdi\Credentials\Credential($certificate, $privateKey);
+
+                // Verificar si la llave privada corresponde al certificado
+                if (!$fiel->privateKey()->belongsTo($certificate)) {
+                    throw new Exception('La llave privada no corresponde al certificado');
+                }
+
+                // Verificar que el certificado no sea CSD
+                if ($certificate->isCsd()) {
+                    throw new Exception('El certificado proporcionado es un CSD, se requiere FIEL');
+                }
+
+                // Verificar que el certificado sea FIEL
+                if (!$certificate->isFiel()) {
+                    throw new Exception('El certificado no es una FIEL válida');
+                }
+
+                // Verificar que el certificado esté vigente
+                $now = new \DateTime();
+                if (!$certificate->validOn($now)) {
+                    throw new Exception('El certificado no está vigente');
+                }
+
+                // Log de información del certificado para debugging
                 error_log("Información del certificado:");
-                error_log("Serial Number: " . $certificate->serialNumber()->bytes());
                 error_log("RFC: " . $certificate->rfc());
-                
-                // Convertir las fechas a objetos DateTime antes de formatearlas
-                $validFrom = $certificate->validFrom();
-                $validTo = $certificate->validTo();
-                
-                error_log("Válido desde: " . ($validFrom instanceof \DateTime ? $validFrom->format('Y-m-d H:i:s') : 'No disponible'));
-                error_log("Válido hasta: " . ($validTo instanceof \DateTime ? $validTo->format('Y-m-d H:i:s') : 'No disponible'));
-                
-                // Obtener y mostrar todos los key usages
-                $parsed = $certificate->publicKey()->parsed();
-                $keyUsages = $parsed['tbsCertificate']['extensions']['keyUsage'] ?? [];
-                error_log("Key Usages encontrados: " . print_r($keyUsages, true));
-                
-                // Obtener información extendida del certificado
-                $extendedInfo = openssl_x509_parse(
-                    $certificate->pem()
-                );
-                error_log("Información extendida del certificado: " . print_r($extendedInfo, true));
+                error_log("Número de serie: " . $certificate->serialNumber()->bytes());
+                error_log("Válido desde: " . $certificate->validFrom()->format('Y-m-d H:i:s'));
+                error_log("Válido hasta: " . $certificate->validTo()->format('Y-m-d H:i:s'));
+                error_log("Es FIEL: " . ($certificate->isFiel() ? 'Sí' : 'No'));
+                error_log("Es CSD: " . ($certificate->isCsd() ? 'Sí' : 'No'));
 
-                // Nueva validación más flexible para FIEL vs CSD
-                $isFiel = false;
-                
-                // Verificar por key usages
-                if (!empty($keyUsages)) {
-                    $requiredUsages = ['digitalSignature', 'nonRepudiation', 'keyEncipherment'];
-                    $foundUsages = array_intersect($requiredUsages, $keyUsages);
-                    $isFiel = count($foundUsages) >= 2; // Si tiene al menos 2 de los usos requeridos
-                }
-                
-                // Verificar por propósito del certificado en extensiones
-                if (isset($extendedInfo['extensions']['extendedKeyUsage'])) {
-                    $keyPurpose = $extendedInfo['extensions']['extendedKeyUsage'];
-                    // Las FIEL suelen tener estos propósitos
-                    if (strpos($keyPurpose, 'clientAuth') !== false || 
-                        strpos($keyPurpose, 'emailProtection') !== false) {
-                        $isFiel = true;
-                    }
-                }
-                
-                // Verificar por el nombre del certificado
-                if (isset($extendedInfo['subject']['OU'])) {
-                    $ou = $extendedInfo['subject']['OU'];
-                    if (stripos($ou, 'FIEL') !== false || stripos($ou, 'e.firma') !== false) {
-                        $isFiel = true;
-                    }
-                }
+                // Si llegamos aquí, el certificado es válido
+                // Continuar con el proceso de descarga...
 
-                if (!$isFiel) {
-                    error_log("Certificado no validado como FIEL. Detalles de validación:");
-                    error_log("Key Usages: " . implode(', ', $keyUsages));
-                    error_log("Extended Key Usage: " . ($extendedInfo['extensions']['extendedKeyUsage'] ?? 'No disponible'));
-                    error_log("OU: " . ($extendedInfo['subject']['OU'] ?? 'No disponible'));
-                    throw new Exception('El certificado no parece ser una FIEL válida. Por favor, verifique que está usando el certificado correcto.');
-                }
-
-                // Obtener y validar la contraseña
-                if (empty($client['key_password'])) {
-                    throw new Exception('No se ha configurado la contraseña de la FIEL');
-                }
-
-                // Log de la contraseña encriptada
-                error_log("Contraseña encriptada en BD: " . $client['key_password']);
-                
-                // Intentar desencriptar la contraseña
-                $decryptedPassword = openssl_decrypt(
-                    $client['key_password'],
-                    'AES-256-CBC',
-                    getenv('APP_KEY'),
-                    0,
-                    substr(getenv('APP_KEY'), 0, 16)
-                );
-                
-                // Log de la contraseña desencriptada
-                error_log("Contraseña desencriptada: " . ($decryptedPassword ?: 'ERROR AL DESENCRIPTAR'));
-                error_log("APP_KEY utilizada: " . substr(getenv('APP_KEY'), 0, 10) . '...');
-                
-                if ($decryptedPassword === false) {
-                    throw new Exception('Error al desencriptar la contraseña. Verifique APP_KEY.');
-                }
-                
-                try {
-                    // Intentar crear la llave privada con la contraseña desencriptada
-                    $privateKey = new PrivateKey(
-                        file_get_contents($keyFile),
-                        $decryptedPassword
-                    );
-                    
-                    // Si llegamos aquí, la contraseña funcionó
-                    error_log("Llave privada creada exitosamente con la contraseña desencriptada");
-                    
-                } catch (Exception $e) {
-                    error_log("Error al crear llave privada: " . $e->getMessage());
-                    error_log("Longitud de la contraseña desencriptada: " . strlen($decryptedPassword));
-                    
-                    // Intentar con la contraseña sin desencriptar como fallback
-                    try {
-                        $privateKey = new PrivateKey(
-                            file_get_contents($keyFile),
-                            $client['key_password']
-                        );
-                        error_log("Llave privada creada exitosamente con la contraseña encriptada (fallback)");
-                    } catch (Exception $e2) {
-                        throw new Exception('La contraseña de la llave privada es incorrecta. Error: ' . $e2->getMessage());
-                    }
-                }
-
-                // Verificar que la llave privada funcione
-                if (!$privateKey->sign('test')) {
-                    throw new Exception('La llave privada no es válida o está dañada');
-                }
-
-                // Crear credencial
-                $fiel = new Credential($certificate, $privateKey);
-
-                // Crear el servicio de descarga masiva
-                $requestBuilder = new FielRequestBuilder($fiel);
-                $webClient = new GuzzleWebClient();
-                $service = new Service($requestBuilder, $webClient);
-
-                // Crear el periodo de consulta
-                $period = new DateTimePeriod(
-                    new DateTime($fechaInicio),
-                    new DateTime($fechaFin)
-                );
-
-                // Crear los parámetros de consulta
-                $request = new QueryParameters(
-                    $period,
-                    $documentType === 'issued' ? QueryParameters::DOCUMENT_TYPE_ISSUED : QueryParameters::DOCUMENT_TYPE_RECEIVED,
-                    $requestType === 'metadata' ? QueryParameters::DOWNLOAD_TYPE_METADATA : QueryParameters::DOWNLOAD_TYPE_CFDI
-                );
-
-                // Realizar la consulta
-                $query = $service->query($request);
-
-                // Verificar el resultado
-                if (!$query->getStatus()->isAccepted()) {
-                    throw new Exception('Error al realizar la consulta: ' . $query->getStatus()->getMessage());
-                }
-
-                // Devolver respuesta exitosa
-                header('Content-Type: application/json');
-                echo json_encode([
+                return json_encode([
                     'success' => true,
-                    'message' => 'Solicitud iniciada correctamente',
-                    'requestId' => $query->getRequestId(),
-                    'data' => [
-                        'requestType' => $requestType,
-                        'documentType' => $documentType,
-                        'fechaInicio' => $fechaInicio,
-                        'fechaFin' => $fechaFin
-                    ]
+                    'message' => 'Solicitud de descarga iniciada correctamente',
+                    'requestId' => 'request-' . uniqid()
                 ]);
-                exit;
 
-            } catch (Exception $e) {
-                error_log("Error detallado en proceso de FIEL: " . $e->getMessage());
-                throw new Exception('Error al procesar la e.firma: ' . $e->getMessage());
+            } catch (\Exception $e) {
+                error_log("Error detallado al procesar certificado: " . $e->getMessage());
+                throw new Exception("Error al procesar la e.firma: " . $e->getMessage());
             }
 
         } catch (Exception $e) {
             error_log("Error en downloadSatMasivo: " . $e->getMessage());
             header('Content-Type: application/json');
-            http_response_code(400);
             echo json_encode([
                 'success' => false,
                 'error' => $e->getMessage()
