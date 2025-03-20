@@ -817,60 +817,96 @@ class ClientController {
                 error_log("Longitud del contenido de la llave: " . strlen($keyContent));
 
                 // Crear el certificado y la llave privada
-                $certificate = new Certificate($cerContent);
-                $privateKey = new PrivateKey($keyContent, $keyPassword);
+                error_log("=== Iniciando creación de credenciales ===");
                 
+                $certificate = new Certificate($cerContent);
+                error_log("Certificado creado exitosamente");
+                error_log("Información del certificado:");
+                error_log("- RFC: " . $certificate->rfc());
+                error_log("- Número de serie: " . $certificate->serialNumber()->bytes());
+                error_log("- Válido desde: " . $certificate->validFrom()->format('Y-m-d H:i:s'));
+                error_log("- Válido hasta: " . $certificate->validTo()->format('Y-m-d H:i:s'));
+
+                $privateKey = new PrivateKey($keyContent, $keyPassword);
+                error_log("Llave privada creada exitosamente");
+
                 // Crear el objeto Credential
                 $credential = new Credential($certificate, $privateKey);
+                error_log("Credential creado exitosamente");
+
+                // Verificar que la llave privada corresponde al certificado
+                if (!$credential->privateKey()->belongsTo($credential->certificate())) {
+                    throw new Exception('La llave privada no corresponde al certificado');
+                }
+                error_log("Verificación de correspondencia entre certificado y llave privada exitosa");
+
+                // Crear el objeto Fiel
+                error_log("=== Iniciando creación del servicio SAT ===");
                 
-                // Crear el objeto Fiel con el Credential
                 $fiel = new \PhpCfdi\SatWsDescargaMasiva\RequestBuilder\FielRequestBuilder\Fiel($credential);
-                
-                // Crear el servicio SAT
-                $webClient = new GuzzleWebClient();
-                $endpoints = ServiceEndpoints::cfdi();
+                error_log("Objeto Fiel creado exitosamente");
+
+                // Crear los componentes del servicio en orden
                 $requestBuilder = new FielRequestBuilder($fiel);
-                $service = new Service($webClient, $requestBuilder);
+                error_log("RequestBuilder creado exitosamente");
+
+                $webClient = new GuzzleWebClient();
+                error_log("WebClient creado exitosamente");
+
+                // Crear el servicio con los argumentos en el orden correcto
+                // El orden correcto es: RequestBuilder, WebClient
+                $service = new Service($requestBuilder, $webClient);
+                error_log("Service creado exitosamente");
 
                 // Obtener parámetros de la solicitud
-                $requestType = $_POST['request_type'] ?? ''; // metadata o cfdi
-                $documentType = $_POST['document_type'] ?? ''; // issued o received
+                error_log("=== Procesando parámetros de la solicitud ===");
+                
+                $requestType = $_POST['request_type'] ?? '';
+                $documentType = $_POST['document_type'] ?? '';
                 $startDate = $_POST['fecha_inicio'] ?? '';
                 $endDate = $_POST['fecha_fin'] ?? '';
+
+                error_log("Parámetros recibidos:");
+                error_log("- Tipo de solicitud: " . $requestType);
+                error_log("- Tipo de documento: " . $documentType);
+                error_log("- Fecha inicio: " . $startDate);
+                error_log("- Fecha fin: " . $endDate);
 
                 if (!$startDate || !$endDate) {
                     throw new Exception('Las fechas son requeridas');
                 }
 
-                // Convertir fechas al formato requerido
+                // Convertir fechas
                 $startDateTime = new \DateTimeImmutable($startDate);
                 $endDateTime = new \DateTimeImmutable($endDate);
+                error_log("Fechas convertidas exitosamente");
 
-                // Crear la solicitud según el tipo
+                // Crear la solicitud
+                error_log("=== Creando solicitud de descarga ===");
+                
                 $request = new QueryParameters(
                     $startDateTime,
                     $endDateTime,
                     $documentType === 'issued' ? QueryParameters::DOCUMENT_TYPE_ISSUED : QueryParameters::DOCUMENT_TYPE_RECEIVED,
                     $requestType === 'metadata' ? QueryParameters::DOWNLOAD_TYPE_METADATA : QueryParameters::DOWNLOAD_TYPE_CFDI
                 );
+                error_log("Parámetros de consulta creados exitosamente");
 
                 // Realizar la solicitud
+                error_log("Enviando solicitud al SAT...");
                 $query = $service->query($request);
+                error_log("Respuesta recibida del SAT");
                 
                 if (!$query->getStatus()->isAccepted()) {
+                    error_log("La solicitud fue rechazada por el SAT: " . $query->getStatus()->getMessage());
                     throw new Exception('La solicitud fue rechazada: ' . $query->getStatus()->getMessage());
                 }
 
-                // Guardar el ID de solicitud y devolver respuesta exitosa
+                error_log("Solicitud aceptada por el SAT");
                 $requestId = $query->getRequestId();
-                
-                // Crear directorio para almacenar las descargas si no existe
-                $downloadDir = ROOT_PATH . '/downloads/' . $clientId . '/' . $requestId;
-                if (!is_dir($downloadDir)) {
-                    mkdir($downloadDir, 0755, true);
-                }
+                error_log("ID de solicitud generado: " . $requestId);
 
-                // Guardar información de la solicitud en la base de datos
+                // Guardar el ID de solicitud y devolver respuesta exitosa
                 $stmt = $this->db->prepare("
                     INSERT INTO sat_download_requests 
                     (client_id, request_id, request_type, document_type, start_date, end_date, status, created_at) 
@@ -895,7 +931,8 @@ class ClientController {
                 exit;
 
             } catch (\Exception $e) {
-                error_log("Error detallado al procesar certificado: " . $e->getMessage());
+                error_log("Error detallado al procesar la solicitud: " . $e->getMessage());
+                error_log("Stack trace: " . $e->getTraceAsString());
                 throw new Exception("Error al procesar la e.firma: " . $e->getMessage());
             }
 
@@ -949,7 +986,9 @@ class ClientController {
             $webClient = new GuzzleWebClient();
             $endpoints = ServiceEndpoints::cfdi();
             $requestBuilder = new \PhpCfdi\SatWsDescargaMasiva\RequestBuilder\FielRequestBuilder\FielRequestBuilder($fiel);
-            $service = new Service($webClient, $requestBuilder);
+            
+            // Crear el servicio con el orden correcto de argumentos
+            $service = new Service($requestBuilder, $webClient);
 
             // Verificar estado
             $verify = $service->verify($requestId);
