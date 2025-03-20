@@ -9,7 +9,7 @@ require_once __DIR__ . '/../helpers/CfdiXmlParser.php';
 require_once __DIR__ . '/../services/SatService.php';
 use PhpCfdi\SatWsDescargaMasiva\Service;
 use PhpCfdi\SatWsDescargaMasiva\WebClient\GuzzleWebClient;
-use PhpCfdi\SatWsDescargaMasiva\RequestBuilder\RequestBuilder\FielRequestBuilder;
+use PhpCfdi\SatWsDescargaMasiva\RequestBuilder\FielRequestBuilder;
 use PhpCfdi\SatWsDescargaMasiva\Shared\ServiceEndpoints;
 use PhpCfdi\SatWsDescargaMasiva\Services\Query\QueryParameters;
 use PhpCfdi\Credentials\Credential;
@@ -840,11 +840,7 @@ class ClientController {
 
                 // Crear el servicio de descarga masiva
                 $webClient = new GuzzleWebClient();
-                
-                // Usar el método estático correcto para crear los endpoints
-                $endpoints = ServiceEndpoints::cfdi(); // Para CFDI
-                // O usar $endpoints = ServiceEndpoints::retenciones(); // Para retenciones
-                
+                $endpoints = ServiceEndpoints::cfdi();
                 $requestBuilder = new FielRequestBuilder($fiel, $endpoints);
                 $service = new Service($webClient, $requestBuilder);
 
