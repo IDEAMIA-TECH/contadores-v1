@@ -1,4 +1,5 @@
 <?php
+require_once __DIR__ . '/../../vendor/autoload.php';
 require_once __DIR__ . '/../config/database.php';
 require_once __DIR__ . '/../middleware/Security.php';
 require_once __DIR__ . '/../models/Client.php';
@@ -6,7 +7,6 @@ require_once __DIR__ . '/../helpers/PdfParser.php';
 require_once __DIR__ . '/../models/ClientXml.php';
 require_once __DIR__ . '/../helpers/CfdiXmlParser.php';
 require_once __DIR__ . '/../services/SatService.php';
-require_once __DIR__ . '/../vendor/autoload.php';
 use PhpCfdi\SatWsDescargaMasiva\Service;
 use PhpCfdi\SatWsDescargaMasiva\WebClient\GuzzleWebClient;
 use PhpCfdi\SatWsDescargaMasiva\RequestBuilder\FielRequestBuilder;
