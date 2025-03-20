@@ -60,15 +60,14 @@ try {
         $endDate = DateTime::create('2024-01-31T23:59:59');
         $period = new DateTimePeriod($startDate, $endDate);
 
-        // Crear tipos para la consulta usando los constructores directamente
-        $downloadType = new DownloadType('Metadata');
-        $requestType = new RequestType('Emitidos');
-
-        // Crear parámetros de consulta
+        // Crear tipos para la consulta según la documentación
+        // Según xml.md, los valores correctos son:
+        // - Para metadata: QueryParameters::REQUEST_TYPE_METADATA
+        // - Para emitidos: QueryParameters::DOCUMENT_TYPE_ISSUED
         $parameters = QueryParameters::create(
             $period,
-            $requestType,
-            $downloadType
+            QueryParameters::DOCUMENT_TYPE_ISSUED,  // Para documentos emitidos
+            QueryParameters::REQUEST_TYPE_METADATA  // Para solicitud de metadata
         );
 
         echo "\nRealizando consulta de prueba al SAT...\n";
