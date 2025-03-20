@@ -54,24 +54,24 @@ class AuthController {
     
     public function login() {
         try {
-            error_log("=== Inicio de intento de login ===");
-            
-            // Debug: Verificar datos POST y método de solicitud
+            error_log("=== Inicio de manejo de ruta login ===");
             error_log("REQUEST_METHOD: " . $_SERVER['REQUEST_METHOD']);
-            error_log("POST data: " . print_r($_POST, true));
-            
-            // Verificar si es una solicitud POST
-            if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-                error_log("No es una solicitud POST, redirigiendo al formulario de login");
-                header('Location: ' . BASE_URL . '/login');
-                exit;
+
+            // Si es GET, mostrar el formulario de login
+            if ($_SERVER['REQUEST_METHOD'] === 'GET') {
+                error_log("Mostrando formulario de login");
+                return $this->showLogin();
             }
-            
+
+            // A partir de aquí solo manejamos POST
+            error_log("=== Inicio de intento de login ===");
+            error_log("POST data: " . print_r($_POST, true));
+
             // Verificar token CSRF
             $csrfToken = $_POST['csrf_token'] ?? '';
             error_log("CSRF Token recibido: " . $csrfToken);
             error_log("CSRF Token en sesión: " . ($_SESSION['csrf_token'] ?? 'no existe'));
-            
+
             if (empty($csrfToken)) {
                 error_log("Token CSRF no recibido en POST");
                 $_SESSION['error'] = 'Error de seguridad: Token no recibido';
@@ -159,7 +159,7 @@ class AuthController {
             header('Location: ' . BASE_URL . '/login');
         }
         
-        error_log("=== Fin de intento de login ===");
+        error_log("=== Fin de manejo de ruta login ===");
         exit;
     }
     
