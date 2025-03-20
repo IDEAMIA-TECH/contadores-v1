@@ -7,9 +7,10 @@ require_once __DIR__ . '/../helpers/PdfParser.php';
 require_once __DIR__ . '/../models/ClientXml.php';
 require_once __DIR__ . '/../helpers/CfdiXmlParser.php';
 require_once __DIR__ . '/../services/SatService.php';
+
 use PhpCfdi\SatWsDescargaMasiva\Service;
 use PhpCfdi\SatWsDescargaMasiva\WebClient\GuzzleWebClient;
-use PhpCfdi\SatWsDescargaMasiva\RequestBuilder\FielRequestBuilder;
+use PhpCfdi\SatWsDescargaMasiva\RequestBuilder\FielRequestBuilder as SatFielRequestBuilder;
 use PhpCfdi\SatWsDescargaMasiva\Shared\ServiceEndpoints;
 use PhpCfdi\SatWsDescargaMasiva\Services\Query\QueryParameters;
 use PhpCfdi\Credentials\Credential;
@@ -841,7 +842,7 @@ class ClientController {
                 // Crear el servicio de descarga masiva
                 $webClient = new GuzzleWebClient();
                 $endpoints = ServiceEndpoints::cfdi();
-                $requestBuilder = new FielRequestBuilder($fiel, $endpoints);
+                $requestBuilder = new SatFielRequestBuilder($fiel, $endpoints);
                 $service = new Service($webClient, $requestBuilder);
 
                 // Crear la solicitud según el tipo
@@ -943,7 +944,7 @@ class ClientController {
             
             // Actualizar también aquí la creación de endpoints
             $endpoints = ServiceEndpoints::cfdi(); // Para CFDI
-            $requestBuilder = new FielRequestBuilder($fiel, $endpoints);
+            $requestBuilder = new SatFielRequestBuilder($fiel, $endpoints);
             $service = new Service($webClient, $requestBuilder);
 
             // Verificar estado
