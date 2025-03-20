@@ -32,12 +32,11 @@ echo "</br>Sucursal: </br>" . $certificado->branchName() . PHP_EOL; // el nombre
 echo "</br>Serial: </br>" . $certificado->serialNumber()->bytes() . PHP_EOL; // número de serie del certificado
 
 
-
-
-
-
-
-
+$fiel = Fiel::create(
+    file_get_contents('/uploads/sat/sat_cer_67db47408517a.cer'),
+    file_get_contents('/uploads/sat/sat_key_67db4740851a2.key'),
+    'Japc20078'
+);
 
 // verificar que la FIEL sea válida (no sea CSD y sea vigente acorde a la fecha del sistema)
 if (! $fiel->isValid()) {
