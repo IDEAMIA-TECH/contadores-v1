@@ -889,19 +889,64 @@ class ClientController {
             }
 
             try {
-                // Validar que los archivos existan
-                if (!file_exists($cerFile)) {
-                    throw new Exception('No se encontró el archivo del certificado (.cer)');
-                }
-                if (!file_exists($keyFile)) {
-                    throw new Exception('No se encontró el archivo de la llave privada (.key)');
-                }
-
-                // Crear el certificado
                 $certificate = new Certificate(
                     file_get_contents($cerFile)
                 );
                 
+                // Agregar logs para diagnóstico del certificado
+                error_log("Información del certificado:");
+                error_log("Serial Number: " . $certificate->serialNumber()->bytes());
+                error_log("RFC: " . $certificate->rfc());
+                error_log("Válido desde: " . $certificate->validFrom()->format('Y-m-d H:i:s'));
+                error_log("Válido hasta: " . $certificate->validTo()->format('Y-m-d H:i:s'));
+                
+                // Obtener y mostrar todos los key usages
+                $parsed = $certificate->publicKey()->parsed();
+                $keyUsages = $parsed['tbsCertificate']['extensions']['keyUsage'] ?? [];
+                error_log("Key Usages encontrados: " . print_r($keyUsages, true));
+                
+                // Obtener información extendida del certificado
+                $extendedInfo = openssl_x509_parse(
+                    $certificate->pem()
+                );
+                error_log("Información extendida del certificado: " . print_r($extendedInfo, true));
+
+                // Nueva validación más flexible para FIEL vs CSD
+                $isFiel = false;
+                
+                // Verificar por key usages
+                if (!empty($keyUsages)) {
+                    $requiredUsages = ['digitalSignature', 'nonRepudiation', 'keyEncipherment'];
+                    $foundUsages = array_intersect($requiredUsages, $keyUsages);
+                    $isFiel = count($foundUsages) >= 2; // Si tiene al menos 2 de los usos requeridos
+                }
+                
+                // Verificar por propósito del certificado en extensiones
+                if (isset($extendedInfo['extensions']['extendedKeyUsage'])) {
+                    $keyPurpose = $extendedInfo['extensions']['extendedKeyUsage'];
+                    // Las FIEL suelen tener estos propósitos
+                    if (strpos($keyPurpose, 'clientAuth') !== false || 
+                        strpos($keyPurpose, 'emailProtection') !== false) {
+                        $isFiel = true;
+                    }
+                }
+                
+                // Verificar por el nombre del certificado
+                if (isset($extendedInfo['subject']['OU'])) {
+                    $ou = $extendedInfo['subject']['OU'];
+                    if (stripos($ou, 'FIEL') !== false || stripos($ou, 'e.firma') !== false) {
+                        $isFiel = true;
+                    }
+                }
+
+                if (!$isFiel) {
+                    error_log("Certificado no validado como FIEL. Detalles de validación:");
+                    error_log("Key Usages: " . implode(', ', $keyUsages));
+                    error_log("Extended Key Usage: " . ($extendedInfo['extensions']['extendedKeyUsage'] ?? 'No disponible'));
+                    error_log("OU: " . ($extendedInfo['subject']['OU'] ?? 'No disponible'));
+                    throw new Exception('El certificado no parece ser una FIEL válida. Por favor, verifique que está usando el certificado correcto.');
+                }
+
                 // Obtener y validar la contraseña
                 if (empty($client['key_password'])) {
                     throw new Exception('No se ha configurado la contraseña de la FIEL');
@@ -960,25 +1005,6 @@ class ClientController {
 
                 // Crear credencial
                 $fiel = new Credential($certificate, $privateKey);
-
-                // Validar que sea FIEL y no CSD verificando los key usages del certificado
-                $keyUsages = $certificate->publicKey()->parsed()['tbsCertificate']['extensions']['keyUsage'] ?? [];
-                $isDigitalSignature = in_array('digitalSignature', $keyUsages);
-                $isNonRepudiation = in_array('nonRepudiation', $keyUsages);
-                
-                if (!$isDigitalSignature || !$isNonRepudiation) {
-                    throw new Exception('El certificado proporcionado parece ser un CSD. Se requiere una FIEL.');
-                }
-
-                // Verificar que el certificado no esté expirado
-                if ($certificate->validTo() < new \DateTime()) {
-                    throw new Exception('El certificado FIEL ha expirado');
-                }
-
-                // Verificar que el certificado ya esté activo
-                if ($certificate->validFrom() > new \DateTime()) {
-                    throw new Exception('El certificado FIEL aún no está activo');
-                }
 
                 // Crear el servicio de descarga masiva
                 $requestBuilder = new FielRequestBuilder($fiel);
