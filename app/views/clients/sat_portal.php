@@ -182,6 +182,7 @@
         const form = e.target;
         const status = document.getElementById('requestStatus');
         const statusMessage = document.getElementById('statusMessage');
+        const progressBar = document.getElementById('progressBar');
         
         try {
             status.classList.remove('hidden');
@@ -191,12 +192,7 @@
                 </div>
             `;
             
-            // Crear FormData y agregar datos adicionales si es necesario
             const formData = new FormData(form);
-            
-            // Debug de los datos que se envían
-            console.log('Enviando datos:', Object.fromEntries(formData));
-            
             const response = await fetch('<?php echo BASE_URL; ?>/clients/download-sat-masivo', {
                 method: 'POST',
                 body: formData
@@ -213,10 +209,13 @@
                     <div class="bg-green-50 text-green-800 p-4 rounded-md">
                         ${data.message}
                         <div class="mt-2 text-sm">
-                            ID de Solicitud: ${data.requestId || 'No disponible'}
+                            ID de Solicitud: ${data.requestId}
                         </div>
                     </div>
                 `;
+                
+                // Iniciar verificación periódica
+                checkStatus(data.requestId);
             } else {
                 throw new Error(data.error || 'Error desconocido');
             }
@@ -230,9 +229,68 @@
         }
     });
 
-    async function checkRequestStatus(requestId) {
-        // Implementar verificación periódica del estado
-        // Esta función se llamará cada cierto tiempo para verificar el estado de la solicitud
+    async function checkStatus(requestId) {
+        const statusMessage = document.getElementById('statusMessage');
+        const progressBar = document.getElementById('progressBar');
+        const downloadLinks = document.getElementById('downloadLinks');
+        
+        try {
+            const response = await fetch('<?php echo BASE_URL; ?>/clients/check-download-status', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ requestId })
+            });
+
+            const data = await response.json();
+
+            if (data.success) {
+                if (data.status === 'PENDING') {
+                    statusMessage.innerHTML = `
+                        <div class="bg-blue-50 text-blue-800 p-4 rounded-md">
+                            ${data.message}
+                        </div>
+                    `;
+                    // Verificar nuevamente en 30 segundos
+                    setTimeout(() => checkStatus(requestId), 30000);
+                } else if (data.status === 'READY') {
+                    statusMessage.innerHTML = `
+                        <div class="bg-green-50 text-green-800 p-4 rounded-md">
+                            ${data.message}
+                            <div class="mt-2 text-sm">
+                                Paquetes disponibles: ${data.packagesCount}
+                            </div>
+                        </div>
+                    `;
+                    downloadLinks.classList.remove('hidden');
+                    // Mostrar enlaces de descarga
+                    showDownloadLinks(requestId, data.packagesCount);
+                }
+            } else {
+                throw new Error(data.error);
+            }
+        } catch (error) {
+            console.error('Error:', error);
+            statusMessage.innerHTML = `
+                <div class="bg-red-50 text-red-800 p-4 rounded-md">
+                    Error al verificar el estado: ${error.message}
+                </div>
+            `;
+        }
+    }
+
+    function showDownloadLinks(requestId, packagesCount) {
+        const downloadLinks = document.getElementById('downloadLinks');
+        downloadLinks.innerHTML = '';
+        
+        for (let i = 1; i <= packagesCount; i++) {
+            const link = document.createElement('a');
+            link.href = `<?php echo BASE_URL; ?>/clients/download-package/${requestId}/${i}`;
+            link.className = 'bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded inline-block mb-2 mr-2';
+            link.textContent = `Descargar Paquete ${i}`;
+            downloadLinks.appendChild(link);
+        }
     }
     </script>
 

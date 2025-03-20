@@ -822,12 +822,71 @@ class ClientController {
                 error_log("Válido desde: " . ($certificate->validFrom() instanceof \DateTimeInterface ? $certificate->validFrom()->format('Y-m-d H:i:s') : 'fecha inválida'));
                 error_log("Válido hasta: " . ($certificate->validTo() instanceof \DateTimeInterface ? $certificate->validTo()->format('Y-m-d H:i:s') : 'fecha inválida'));
 
-                // Si llegamos aquí, el certificado es válido
+                // Obtener parámetros de la solicitud
+                $requestType = $_POST['request_type'] ?? ''; // metadata o cfdi
+                $documentType = $_POST['document_type'] ?? ''; // issued o received
+                $startDate = $_POST['fecha_inicio'] ?? '';
+                $endDate = $_POST['fecha_fin'] ?? '';
+
+                if (!$startDate || !$endDate) {
+                    throw new Exception('Las fechas son requeridas');
+                }
+
+                // Convertir fechas al formato requerido
+                $startDateTime = new \DateTimeImmutable($startDate);
+                $endDateTime = new \DateTimeImmutable($endDate);
+
+                // Crear el servicio de descarga masiva
+                $webClient = new GuzzleWebClient();
+                $requestBuilder = new FielRequestBuilder($fiel);
+                $service = new Service($webClient, $requestBuilder);
+
+                // Crear la solicitud según el tipo
+                $request = new \PhpCfdi\SatWsDescargaMasiva\Services\Query\QueryParameters(
+                    $startDateTime,
+                    $endDateTime,
+                    $documentType === 'issued' ? \PhpCfdi\SatWsDescargaMasiva\Services\Query\QueryParameters::DOCUMENT_TYPE_ISSUED : \PhpCfdi\SatWsDescargaMasiva\Services\Query\QueryParameters::DOCUMENT_TYPE_RECEIVED,
+                    $requestType === 'metadata' ? \PhpCfdi\SatWsDescargaMasiva\Services\Query\QueryParameters::DOWNLOAD_TYPE_METADATA : \PhpCfdi\SatWsDescargaMasiva\Services\Query\QueryParameters::DOWNLOAD_TYPE_CFDI
+                );
+
+                // Realizar la solicitud
+                $query = $service->query($request);
+                
+                if (!$query->getStatus()->isAccepted()) {
+                    throw new Exception('La solicitud fue rechazada: ' . $query->getStatus()->getMessage());
+                }
+
+                // Guardar el ID de solicitud en la base de datos
+                $requestId = $query->getRequestId();
+                
+                // Crear directorio para almacenar las descargas si no existe
+                $downloadDir = ROOT_PATH . '/downloads/' . $clientId . '/' . $requestId;
+                if (!is_dir($downloadDir)) {
+                    mkdir($downloadDir, 0755, true);
+                }
+
+                // Guardar información de la solicitud en la base de datos
+                $stmt = $this->db->prepare("
+                    INSERT INTO sat_download_requests 
+                    (client_id, request_id, request_type, document_type, start_date, end_date, status, created_at) 
+                    VALUES (?, ?, ?, ?, ?, ?, 'REQUESTED', NOW())
+                ");
+                
+                $stmt->execute([
+                    $clientId,
+                    $requestId,
+                    $requestType,
+                    $documentType,
+                    $startDate,
+                    $endDate
+                ]);
+
+                // Devolver respuesta exitosa
                 header('Content-Type: application/json');
                 echo json_encode([
                     'success' => true,
                     'message' => 'Solicitud de descarga iniciada correctamente',
-                    'requestId' => 'request-' . uniqid()
+                    'requestId' => $requestId
                 ]);
                 exit;
 
@@ -838,6 +897,90 @@ class ClientController {
 
         } catch (Exception $e) {
             error_log("Error en downloadSatMasivo: " . $e->getMessage());
+            header('Content-Type: application/json');
+            echo json_encode([
+                'success' => false,
+                'error' => $e->getMessage()
+            ]);
+            exit;
+        }
+    }
+
+    // Agregar nuevo método para verificar el estado de la solicitud
+    public function checkDownloadStatus() {
+        try {
+            if (!$this->security->isAuthenticated()) {
+                throw new Exception('No autorizado');
+            }
+
+            $requestId = $_POST['requestId'] ?? '';
+            if (empty($requestId)) {
+                throw new Exception('ID de solicitud no proporcionado');
+            }
+
+            // Obtener información de la solicitud de la base de datos
+            $stmt = $this->db->prepare("
+                SELECT * FROM sat_download_requests 
+                WHERE request_id = ? AND status != 'COMPLETED'
+                LIMIT 1
+            ");
+            $stmt->execute([$requestId]);
+            $request = $stmt->fetch(PDO::FETCH_ASSOC);
+
+            if (!$request) {
+                throw new Exception('Solicitud no encontrada o ya completada');
+            }
+
+            // Obtener credenciales del cliente
+            $client = $this->client->getClientById($request['client_id']);
+            
+            // Crear el servicio SAT con las credenciales
+            $fiel = $this->createFielFromClient($client);
+            $webClient = new GuzzleWebClient();
+            $requestBuilder = new FielRequestBuilder($fiel);
+            $service = new Service($webClient, $requestBuilder);
+
+            // Verificar estado
+            $verify = $service->verify($requestId);
+            $status = $verify->getStatus();
+
+            if ($status->isExpired()) {
+                throw new Exception('La solicitud ha expirado');
+            }
+
+            if ($status->isPending()) {
+                $response = [
+                    'success' => true,
+                    'status' => 'PENDING',
+                    'message' => 'La solicitud está siendo procesada'
+                ];
+            } elseif ($status->isFinished()) {
+                // Actualizar estado en la base de datos
+                $stmt = $this->db->prepare("
+                    UPDATE sat_download_requests 
+                    SET status = 'READY_TO_DOWNLOAD', 
+                        packages_count = ?, 
+                        updated_at = NOW() 
+                    WHERE request_id = ?
+                ");
+                $stmt->execute([$verify->getPackagesCount(), $requestId]);
+
+                $response = [
+                    'success' => true,
+                    'status' => 'READY',
+                    'message' => 'Los archivos están listos para descargar',
+                    'packagesCount' => $verify->getPackagesCount()
+                ];
+            } else {
+                throw new Exception('Estado de solicitud desconocido');
+            }
+
+            header('Content-Type: application/json');
+            echo json_encode($response);
+            exit;
+
+        } catch (Exception $e) {
+            error_log("Error en checkDownloadStatus: " . $e->getMessage());
             header('Content-Type: application/json');
             echo json_encode([
                 'success' => false,
