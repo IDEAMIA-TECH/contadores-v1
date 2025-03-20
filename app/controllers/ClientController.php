@@ -914,11 +914,12 @@ class ClientController {
                 error_log("- Tipo de documento: " . ($documentType === 'issued' ? 'Emitidos' : 'Recibidos'));
                 error_log("- Tipo de descarga: " . ($requestType === 'metadata' ? 'Metadata' : 'CFDI'));
 
+                // Usar las constantes correctas según la documentación
                 $request = QueryParameters::create(
                     $startDateTime,
                     $endDateTime,
-                    $documentType === 'issued' ? QueryParameters::DOCUMENT_TYPE_ISSUED : QueryParameters::DOCUMENT_TYPE_RECEIVED,
-                    $requestType === 'metadata' ? QueryParameters::DOWNLOAD_TYPE_METADATA : QueryParameters::DOWNLOAD_TYPE_CFDI
+                    $documentType === 'issued' ? 'I' : 'R',  // I para emitidos, R para recibidos
+                    $requestType === 'metadata' ? 'metadata' : 'xml'  // metadata o xml
                 );
                 error_log("Parámetros de consulta creados exitosamente");
 
