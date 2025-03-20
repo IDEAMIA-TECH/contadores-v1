@@ -106,7 +106,12 @@ class Report {
 
     public function generateExcelReport($data) {
         try {
-            require_once __DIR__ . '/../vendor/autoload.php';
+            // Corregir la ruta del autoload
+            $autoloadPath = __DIR__ . '/../../vendor/autoload.php';
+            if (!file_exists($autoloadPath)) {
+                throw new Exception('El archivo autoload.php no existe. Por favor, ejecute: composer require phpoffice/phpspreadsheet');
+            }
+            require_once $autoloadPath;
 
             $spreadsheet = new \PhpOffice\PhpSpreadsheet\Spreadsheet();
             $sheet = $spreadsheet->getActiveSheet();
@@ -118,32 +123,61 @@ class Report {
                 'Impuestos Trasladados', 'Tipo'
             ];
 
+            // Estilo para encabezados
+            $headerStyle = [
+                'font' => [
+                    'bold' => true,
+                    'color' => ['rgb' => 'FFFFFF'],
+                ],
+                'fill' => [
+                    'fillType' => \PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID,
+                    'startColor' => ['rgb' => '0066CC'],
+                ],
+                'alignment' => [
+                    'horizontal' => \PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER,
+                ],
+            ];
+
+            // Aplicar encabezados y estilos
             foreach (range('A', 'L') as $i => $column) {
                 $sheet->setCellValue($column . '1', $headers[$i]);
                 $sheet->getColumnDimension($column)->setAutoSize(true);
             }
+            $sheet->getStyle('A1:L1')->applyFromArray($headerStyle);
 
             // Agregar datos
             $row = 2;
             foreach ($data as $item) {
-                $sheet->setCellValue('A' . $row, date('d/m/Y', strtotime($item['fecha'])));
-                $sheet->setCellValue('B' . $row, $item['emisor_nombre']);
-                $sheet->setCellValue('C' . $row, $item['emisor_rfc']);
-                $sheet->setCellValue('D' . $row, $item['receptor_nombre']);
-                $sheet->setCellValue('E' . $row, $item['receptor_rfc']);
-                $sheet->setCellValue('F' . $row, $item['uuid']);
-                $sheet->setCellValue('G' . $row, $item['subtotal']);
-                $sheet->setCellValue('H' . $row, $item['total']);
-                $sheet->setCellValue('I' . $row, ($item['tasa_o_cuota'] * 100) . '%');
-                $sheet->setCellValue('J' . $row, $item['tipo_factor']);
-                $sheet->setCellValue('K' . $row, $item['total_impuestos_trasladados']);
-                $sheet->setCellValue('L' . $row, $item['tipo_comprobante']);
+                $sheet->setCellValue('A' . $row, date('d/m/Y', strtotime($item['fecha'] ?? '')));
+                $sheet->setCellValue('B' . $row, $item['emisor_nombre'] ?? '');
+                $sheet->setCellValue('C' . $row, $item['emisor_rfc'] ?? '');
+                $sheet->setCellValue('D' . $row, $item['receptor_nombre'] ?? '');
+                $sheet->setCellValue('E' . $row, $item['receptor_rfc'] ?? '');
+                $sheet->setCellValue('F' . $row, $item['uuid'] ?? '');
+                $sheet->setCellValue('G' . $row, ($item['subtotal'] ?? 0));
+                $sheet->setCellValue('H' . $row, ($item['total'] ?? 0));
+                $sheet->setCellValue('I' . $row, (($item['tasa_o_cuota'] ?? 0) * 100) . '%');
+                $sheet->setCellValue('J' . $row, $item['tipo_factor'] ?? '');
+                $sheet->setCellValue('K' . $row, ($item['total_impuestos_trasladados'] ?? 0));
+                
+                $tipos = [
+                    'I' => 'Ingreso',
+                    'E' => 'Egreso',
+                    'P' => 'Pago'
+                ];
+                $tipoComprobante = $item['tipo_comprobante'] ?? '';
+                $sheet->setCellValue('L' . $row, $tipos[$tipoComprobante] ?? $tipoComprobante);
+                
                 $row++;
             }
 
+            // Formato para columnas numéricas
+            $sheet->getStyle('G2:H' . ($row-1))->getNumberFormat()->setFormatCode(\PhpOffice\PhpSpreadsheet\Style\NumberFormat::FORMAT_CURRENCY_USD_SIMPLE);
+            $sheet->getStyle('K2:K' . ($row-1))->getNumberFormat()->setFormatCode(\PhpOffice\PhpSpreadsheet\Style\NumberFormat::FORMAT_CURRENCY_USD_SIMPLE);
+
             // Configurar la respuesta
             header('Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-            header('Content-Disposition: attachment;filename="reporte.xlsx"');
+            header('Content-Disposition: attachment;filename="reporte_' . date('Y-m-d') . '.xlsx"');
             header('Cache-Control: max-age=0');
 
             $writer = new \PhpOffice\PhpSpreadsheet\Writer\Xlsx($spreadsheet);
@@ -152,7 +186,7 @@ class Report {
 
         } catch (Exception $e) {
             error_log("Error generando Excel: " . $e->getMessage());
-            throw new Exception('Error al generar el archivo Excel');
+            throw new Exception('Error al generar el archivo Excel: ' . $e->getMessage());
         }
     }
 
