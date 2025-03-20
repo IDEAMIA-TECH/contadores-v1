@@ -940,4 +940,59 @@ class ClientController {
             exit;
         }
     }
+
+    private function processXmlFile($xmlContent, $clientId, $fileName) {
+        try {
+            // Crear instancia del parser de XML
+            $xmlParser = new CfdiXmlParser();
+            
+            // Validar que el contenido sea un XML válido
+            if (!$xmlParser->isValidXml($xmlContent)) {
+                throw new Exception("El archivo {$fileName} no es un XML válido");
+            }
+            
+            // Parsear el XML
+            $xmlData = $xmlParser->parse($xmlContent);
+            
+            // Validar que sea un CFDI
+            if (!$xmlParser->isCfdi($xmlData)) {
+                throw new Exception("El archivo {$fileName} no es un CFDI válido");
+            }
+            
+            // Preparar datos para la base de datos
+            $data = [
+                'client_id' => $clientId,
+                'uuid' => $xmlParser->getUuid($xmlData),
+                'xml_content' => $xmlContent,
+                'emisor_rfc' => $xmlParser->getEmisorRfc($xmlData),
+                'emisor_nombre' => $xmlParser->getEmisorNombre($xmlData),
+                'receptor_rfc' => $xmlParser->getReceptorRfc($xmlData),
+                'receptor_nombre' => $xmlParser->getReceptorNombre($xmlData),
+                'fecha' => $xmlParser->getFecha($xmlData),
+                'tipo_comprobante' => $xmlParser->getTipoComprobante($xmlData),
+                'total' => $xmlParser->getTotal($xmlData),
+                'file_name' => $fileName,
+                'created_at' => date('Y-m-d H:i:s')
+            ];
+            
+            // Crear instancia del modelo ClientXml
+            $clientXml = new ClientXml($this->db);
+            
+            // Verificar si el XML ya existe
+            if ($clientXml->exists($data['uuid'], $clientId)) {
+                throw new Exception("El XML {$fileName} ya existe en la base de datos");
+            }
+            
+            // Guardar en la base de datos
+            if (!$clientXml->create($data)) {
+                throw new Exception("Error al guardar el XML {$fileName} en la base de datos");
+            }
+            
+            return true;
+            
+        } catch (Exception $e) {
+            error_log("Error procesando XML {$fileName}: " . $e->getMessage());
+            throw $e;
+        }
+    }
 } 
