@@ -10,47 +10,46 @@ class Report {
         try {
             $query = "
                 SELECT 
-                    c.business_name as cliente,
-                    x.fecha,
-                    x.uuid,
-                    x.total,
-                    x.subtotal,
-                    x.impuesto,
-                    COALESCE(x.tasa_o_cuota, 0) as tasa_o_cuota,
-                    COALESCE(x.tipo_factor, '') as tipo_factor,
-                    COALESCE(x.total_impuestos_trasladados, 0) as total_impuestos_trasladados,
-                    x.emisor_rfc,
-                    x.emisor_nombre,
-                    x.tipo_comprobante
-                FROM client_xmls x
-                JOIN clients c ON x.client_id = c.id
+                    cx.fecha,
+                    cx.emisor_nombre,
+                    cx.emisor_rfc,
+                    cx.receptor_nombre,
+                    cx.receptor_rfc,
+                    cx.uuid,
+                    cx.subtotal,
+                    cx.total,
+                    cxt.tasa_o_cuota,
+                    cxt.tipo_factor,
+                    cxt.total_impuestos_trasladados,
+                    cx.tipo_comprobante
+                FROM client_xmls cx
+                LEFT JOIN client_xml_taxes cxt ON cx.id = cxt.xml_id
                 WHERE 1=1
             ";
             
             $params = [];
             
             if (!empty($filters['client_id'])) {
-                $query .= " AND x.client_id = ?";
-                $params[] = $filters['client_id'];
+                $query .= " AND cx.client_id = :client_id";
+                $params[':client_id'] = $filters['client_id'];
             }
             
-            if (!empty($filters['start_date'])) {
-                $query .= " AND DATE(x.fecha) >= ?";
-                $params[] = $filters['start_date'];
+            if (!empty($filters['start_date']) && !empty($filters['end_date'])) {
+                $query .= " AND cx.fecha BETWEEN :start_date AND :end_date";
+                $params[':start_date'] = $filters['start_date'];
+                $params[':end_date'] = $filters['end_date'];
             }
             
-            if (!empty($filters['end_date'])) {
-                $query .= " AND DATE(x.fecha) <= ?";
-                $params[] = $filters['end_date'];
+            if (!empty($filters['type']) && is_array($filters['type'])) {
+                $types = array_filter($filters['type']);
+                if (!empty($types)) {
+                    $placeholders = str_repeat('?,', count($types) - 1) . '?';
+                    $query .= " AND cx.tipo_comprobante IN ($placeholders)";
+                    $params = array_merge($params, $types);
+                }
             }
             
-            if (!empty($filters['type'])) {
-                $placeholders = str_repeat('?,', count($filters['type']) - 1) . '?';
-                $query .= " AND x.tipo_comprobante IN ($placeholders)";
-                $params = array_merge($params, $filters['type']);
-            }
-            
-            $query .= " ORDER BY x.fecha DESC";
+            $query .= " ORDER BY cx.fecha DESC";
             
             error_log("Query de reporte: " . $query);
             error_log("Parámetros: " . print_r($params, true));
