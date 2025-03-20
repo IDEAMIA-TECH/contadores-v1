@@ -7,8 +7,8 @@ use PhpCfdi\SatWsDescargaMasiva\Service;
 use PhpCfdi\SatWsDescargaMasiva\WebClient\GuzzleWebClient;
 use PhpCfdi\SatWsDescargaMasiva\RequestBuilder\FielRequestBuilder\Fiel;
 
-$cerFile = 'uploads/sat.sat_cer_67db47408517a.cer';
-$pemKeyFile = 'uploads/sat.sat_key_67db4740851a2.key';
+$cerFile = __DIR__ . '/uploads/sat/sat_cer_67db47408517a.cer';
+$pemKeyFile = __DIR__ . '/uploads/sat/sat_key_67db4740851a2.key';
 $passPhrase = 'Japc20078'; // contraseña para abrir la llave privada
 
 $fiel = PhpCfdi\Credentials\Credential::openFiles($cerFile, $pemKeyFile, $passPhrase);
