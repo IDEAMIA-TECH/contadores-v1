@@ -838,9 +838,13 @@ class ClientController {
                 $startDateTime = new \DateTimeImmutable($startDate);
                 $endDateTime = new \DateTimeImmutable($endDate);
 
-                // Crear el servicio de descarga masiva con el endpoint correcto
+                // Crear el servicio de descarga masiva
                 $webClient = new GuzzleWebClient();
-                $endpoints = new ServiceEndpoints('cfdi'); // o 'retenciones' según necesites
+                
+                // Usar el método estático correcto para crear los endpoints
+                $endpoints = ServiceEndpoints::cfdi(); // Para CFDI
+                // O usar $endpoints = ServiceEndpoints::retenciones(); // Para retenciones
+                
                 $requestBuilder = new FielRequestBuilder($fiel, $endpoints);
                 $service = new Service($webClient, $requestBuilder);
 
@@ -940,7 +944,9 @@ class ClientController {
             // Crear el servicio SAT con las credenciales
             $fiel = $this->createFielFromClient($client);
             $webClient = new GuzzleWebClient();
-            $endpoints = new ServiceEndpoints('cfdi'); // o 'retenciones' según necesites
+            
+            // Actualizar también aquí la creación de endpoints
+            $endpoints = ServiceEndpoints::cfdi(); // Para CFDI
             $requestBuilder = new FielRequestBuilder($fiel, $endpoints);
             $service = new Service($webClient, $requestBuilder);
 
