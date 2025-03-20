@@ -824,12 +824,23 @@ class ClientController {
                 $privateKey = new PrivateKey($keyContent, $keyPassword);
                 error_log("Llave privada creada exitosamente");
 
-                // Crear el objeto Fiel para el FielRequestBuilder
+                // Verificar contenido PEM
+                $certPem = $certificate->pem();
+                $keyPem = $privateKey->pem();
+                
+                error_log("Longitud del contenido PEM del certificado: " . strlen($certPem));
+                error_log("Longitud del contenido PEM de la llave privada: " . strlen($keyPem));
+                
+                // Verificar que los contenidos PEM comienzan correctamente
+                error_log("Inicio del PEM del certificado: " . substr($certPem, 0, 27)); // Debería mostrar "-----BEGIN CERTIFICATE-----"
+                error_log("Inicio del PEM de la llave: " . substr($keyPem, 0, 31)); // Debería mostrar "-----BEGIN PRIVATE KEY-----"
+
+                // Crear el objeto Fiel
                 $fiel = new Fiel(
                     $certificate->rfc(),
                     $certificate->serialNumber()->bytes(),
-                    $certificate->pemContents(),
-                    $privateKey->pemContents()
+                    $certPem,
+                    $keyPem
                 );
                 
                 error_log("Objeto Fiel creado exitosamente");
