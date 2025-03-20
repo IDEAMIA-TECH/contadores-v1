@@ -44,7 +44,7 @@
             <!-- Contenedor del iframe -->
             <div class="relative" style="height: 800px;">
                 <iframe 
-                    src="https://cfdiau.sat.gob.mx/nidp/wsfed/ep?id=SATUPCFDiCon&sid=0&option=credential&sid=0"
+                    src="https://portalcfdi.facturaelectronica.sat.gob.mx/"
                     class="w-full h-full border-0 rounded-lg"
                     id="sat-iframe"
                     sandbox="allow-same-origin allow-scripts allow-popups allow-forms"
@@ -60,7 +60,7 @@
                         <h3 class="mt-2 text-sm font-medium text-gray-900">No se puede mostrar el portal del SAT en esta ventana</h3>
                         <p class="mt-1 text-sm text-gray-500">Por favor, acceda directamente al portal del SAT</p>
                         <div class="mt-6">
-                            <a href="https://cfdiau.sat.gob.mx/nidp/wsfed/ep?id=SATUPCFDiCon&sid=0&option=credential&sid=0" 
+                            <a href="https://portalcfdi.facturaelectronica.sat.gob.mx/" 
                                target="_blank"
                                class="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
                                 Ir al Portal del SAT
