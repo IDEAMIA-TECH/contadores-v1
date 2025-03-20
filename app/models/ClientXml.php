@@ -10,7 +10,7 @@ class ClientXml {
         try {
             $sql = "INSERT INTO client_xmls (
                 client_id,
-                file_path,
+                xml_path,
                 uuid,
                 fecha,
                 tipo_comprobante,
@@ -44,7 +44,7 @@ class ClientXml {
             
             return $stmt->execute([
                 ':client_id' => $data['client_id'],
-                ':file_path' => $data['file_path'],
+                ':xml_path' => $data['xml_path'],
                 ':uuid' => $data['uuid'] ?? null,
                 ':fecha' => $data['fecha'] ?? null,
                 ':tipo_comprobante' => $data['tipo_comprobante'] ?? null,
