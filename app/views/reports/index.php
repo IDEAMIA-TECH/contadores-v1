@@ -236,6 +236,7 @@
         const form = document.getElementById('report-form');
         const exportExcel = document.getElementById('export-excel');
         const exportPdf = document.getElementById('export-pdf');
+        const tipoComprobanteSelect = document.getElementById('tipo-comprobante');
 
         // Validar fechas antes de enviar el formulario
         form.addEventListener('submit', function(e) {
@@ -260,6 +261,7 @@
         async function exportReport(format) {
             const startDate = form.querySelector('[name="start_date"]').value;
             const endDate = form.querySelector('[name="end_date"]').value;
+            const clientId = form.querySelector('[name="client_id"]').value;
 
             if (!startDate || !endDate) {
                 alert('Las fechas son obligatorias para exportar');
@@ -272,8 +274,13 @@
                 formData.append('csrf_token', '<?php echo $token; ?>');
                 formData.append('start_date', startDate);
                 formData.append('end_date', endDate);
-                formData.append('client_id', form.querySelector('[name="client_id"]').value);
-                formData.append('type', form.querySelector('[name="type"]').value);
+                formData.append('client_id', clientId);
+
+                // Manejar tipos de comprobante seleccionados
+                const selectedTypes = Array.from(tipoComprobanteSelect.selectedOptions).map(option => option.value);
+                selectedTypes.forEach(type => {
+                    formData.append('type[]', type);
+                });
 
                 const response = await fetch(`${BASE_URL}/reports/export`, {
                     method: 'POST',
@@ -294,7 +301,7 @@
                 const url = window.URL.createObjectURL(blob);
                 const a = document.createElement('a');
                 a.href = url;
-                a.download = `reporte_${format === 'excel' ? 'xlsx' : 'pdf'}`;
+                a.download = `reporte_${format}_${new Date().toISOString().split('T')[0]}.${format === 'excel' ? 'xlsx' : 'pdf'}`;
                 document.body.appendChild(a);
                 a.click();
                 window.URL.revokeObjectURL(url);
