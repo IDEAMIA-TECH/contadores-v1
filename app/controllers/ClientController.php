@@ -773,11 +773,13 @@ class ClientController {
 
     public function satPortal($client_id) {
         try {
+            // Verificar autenticación
             if (!$this->security->isAuthenticated()) {
                 header('Location: ' . BASE_URL . '/login');
                 exit;
             }
 
+            // Verificar que el client_id sea válido
             if (!is_numeric($client_id)) {
                 throw new Exception('ID de cliente inválido');
             }
@@ -788,16 +790,17 @@ class ClientController {
                 throw new Exception('Cliente no encontrado');
             }
 
-            // Verificar si tiene archivos SAT configurados
-            if (empty($client['cer_path']) || empty($client['key_path'])) {
-                $_SESSION['warning'] = 'El cliente no tiene configurada su e.firma (antes FIEL)';
-            }
+            // Generar token CSRF
+            $token = $this->security->generateCsrfToken();
 
+            // Pasar datos a la vista
             $data = [
                 'client_id' => $client_id,
-                'client' => $client
+                'client' => $client,
+                'token' => $token // Agregamos el token CSRF
             ];
             
+            // Incluir la vista con los datos
             extract($data);
             require_once __DIR__ . '/../views/clients/sat_portal.php';
 
