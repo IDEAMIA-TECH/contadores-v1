@@ -24,7 +24,7 @@ var_dump($verify); // bool(true)
 
 // objeto certificado
 $certificado = $fiel->certificate();
-echo $certificado->rfc(), PHP_EOL "<br>"; // el RFC del certificado
-echo $certificado->legalName(), PHP_EOL "<br>"; // el nombre del propietario del certificado
-echo $certificado->branchName(), PHP_EOL "<br>"; // el nombre de la sucursal (en CSD, en FIEL está vacía)
-echo $certificado->serialNumber()->bytes(), PHP_EOL "<br>"; // número de serie del certificado
+echo "RFC: " . $certificado->rfc() . PHP_EOL; // el RFC del certificado
+echo "Nombre: " . $certificado->legalName() . PHP_EOL; // el nombre del propietario del certificado
+echo "Sucursal: " . $certificado->branchName() . PHP_EOL; // el nombre de la sucursal (en CSD, en FIEL está vacía)
+echo "Serial: " . $certificado->serialNumber()->bytes() . PHP_EOL; // número de serie del certificado
