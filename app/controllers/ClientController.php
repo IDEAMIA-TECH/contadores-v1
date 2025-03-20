@@ -965,7 +965,7 @@ class ClientController {
             // Guardar en la base de datos
             $clientXml = new ClientXml($this->db);
             $xmlData['client_id'] = $clientId;
-            $xmlData['file_path'] = 'xml/' . $clientId . '/' . $uniqueFileName;
+            $xmlData['xml_path'] = 'xml/' . $clientId . '/' . $uniqueFileName;
             
             if (!$clientXml->create($xmlData)) {
                 throw new Exception("Error al guardar los datos del XML {$fileName} en la base de datos");
