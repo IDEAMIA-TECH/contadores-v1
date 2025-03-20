@@ -10,44 +10,46 @@ class CfdiXmlParser {
             $namespaces = $xml->getNamespaces(true);
             error_log("Namespaces encontrados: " . print_r($namespaces, true));
             
-            // Registrar todos los namespaces encontrados
-            foreach ($namespaces as $prefix => $namespace) {
-                $xml->registerXPathNamespace($prefix ?: 'cfdi', $namespace);
-            }
+            // Registrar el namespace principal de CFDI
+            $xml->registerXPathNamespace('cfdi', 'http://www.sat.gob.mx/cfd/4');
             $xml->registerXPathNamespace('tfd', 'http://www.sat.gob.mx/TimbreFiscalDigital');
             
-            // Extraer datos del Timbre Fiscal Digital
-            $tfd = $xml->xpath('//tfd:TimbreFiscalDigital')[0] ?? null;
-            error_log("Timbre Fiscal Digital encontrado: " . ($tfd ? 'Sí' : 'No'));
+            // Extraer datos del Timbre Fiscal Digital usando xpath
+            $tfdNodes = $xml->xpath('//tfd:TimbreFiscalDigital');
+            $tfd = !empty($tfdNodes) ? $tfdNodes[0] : null;
             
             $uuid = $tfd ? (string)$tfd['UUID'] : '';
             $fechaTimbrado = $tfd ? (string)$tfd['FechaTimbrado'] : '';
             
-            // Extraer datos de Impuestos y Traslados
+            // Extraer datos de Impuestos y Traslados usando xpath
             $impuestosTrasladados = 0;
             $impuesto = null;
             $tasaOCuota = null;
             $tipoFactor = null;
             
-            if (isset($xml->Impuestos)) {
-                $impuestosTrasladados = (float)($xml->Impuestos['TotalImpuestosTrasladados'] ?? 0);
+            $trasladoNodes = $xml->xpath('//cfdi:Comprobante/cfdi:Impuestos/cfdi:Traslados/cfdi:Traslado');
+            if (!empty($trasladoNodes)) {
+                $traslado = $trasladoNodes[0];
+                $impuesto = (string)$traslado['Impuesto'];
+                $tasaOCuota = (float)$traslado['TasaOCuota'];
+                $tipoFactor = (string)$traslado['TipoFactor'];
                 
-                if (isset($xml->Impuestos->Traslados->Traslado)) {
-                    $traslado = $xml->Impuestos->Traslados->Traslado;
-                    $impuesto = (string)($traslado['Impuesto'] ?? '');
-                    $tasaOCuota = (float)($traslado['TasaOCuota'] ?? 0);
-                    $tipoFactor = (string)($traslado['TipoFactor'] ?? '');
-                    
-                    error_log("Datos de traslado encontrados - Impuesto: $impuesto, Tasa: $tasaOCuota, Tipo Factor: $tipoFactor");
+                // Obtener total de impuestos trasladados
+                $impuestosNodes = $xml->xpath('//cfdi:Comprobante/cfdi:Impuestos');
+                if (!empty($impuestosNodes)) {
+                    $impuestosTrasladados = (float)($impuestosNodes[0]['TotalImpuestosTrasladados'] ?? 0);
                 }
             }
             
-            // Extraer datos del Emisor y Receptor directamente del XML
-            $emisor = $xml->Emisor;
-            $receptor = $xml->Receptor;
+            // Extraer datos del Emisor y Receptor usando xpath
+            $emisorNodes = $xml->xpath('//cfdi:Comprobante/cfdi:Emisor');
+            $receptorNodes = $xml->xpath('//cfdi:Comprobante/cfdi:Receptor');
             
-            error_log("Emisor encontrado: " . print_r($emisor, true));
-            error_log("Receptor encontrado: " . print_r($receptor, true));
+            $emisor = !empty($emisorNodes) ? $emisorNodes[0] : null;
+            $receptor = !empty($receptorNodes) ? $receptorNodes[0] : null;
+            
+            error_log("Emisor raw data: " . print_r($emisor, true));
+            error_log("Receptor raw data: " . print_r($receptor, true));
             
             // Construir array de datos
             $data = [
@@ -71,16 +73,16 @@ class CfdiXmlParser {
                 'tipo_factor' => $tipoFactor,
                 
                 // Datos del emisor
-                'emisor_rfc' => (string)$emisor['Rfc'],
-                'emisor_nombre' => (string)$emisor['Nombre'],
-                'emisor_regimen_fiscal' => (string)$emisor['RegimenFiscal'],
+                'emisor_rfc' => $emisor ? (string)$emisor['Rfc'] : '',
+                'emisor_nombre' => $emisor ? (string)$emisor['Nombre'] : '',
+                'emisor_regimen_fiscal' => $emisor ? (string)$emisor['RegimenFiscal'] : '',
                 
                 // Datos del receptor
-                'receptor_rfc' => (string)$receptor['Rfc'],
-                'receptor_nombre' => (string)$receptor['Nombre'],
-                'receptor_regimen_fiscal' => (string)$receptor['RegimenFiscalReceptor'],
-                'receptor_domicilio_fiscal' => (string)$receptor['DomicilioFiscalReceptor'],
-                'receptor_uso_cfdi' => (string)$receptor['UsoCFDI']
+                'receptor_rfc' => $receptor ? (string)$receptor['Rfc'] : '',
+                'receptor_nombre' => $receptor ? (string)$receptor['Nombre'] : '',
+                'receptor_regimen_fiscal' => $receptor ? (string)$receptor['RegimenFiscalReceptor'] : '',
+                'receptor_domicilio_fiscal' => $receptor ? (string)$receptor['DomicilioFiscalReceptor'] : '',
+                'receptor_uso_cfdi' => $receptor ? (string)$receptor['UsoCFDI'] : ''
             ];
             
             error_log("Datos extraídos del XML:");
@@ -98,7 +100,7 @@ class CfdiXmlParser {
             
             foreach ($requiredFields as $field) {
                 if (empty($data[$field])) {
-                    error_log("Campo requerido vacío: $field");
+                    error_log("Campo requerido vacío: $field - Valor actual: " . $data[$field]);
                     throw new Exception("El campo $field es requerido y está vacío");
                 }
             }
