@@ -961,9 +961,13 @@ class ClientController {
                 // Crear credencial
                 $fiel = new Credential($certificate, $privateKey);
 
-                // Validar que sea FIEL y no CSD usando los métodos correctos
-                if ($certificate->isCsd()) {
-                    throw new Exception('El certificado proporcionado es un CSD. Se requiere una FIEL.');
+                // Validar que sea FIEL y no CSD verificando los key usages del certificado
+                $keyUsages = $certificate->publicKey()->parsed()['tbsCertificate']['extensions']['keyUsage'] ?? [];
+                $isDigitalSignature = in_array('digitalSignature', $keyUsages);
+                $isNonRepudiation = in_array('nonRepudiation', $keyUsages);
+                
+                if (!$isDigitalSignature || !$isNonRepudiation) {
+                    throw new Exception('El certificado proporcionado parece ser un CSD. Se requiere una FIEL.');
                 }
 
                 // Verificar que el certificado no esté expirado
