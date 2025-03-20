@@ -1,5 +1,12 @@
 <?php declare(strict_types=1);
 
+require_once __DIR__ . '/vendor/autoload.php';
+
+use PhpCfdi\Credentials\Credential;
+use PhpCfdi\SatWsDescargaMasiva\Service;
+use PhpCfdi\SatWsDescargaMasiva\WebClient\GuzzleWebClient;
+use PhpCfdi\SatWsDescargaMasiva\RequestBuilder\FielRequestBuilder\Fiel;
+
 $cerFile = 'uploads/sat.sat_cer_67db47408517a.cer';
 $pemKeyFile = 'uploads/sat.sat_key_67db4740851a2.key';
 $passPhrase = 'Japc20078'; // contraseña para abrir la llave privada
