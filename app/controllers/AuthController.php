@@ -14,7 +14,8 @@ class AuthController {
         $this->user = new User($this->db);
     }
     
-    public function showLogin() {
+    // Método por defecto para la ruta /login
+    public function index() {
         error_log("=== Mostrando formulario de login ===");
         
         // Verificar si ya está autenticado
@@ -35,123 +36,74 @@ class AuthController {
         
         error_log("Token CSRF que se usará en el formulario: " . $token);
         
-        include __DIR__ . '/../views/auth/login.php';
-    }
-    
-    private function redirectBasedOnRole() {
-        if (!isset($_SESSION['role'])) {
-            header('Location: ' . BASE_URL . '/login');
-            exit;
-        }
+        // Preparar datos para la vista
+        $data = [
+            'token' => $token,
+            'title' => 'Iniciar Sesión'
+        ];
         
-        switch ($_SESSION['role']) {
-            case 'contador':
-                header('Location: ' . BASE_URL . '/clients');
-                break;
-            default:
-                header('Location: ' . BASE_URL . '/dashboard');
-                break;
-        }
+        $this->view('auth/login', $data);
     }
-    
+
+    // Método para procesar el login (POST)
     public function login() {
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            redirect('/login');
+        }
+
         try {
-            error_log("=== Inicio de intento de login ===");
-            
-            // Debug: Verificar datos POST
-            error_log("POST data: " . print_r($_POST, true));
-            
-            if (headers_sent($filename, $line)) {
-                error_log("Headers already sent in $filename:$line");
+            // Validar CSRF token
+            if (!isset($_POST['csrf_token']) || $_POST['csrf_token'] !== $_SESSION['csrf_token']) {
+                throw new Exception('Error de validación del formulario');
             }
-            
-            // Verificar token CSRF
-            $csrfToken = $_POST['csrf_token'] ?? '';
-            error_log("CSRF Token recibido: " . $csrfToken);
-            error_log("CSRF Token en sesión: " . ($_SESSION['csrf_token'] ?? 'no existe'));
-            
-            if (!$this->security->validateCsrfToken($csrfToken)) {
-                error_log("Token CSRF inválido");
-                $_SESSION['error'] = 'Token de seguridad inválido';
-                header('Location: ' . BASE_URL . '/login');
-                exit;
-            }
-            
-            // Usar htmlspecialchars en lugar de FILTER_SANITIZE_STRING
-            $username = htmlspecialchars(trim($_POST['username'] ?? ''), ENT_QUOTES, 'UTF-8');
+
+            $username = filter_input(INPUT_POST, 'username', FILTER_SANITIZE_STRING);
             $password = $_POST['password'] ?? '';
-            
-            // Debug: Verificar los valores exactos
-            error_log("Username exacto: '" . $username . "'");
-            error_log("Password exacto (primeros 3 caracteres): '" . substr($password, 0, 3) . "'");
-            
+
             if (empty($username) || empty($password)) {
-                error_log("Campos vacíos - Username: " . (empty($username) ? 'vacío' : 'presente') . 
-                         ", Password: " . (empty($password) ? 'vacío' : 'presente'));
-                $_SESSION['error'] = 'Por favor complete todos los campos';
-                header('Location: ' . BASE_URL . '/login');
-                exit;
+                throw new Exception('Por favor complete todos los campos');
             }
-            
-            // Buscar usuario
-            error_log("Buscando usuario en la base de datos...");
+
+            // Intentar autenticar
             $user = $this->user->findByUsername($username);
-            
-            // Debug: Verificar si se encontró el usuario
-            if ($user) {
-                error_log("Usuario encontrado - ID: " . $user['id']);
-                error_log("Hash almacenado: " . $user['password']);
-                error_log("Estado del usuario: " . $user['status']);
-            } else {
-                error_log("Usuario no encontrado en la base de datos");
+            if (!$user || !password_verify($password, $user['password'])) {
+                throw new Exception('Credenciales inválidas');
             }
-            
-            // Verificar credenciales
-            if (!$user || !$this->security->verifyPassword($password, $user['password'])) {
-                error_log("Fallo en la autenticación");
-                if (!$user) {
-                    error_log("Causa: Usuario no existe");
-                } else {
-                    error_log("Causa: Contraseña incorrecta");
-                }
-                $_SESSION['error'] = 'Credenciales inválidas';
-                header('Location: ' . BASE_URL . '/login');
-                exit;
-            }
-            
-            // Si llegamos aquí, la autenticación fue exitosa
-            error_log("Login exitoso - Usuario: " . $username);
-            
-            // Actualizar último login
-            $this->user->updateLastLogin($user['id']);
-            
-            // Crear sesión
+
+            // Login exitoso
             $_SESSION['user_id'] = $user['id'];
             $_SESSION['username'] = $user['username'];
             $_SESSION['role'] = $user['role'];
             
-            error_log("Sesión creada - ID: " . $_SESSION['user_id'] . 
-                     ", Role: " . $_SESSION['role']);
+            // Generar nuevo token CSRF
+            $_SESSION['csrf_token'] = $this->security->generateCsrfToken();
             
-            // Redirigir según el rol
-            error_log("Redirigiendo según rol: " . $user['role']);
-            switch ($user['role']) {
-                case 'contador':
-                    header('Location: ' . BASE_URL . '/clients');
-                    break;
-                default:
-                    header('Location: ' . BASE_URL . '/dashboard');
-            }
-            
+            $this->redirectBasedOnRole();
+
         } catch (Exception $e) {
-            error_log("Error en login: " . $e->getMessage());
-            error_log("Stack trace: " . $e->getTraceAsString());
-            $_SESSION['error'] = 'Error al procesar el login';
-            header('Location: ' . BASE_URL . '/login');
+            $_SESSION['error'] = $e->getMessage();
+            redirect('/login');
+        }
+    }
+
+    private function view($view, $data = []) {
+        extract($data);
+        require_once "../app/views/{$view}.php";
+    }
+
+    private function redirectBasedOnRole() {
+        if (!isset($_SESSION['role'])) {
+            redirect('/login');
         }
         
-        error_log("=== Fin de intento de login ===");
-        exit;
+        switch ($_SESSION['role']) {
+            case 'contador':
+                redirect('/clients');
+                break;
+            default:
+                redirect('/dashboard');
+                break;
+        }
     }
     
     public function logout() {

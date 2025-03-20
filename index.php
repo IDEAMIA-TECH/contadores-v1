@@ -78,6 +78,7 @@ try {
     $controllerMap = [
         'Dashboard' => 'DashboardController',
         'Clients' => 'ClientController',
+        'Login' => 'AuthController',
         'Auth' => 'AuthController',
         'Reports' => 'ReportController'
     ];
