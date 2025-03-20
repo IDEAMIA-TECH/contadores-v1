@@ -42,6 +42,14 @@ class AuthController {
             exit;
         }
         
+        // Mapear rutas a controladores
+        $controllerMap = [
+            'Dashboard' => 'DashboardController',
+            'Clients' => 'ClientsController',  // Cambiar de ClientController a ClientsController
+            'Auth' => 'AuthController',
+            'Reports' => 'ReportController'
+        ];
+        
         switch ($_SESSION['role']) {
             case 'contador':
                 header('Location: ' . BASE_URL . '/clients');
