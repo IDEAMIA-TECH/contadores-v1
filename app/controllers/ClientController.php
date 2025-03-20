@@ -905,6 +905,18 @@ class ClientController {
                     throw new Exception('Las fechas deben estar en formato YYYY-MM-DDTHH:mm');
                 }
 
+                // Validar que los tipos sean válidos
+                if (!in_array($requestType, ['metadata', 'xml'])) {
+                    throw new Exception('Tipo de solicitud inválido');
+                }
+                if (!in_array($documentType, ['issued', 'received'])) {
+                    throw new Exception('Tipo de documento inválido');
+                }
+
+                error_log("Tipos de solicitud validados:");
+                error_log("- Request Type: " . $requestType);
+                error_log("- Document Type: " . $documentType);
+
                 // Convertir fechas al formato requerido por el SAT
                 try {
                     error_log("Convirtiendo fechas al formato SAT...");
@@ -921,18 +933,31 @@ class ClientController {
                     $period = new DateTimePeriod($startDateTime, $endDateTime);
                     error_log("Periodo creado exitosamente");
 
-                    // Crear la solicitud con los valores literales correctos
+                    // Agregar logs para debugging
+                    error_log("=== Creando parámetros de consulta ===");
+                    error_log("Periodo creado: " . $period->getStart()->format('Y-m-d\TH:i:s') . " a " . $period->getEnd()->format('Y-m-d\TH:i:s'));
+                    
+                    // Crear los tipos enumerados correctamente
+                    error_log("Creando DownloadType...");
+                    $downloadType = $requestType === 'metadata' ? 
+                        DownloadType::create(DownloadType::METADATA) : 
+                        DownloadType::create(DownloadType::CFDI);
+                    error_log("DownloadType creado: " . $downloadType->value());
+
+                    error_log("Creando RequestType...");
+                    $documentTypeEnum = $documentType === 'issued' ? 
+                        RequestType::create(RequestType::ISSUED) : 
+                        RequestType::create(RequestType::RECEIVED);
+                    error_log("RequestType creado: " . $documentTypeEnum->value());
+
+                    // Crear la solicitud con los objetos enumerados
+                    error_log("Creando QueryParameters con los tipos enumerados...");
                     $request = QueryParameters::create(
                         $period,
-                        $documentType === 'issued' ? 'I' : 'R',  // I para emitidos, R para recibidos
-                        $requestType === 'metadata' ? 'metadata' : 'xml'  // metadata o xml para el tipo de solicitud
+                        $documentTypeEnum,
+                        $downloadType
                     );
-
-                    error_log("Parámetros de consulta creados exitosamente");
-                    error_log("Creando parámetros de consulta con:");
-                    error_log("- Periodo: " . $period->getStart()->format('Y-m-d\TH:i:s') . " a " . $period->getEnd()->format('Y-m-d\TH:i:s'));
-                    error_log("- Tipo de documento: " . ($documentType === 'issued' ? 'I' : 'R'));
-                    error_log("- Tipo de descarga: " . ($requestType === 'metadata' ? 'metadata' : 'xml'));
+                    error_log("QueryParameters creado exitosamente");
 
                     // Realizar la solicitud
                     error_log("Enviando solicitud al SAT...");
