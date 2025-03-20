@@ -921,22 +921,18 @@ class ClientController {
                     $period = new DateTimePeriod($startDateTime, $endDateTime);
                     error_log("Periodo creado exitosamente");
 
-                    // Crear la solicitud con los tipos correctos
+                    // Crear la solicitud con los valores literales correctos
                     $request = QueryParameters::create(
                         $period,
-                        $documentType === 'issued' ? 
-                            \PhpCfdi\SatWsDescargaMasiva\Services\Query\QueryParameters::DOCUMENT_TYPE_ISSUED :
-                            \PhpCfdi\SatWsDescargaMasiva\Services\Query\QueryParameters::DOCUMENT_TYPE_RECEIVED,
-                        $requestType === 'metadata' ? 
-                            \PhpCfdi\SatWsDescargaMasiva\Services\Query\QueryParameters::REQUEST_TYPE_METADATA :
-                            \PhpCfdi\SatWsDescargaMasiva\Services\Query\QueryParameters::REQUEST_TYPE_XML
+                        $documentType === 'issued' ? 'I' : 'R',  // I para emitidos, R para recibidos
+                        $requestType === 'metadata' ? 'metadata' : 'xml'  // metadata o xml para el tipo de solicitud
                     );
 
                     error_log("Parámetros de consulta creados exitosamente");
                     error_log("Creando parámetros de consulta con:");
                     error_log("- Periodo: " . $period->getStart()->format('Y-m-d\TH:i:s') . " a " . $period->getEnd()->format('Y-m-d\TH:i:s'));
-                    error_log("- Tipo de documento: " . ($documentType === 'issued' ? 'ISSUED' : 'RECEIVED'));
-                    error_log("- Tipo de descarga: " . ($requestType === 'metadata' ? 'METADATA' : 'XML'));
+                    error_log("- Tipo de documento: " . ($documentType === 'issued' ? 'I' : 'R'));
+                    error_log("- Tipo de descarga: " . ($requestType === 'metadata' ? 'metadata' : 'xml'));
 
                     // Realizar la solicitud
                     error_log("Enviando solicitud al SAT...");
