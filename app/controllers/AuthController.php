@@ -56,17 +56,28 @@ class AuthController {
         try {
             error_log("=== Inicio de intento de login ===");
             
-            // Debug: Verificar datos POST
+            // Debug: Verificar datos POST y método de solicitud
+            error_log("REQUEST_METHOD: " . $_SERVER['REQUEST_METHOD']);
             error_log("POST data: " . print_r($_POST, true));
             
-            if (headers_sent($filename, $line)) {
-                error_log("Headers already sent in $filename:$line");
+            // Verificar si es una solicitud POST
+            if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+                error_log("No es una solicitud POST, redirigiendo al formulario de login");
+                header('Location: ' . BASE_URL . '/login');
+                exit;
             }
             
             // Verificar token CSRF
             $csrfToken = $_POST['csrf_token'] ?? '';
             error_log("CSRF Token recibido: " . $csrfToken);
             error_log("CSRF Token en sesión: " . ($_SESSION['csrf_token'] ?? 'no existe'));
+            
+            if (empty($csrfToken)) {
+                error_log("Token CSRF no recibido en POST");
+                $_SESSION['error'] = 'Error de seguridad: Token no recibido';
+                header('Location: ' . BASE_URL . '/login');
+                exit;
+            }
             
             if (!$this->security->validateCsrfToken($csrfToken)) {
                 error_log("Token CSRF inválido");

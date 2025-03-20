@@ -20,27 +20,27 @@
                 <?php unset($_SESSION['error']); ?>
             <?php endif; ?>
 
-            <form method="POST" action="<?php echo BASE_URL; ?>/login" class="space-y-6">
+            <form method="POST" action="<?php echo BASE_URL; ?>/login" class="space-y-6" id="loginForm">
                 <?php 
                 error_log("=== Renderizando formulario de login ===");
                 error_log("Token CSRF en vista: " . ($token ?? 'no definido'));
                 ?>
-                <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($token); ?>">
+                <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($token ?? ''); ?>">
                 
                 <div>
                     <label for="username" class="block text-sm font-medium text-gray-700">Usuario</label>
                     <input type="text" id="username" name="username" required 
-                           class="form-input">
+                           class="form-input" autocomplete="username">
                 </div>
 
                 <div>
                     <label for="password" class="block text-sm font-medium text-gray-700">Contraseña</label>
                     <input type="password" id="password" name="password" required 
-                           class="form-input">
+                           class="form-input" autocomplete="current-password">
                 </div>
 
                 <div>
-                    <button type="submit" class="btn-primary">
+                    <button type="submit" class="btn-primary" id="submitBtn">
                         Iniciar Sesión
                     </button>
                 </div>
@@ -53,5 +53,11 @@
             </form>
         </div>
     </div>
+    <script>
+        document.getElementById('loginForm').addEventListener('submit', function(e) {
+            console.log('Form submitted');
+            console.log('CSRF Token:', document.querySelector('input[name="csrf_token"]').value);
+        });
+    </script>
 </body>
 </html> 
