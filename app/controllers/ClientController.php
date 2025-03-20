@@ -869,8 +869,14 @@ class ClientController {
 
             try {
                 // Crear el certificado y la llave privada correctamente
-                $certificate = Certificate::fromFile($cerFile);
-                $privateKey = PrivateKey::fromFile($keyFile, $password);
+                $certificate = new Certificate(
+                    file_get_contents($cerFile)
+                );
+                
+                $privateKey = new PrivateKey(
+                    file_get_contents($keyFile),
+                    $password
+                );
                 
                 // Crear la credencial usando los objetos correctos
                 $fiel = new Credential($certificate, $privateKey);
