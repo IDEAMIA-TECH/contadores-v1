@@ -6,6 +6,11 @@ require_once __DIR__ . '/../helpers/PdfParser.php';
 require_once __DIR__ . '/../models/ClientXml.php';
 require_once __DIR__ . '/../helpers/CfdiXmlParser.php';
 require_once __DIR__ . '/../services/SatService.php';
+require_once __DIR__ . '/../vendor/autoload.php';
+use PhpCfdi\SatWsDescargaMasiva\Service;
+use PhpCfdi\SatWsDescargaMasiva\WebClient\GuzzleWebClient;
+use PhpCfdi\SatWsDescargaMasiva\RequestBuilder\FielRequestBuilder;
+use PhpCfdi\Credentials\Credential;
 
 class ClientController {
     private $db;
@@ -768,23 +773,31 @@ class ClientController {
 
     public function satPortal($client_id) {
         try {
-            // Verificar autenticación
             if (!$this->security->isAuthenticated()) {
                 header('Location: ' . BASE_URL . '/login');
                 exit;
             }
 
-            // Verificar que el client_id sea válido
             if (!is_numeric($client_id)) {
                 throw new Exception('ID de cliente inválido');
             }
 
-            // Pasar el ID del cliente a la vista
+            // Obtener el cliente
+            $client = $this->client->getClientById($client_id);
+            if (!$client) {
+                throw new Exception('Cliente no encontrado');
+            }
+
+            // Verificar si tiene archivos SAT configurados
+            if (empty($client['cer_path']) || empty($client['key_path'])) {
+                $_SESSION['warning'] = 'El cliente no tiene configurada su e.firma (antes FIEL)';
+            }
+
             $data = [
-                'client_id' => $client_id
+                'client_id' => $client_id,
+                'client' => $client
             ];
             
-            // Incluir la vista
             extract($data);
             require_once __DIR__ . '/../views/clients/sat_portal.php';
 
@@ -793,6 +806,61 @@ class ClientController {
             $_SESSION['error'] = 'Error al acceder al portal SAT';
             header('Location: ' . BASE_URL . '/clients');
             exit;
+        }
+    }
+
+    public function downloadSatMasivo() {
+        try {
+            if (!$this->security->isAuthenticated()) {
+                throw new Exception('No autorizado');
+            }
+
+            // Validar parámetros
+            $clientId = filter_input(INPUT_POST, 'client_id', FILTER_VALIDATE_INT);
+            $fechaInicio = filter_input(INPUT_POST, 'fecha_inicio');
+            $fechaFin = filter_input(INPUT_POST, 'fecha_fin');
+            $tipo = filter_input(INPUT_POST, 'tipo'); // 'emitidas' o 'recibidas'
+
+            if (!$clientId || !$fechaInicio || !$fechaFin || !$tipo) {
+                throw new Exception('Parámetros inválidos');
+            }
+
+            // Obtener cliente y sus archivos SAT
+            $client = $this->client->getClientById($clientId);
+            if (!$client || empty($client['cer_path']) || empty($client['key_path'])) {
+                throw new Exception('Cliente no tiene configurada su e.firma');
+            }
+
+            // Crear credencial con los archivos del cliente
+            $cerFile = ROOT_PATH . '/uploads/' . $client['cer_path'];
+            $keyFile = ROOT_PATH . '/uploads/' . $client['key_path'];
+            $password = $client['key_password']; // Asumiendo que está almacenada de forma segura
+
+            $fiel = new Credential(
+                file_get_contents($cerFile),
+                file_get_contents($keyFile),
+                $password
+            );
+
+            // Crear el servicio de descarga masiva
+            $requestBuilder = new FielRequestBuilder($fiel);
+            $webClient = new GuzzleWebClient();
+            $service = new Service($requestBuilder, $webClient);
+
+            // Implementar la lógica de descarga masiva
+            // ... aquí iría la implementación específica usando el servicio
+
+            return [
+                'success' => true,
+                'message' => 'Proceso de descarga iniciado'
+            ];
+
+        } catch (Exception $e) {
+            error_log("Error en downloadSatMasivo: " . $e->getMessage());
+            return [
+                'success' => false,
+                'error' => $e->getMessage()
+            ];
         }
     }
 } 

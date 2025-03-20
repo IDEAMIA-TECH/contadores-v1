@@ -52,7 +52,7 @@
                 </iframe>
                 
                 <!-- Mensaje de fallback -->
-                <!--<div id="fallback-message" class="hidden absolute inset-0 flex items-center justify-center bg-gray-50 rounded-lg">
+                <div id="fallback-message" class="hidden absolute inset-0 flex items-center justify-center bg-gray-50 rounded-lg">
                     <div class="text-center p-6">
                         <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
@@ -70,7 +70,7 @@
                             </a>
                         </div>
                     </div>
-                </div>-->
+                </div>
             </div>
 
             <!-- Botón para subir XMLs -->
@@ -82,6 +82,61 @@
                     </svg>
                     Subir XMLs Descargados
                 </a>
+            </div>
+
+            <!-- Agregar sección de descarga masiva -->
+            <div class="mt-8 bg-white rounded-lg shadow-lg p-6">
+                <h2 class="text-xl font-bold text-gray-800 mb-4">Descarga Masiva de CFDIs</h2>
+                
+                <?php if (empty($client['cer_path']) || empty($client['key_path'])): ?>
+                    <div class="bg-yellow-50 border-l-4 border-yellow-400 p-4 mb-4">
+                        <div class="flex">
+                            <div class="flex-shrink-0">
+                                <svg class="h-5 w-5 text-yellow-400" viewBox="0 0 20 20" fill="currentColor">
+                                    <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/>
+                                </svg>
+                            </div>
+                            <div class="ml-3">
+                                <p class="text-sm text-yellow-700">
+                                    Para usar la descarga masiva, primero debe configurar la e.firma del cliente.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                <?php else: ?>
+                    <form id="downloadForm" class="space-y-4">
+                        <input type="hidden" name="client_id" value="<?php echo $client_id; ?>">
+                        
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700">Fecha Inicio</label>
+                                <input type="date" name="fecha_inicio" required class="mt-1 form-input block w-full rounded-md">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700">Fecha Fin</label>
+                                <input type="date" name="fecha_fin" required class="mt-1 form-input block w-full rounded-md">
+                            </div>
+                        </div>
+
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700">Tipo de Facturas</label>
+                            <select name="tipo" required class="mt-1 form-select block w-full rounded-md">
+                                <option value="emitidas">Emitidas</option>
+                                <option value="recibidas">Recibidas</option>
+                            </select>
+                        </div>
+
+                        <div class="flex justify-end">
+                            <button type="submit" class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-md">
+                                Iniciar Descarga Masiva
+                            </button>
+                        </div>
+                    </form>
+
+                    <div id="downloadStatus" class="mt-4 hidden">
+                        <!-- Aquí se mostrará el estado de la descarga -->
+                    </div>
+                <?php endif; ?>
             </div>
         </div>
     </div>
@@ -117,6 +172,35 @@
                 showFallbackMessage();
             }
         }, 5000);
+    });
+
+    document.getElementById('downloadForm')?.addEventListener('submit', async function(e) {
+        e.preventDefault();
+        const form = e.target;
+        const status = document.getElementById('downloadStatus');
+        
+        try {
+            const response = await fetch('<?php echo BASE_URL; ?>/clients/download-sat-masivo', {
+                method: 'POST',
+                body: new FormData(form)
+            });
+            
+            const data = await response.json();
+            
+            status.classList.remove('hidden');
+            status.innerHTML = `
+                <div class="${data.success ? 'bg-green-50 text-green-800' : 'bg-red-50 text-red-800'} p-4 rounded-md">
+                    ${data.message || data.error}
+                </div>
+            `;
+        } catch (error) {
+            console.error('Error:', error);
+            status.innerHTML = `
+                <div class="bg-red-50 text-red-800 p-4 rounded-md">
+                    Error al procesar la solicitud
+                </div>
+            `;
+        }
     });
     </script>
 
