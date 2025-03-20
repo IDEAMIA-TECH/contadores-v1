@@ -796,32 +796,31 @@ class ClientController {
                 // Crear las credenciales
                 $fiel = new \PhpCfdi\Credentials\Credential($certificate, $privateKey);
 
+                // Verificar que el certificado esté vigente usando DateTimeImmutable
+                $now = new \DateTimeImmutable();
+                if (!$certificate->validOn($now)) {
+                    // Obtenemos las fechas como objetos DateTimeImmutable
+                    $validFrom = $certificate->validFrom();
+                    $validTo = $certificate->validTo();
+                    
+                    throw new Exception(sprintf(
+                        'El certificado no está vigente. Válido desde: %s hasta: %s',
+                        $validFrom instanceof \DateTimeInterface ? $validFrom->format('Y-m-d H:i:s') : 'fecha inválida',
+                        $validTo instanceof \DateTimeInterface ? $validTo->format('Y-m-d H:i:s') : 'fecha inválida'
+                    ));
+                }
+
                 // Verificar que la llave privada corresponde al certificado
                 if (!$fiel->privateKey()->belongsTo($certificate)) {
                     throw new Exception('La llave privada no corresponde al certificado');
                 }
 
-                // Verificar que el certificado esté vigente usando DateTimeImmutable
-                $now = new \DateTimeImmutable();
-                if (!$certificate->validOn($now)) {
-                    throw new Exception('El certificado no está vigente. Válido desde: ' . 
-                        $certificate->validFrom()->format('Y-m-d H:i:s') . 
-                        ' hasta: ' . $certificate->validTo()->format('Y-m-d H:i:s'));
-                }
-
-                // Verificar que sea un certificado FIEL verificando el KeyUsage
-              //  $keyUsage = $certificate->publicKey()->parsed()['extensions']['keyUsage'] ?? '';
-               // if (empty($keyUsage) || strpos($keyUsage, 'Digital Signature, Non Repudiation') === false) {
-                 //   throw new Exception('El certificado no parece ser una FIEL válida. Key Usage incorrecto.');
-               // }
-
                 // Log de información del certificado
                 error_log("Información del certificado:");
                 error_log("RFC: " . $certificate->rfc());
                 error_log("Número de serie: " . $certificate->serialNumber()->bytes());
-                error_log("Válido desde: " . $certificate->validFrom()->format('Y-m-d H:i:s'));
-                error_log("Válido hasta: " . $certificate->validTo()->format('Y-m-d H:i:s'));
-                error_log("Key Usage: " . $keyUsage);
+                error_log("Válido desde: " . ($certificate->validFrom() instanceof \DateTimeInterface ? $certificate->validFrom()->format('Y-m-d H:i:s') : 'fecha inválida'));
+                error_log("Válido hasta: " . ($certificate->validTo() instanceof \DateTimeInterface ? $certificate->validTo()->format('Y-m-d H:i:s') : 'fecha inválida'));
 
                 // Si llegamos aquí, el certificado es válido
                 header('Content-Type: application/json');
