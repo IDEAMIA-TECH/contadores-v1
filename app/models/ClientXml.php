@@ -25,7 +25,7 @@ class ClientXml {
                 created_at
             ) VALUES (
                 :client_id,
-                :file_path,
+                :xml_path,
                 :uuid,
                 :fecha,
                 :tipo_comprobante,
