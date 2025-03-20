@@ -5,6 +5,8 @@ declare(strict_types=1);
 require_once __DIR__ . '/vendor/autoload.php';
 
 use PhpCfdi\Credentials\Credential;
+use PhpCfdi\Credentials\Certificate;
+use PhpCfdi\Credentials\PrivateKey;
 use PhpCfdi\SatWsDescargaMasiva\Service;
 use PhpCfdi\SatWsDescargaMasiva\WebClient\GuzzleWebClient;
 use PhpCfdi\SatWsDescargaMasiva\RequestBuilder\FielRequestBuilder\Fiel;
