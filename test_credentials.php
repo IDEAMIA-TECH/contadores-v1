@@ -33,8 +33,8 @@ echo "</br>Serial: </br>" . $certificado->serialNumber()->bytes() . PHP_EOL; // 
 
 
 $fiel = Fiel::create(
-    file_get_contents('/uploads/sat/sat_cer_67db47408517a.cer'),
-    file_get_contents('/uploads/sat/sat_key_67db4740851a2.key'),
+    file_get_contents(__DIR__ . '/uploads/sat/sat_cer_67db47408517a.cer'),
+    file_get_contents(__DIR__ . '/uploads/sat/sat_key_67db4740851a2.key'),
     'Japc20078'
 );
 
