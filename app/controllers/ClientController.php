@@ -776,11 +776,11 @@ class ClientController {
                     throw new Exception('No se pudieron leer los archivos del certificado');
                 }
 
-                // Log del contenido de los archivos (longitud)
+                // Log del contenido de los archivos
                 error_log("Longitud del contenido del certificado: " . strlen($cerContent));
                 error_log("Longitud del contenido de la llave: " . strlen($keyContent));
 
-                // Intentar crear la llave privada primero para validar la contraseña
+                // Crear la llave privada primero
                 try {
                     $privateKey = new \PhpCfdi\Credentials\PrivateKey($keyContent, $keyPassword);
                     error_log("Llave privada creada exitosamente");
@@ -796,20 +796,23 @@ class ClientController {
                 // Crear las credenciales
                 $fiel = new \PhpCfdi\Credentials\Credential($certificate, $privateKey);
 
-                // Verificaciones adicionales
+                // Verificar que la llave privada corresponde al certificado
                 if (!$fiel->privateKey()->belongsTo($certificate)) {
                     throw new Exception('La llave privada no corresponde al certificado');
                 }
 
-                if ($certificate->isCsd()) {
-                    throw new Exception('El certificado proporcionado es un CSD, se requiere FIEL');
-                }
-
+                // Verificar que el certificado esté vigente
                 $now = new \DateTime();
                 if (!$certificate->validOn($now)) {
                     throw new Exception('El certificado no está vigente. Válido desde: ' . 
                         $certificate->validFrom()->format('Y-m-d H:i:s') . 
                         ' hasta: ' . $certificate->validTo()->format('Y-m-d H:i:s'));
+                }
+
+                // Verificar que sea un certificado FIEL verificando el KeyUsage
+                $keyUsage = $certificate->publicKey()->parsed()['extensions']['keyUsage'] ?? '';
+                if (empty($keyUsage) || strpos($keyUsage, 'Digital Signature, Non Repudiation') === false) {
+                    throw new Exception('El certificado no parece ser una FIEL válida. Key Usage incorrecto.');
                 }
 
                 // Log de información del certificado
@@ -818,6 +821,7 @@ class ClientController {
                 error_log("Número de serie: " . $certificate->serialNumber()->bytes());
                 error_log("Válido desde: " . $certificate->validFrom()->format('Y-m-d H:i:s'));
                 error_log("Válido hasta: " . $certificate->validTo()->format('Y-m-d H:i:s'));
+                error_log("Key Usage: " . $keyUsage);
 
                 // Si llegamos aquí, el certificado es válido
                 header('Content-Type: application/json');
