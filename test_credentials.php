@@ -55,20 +55,17 @@ try {
         $requestBuilder = new FielRequestBuilder($fiel);
         $service = new Service($requestBuilder, $webClient);
 
-        // Crear periodo de prueba
-        $startDate = DateTime::create('2024-01-01T00:00:00');
-        $endDate = DateTime::create('2024-01-31T23:59:59');
-        $period = new DateTimePeriod($startDate, $endDate);
+       
 
-        // Crear tipos para la consulta según la documentación
-        // Según xml.md, los valores correctos son:
-        // - Para metadata: QueryParameters::REQUEST_TYPE_METADATA
-        // - Para emitidos: QueryParameters::DOCUMENT_TYPE_ISSUED
-        $parameters = QueryParameters::create(
-            $period,
-            QueryParameters::DOCUMENT_TYPE_ISSUED,  // Para documentos emitidos
-            QueryParameters::REQUEST_TYPE_METADATA  // Para solicitud de metadata
-        );
+        $parameters = QueryParameters::create()
+        ->withPeriod(DateTimePeriod::createFromValues('2024-01-01 00:00:00', '2024-01-31 11:59:00'))
+        ->withDownloadType(DownloadType::received())
+        ->withRequestType(RequestType::xml())
+       
+    ;
+
+
+
 
         echo "\nRealizando consulta de prueba al SAT...\n";
         $query = $service->query($parameters);
