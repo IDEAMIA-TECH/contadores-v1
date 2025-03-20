@@ -237,8 +237,9 @@
     </div>
 
     <script>
-    // Definir BASE_URL al inicio del script
+    // Definir BASE_URL y CSRF_TOKEN al inicio del script
     const BASE_URL = '<?php echo BASE_URL; ?>';
+    const CSRF_TOKEN = '<?php echo $_SESSION['csrf_token']; ?>';
     
     document.addEventListener('DOMContentLoaded', function() {
         const form = document.getElementById('report-form');
@@ -279,7 +280,7 @@
             try {
                 const formData = new FormData();
                 formData.append('format', format);
-                formData.append('csrf_token', '<?php echo $token; ?>');
+                formData.append('csrf_token', CSRF_TOKEN);
                 formData.append('start_date', startDate);
                 formData.append('end_date', endDate);
                 formData.append('client_id', clientId);
@@ -297,13 +298,14 @@
                 });
 
                 if (!response.ok) {
-                    throw new Error('Error en la respuesta del servidor');
+                    const errorData = await response.json();
+                    throw new Error(errorData.error || 'Error al exportar');
                 }
 
                 const contentType = response.headers.get('content-type');
                 if (contentType && contentType.includes('application/json')) {
                     const jsonResponse = await response.json();
-                    throw new Error(jsonResponse.message || 'Error al exportar');
+                    throw new Error(jsonResponse.error || 'Error al exportar');
                 }
 
                 const blob = await response.blob();

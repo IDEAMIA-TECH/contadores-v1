@@ -75,8 +75,8 @@ class ReportController {
         }
 
         try {
-            // Validar token CSRF
-            if (!isset($_POST['csrf_token']) || !$this->security->validateToken($_POST['csrf_token'])) {
+            // Validar token CSRF usando el método correcto
+            if (!isset($_POST['csrf_token']) || $_POST['csrf_token'] !== $_SESSION['csrf_token']) {
                 throw new Exception('Token de seguridad inválido');
             }
 
@@ -85,14 +85,27 @@ class ReportController {
                 throw new Exception('Formato no válido');
             }
 
+            // Preparar los filtros para el reporte
+            $filters = [
+                'start_date' => $_POST['start_date'] ?? null,
+                'end_date' => $_POST['end_date'] ?? null,
+                'client_id' => !empty($_POST['client_id']) ? (int)$_POST['client_id'] : null,
+                'type' => isset($_POST['type']) ? (array)$_POST['type'] : []
+            ];
+
+            // Validar fechas requeridas
+            if (empty($filters['start_date']) || empty($filters['end_date'])) {
+                throw new Exception('Las fechas son obligatorias');
+            }
+
             // Obtener datos del reporte
-            $data = $this->getReportData($_POST);
+            $reportData = $this->report->generateReport($filters);
 
             // Exportar según el formato
             if ($_POST['format'] === 'excel') {
-                return $this->report->generateExcelReport($data);
+                return $this->report->generateExcelReport($reportData);
             } else {
-                return $this->report->generatePdfReport($data);
+                return $this->report->generatePdfReport($reportData);
             }
 
         } catch (Exception $e) {
