@@ -16,7 +16,7 @@ $fiel = PhpCfdi\Credentials\Credential::openFiles($cerFile, $pemKeyFile, $passPh
 $sourceString = 'texto a firmar';
 // alias de privateKey/sign/verify
 $signature = $fiel->sign($sourceString);
-echo base64_encode($signature), PHP_EOL;
+echo "Firma: </br>" . base64_encode($signature) . PHP_EOL;
 
 // alias de certificado/publicKey/verify
 $verify = $fiel->verify($sourceString, $signature);
@@ -24,7 +24,7 @@ var_dump($verify); // bool(true)
 
 // objeto certificado
 $certificado = $fiel->certificate();
-echo "RFC: " . $certificado->rfc() . PHP_EOL; // el RFC del certificado
-echo "Nombre: " . $certificado->legalName() . PHP_EOL; // el nombre del propietario del certificado
-echo "Sucursal: " . $certificado->branchName() . PHP_EOL; // el nombre de la sucursal (en CSD, en FIEL está vacía)
-echo "Serial: " . $certificado->serialNumber()->bytes() . PHP_EOL; // número de serie del certificado
+echo "RFC: </br>" . $certificado->rfc() . PHP_EOL; // el RFC del certificado
+echo "Nombre:  </br>" . $certificado->legalName() . PHP_EOL; // el nombre del propietario del certificado
+echo "Sucursal: </br>" . $certificado->branchName() . PHP_EOL; // el nombre de la sucursal (en CSD, en FIEL está vacía)
+echo "Serial: </br>" . $certificado->serialNumber()->bytes() . PHP_EOL; // número de serie del certificado
