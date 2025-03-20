@@ -937,14 +937,20 @@ class ClientController {
                     error_log("=== Creando parámetros de consulta ===");
                     error_log("Periodo creado: " . $period->getStart()->format('Y-m-d\TH:i:s') . " a " . $period->getEnd()->format('Y-m-d\TH:i:s'));
                     
-                    // Crear los tipos usando los constructores directamente
-                    $downloadType = $requestType === 'metadata' ? 
-                        new DownloadType('metadata') : 
-                        new DownloadType('xml');
+                    // Crear los tipos usando los valores enumerados correctos
+                    error_log("Creando tipos de solicitud...");
                     
-                    $documentTypeEnum = $documentType === 'issued' ? 
-                        new RequestType('I') : 
-                        new RequestType('R');
+                    // Crear DownloadType usando los valores correctos
+                    $downloadType = new DownloadType(
+                        $requestType === 'metadata' ? 'METADATA' : 'CFDI'
+                    );
+                    error_log("DownloadType creado: " . $downloadType->value());
+                    
+                    // Crear RequestType usando los valores correctos
+                    $documentTypeEnum = new RequestType(
+                        $documentType === 'issued' ? 'EMITIDOS' : 'RECIBIDOS'
+                    );
+                    error_log("RequestType creado: " . $documentTypeEnum->value());
 
                     // Crear la solicitud con los tipos enumerados
                     error_log("Creando QueryParameters...");
