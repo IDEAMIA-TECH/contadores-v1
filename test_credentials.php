@@ -28,3 +28,28 @@ echo "</br>RFC: </br>" . $certificado->rfc() . PHP_EOL; // el RFC del certificad
 echo "</br>Nombre:  </br>" . $certificado->legalName() . PHP_EOL; // el nombre del propietario del certificado
 echo "</br>Sucursal: </br>" . $certificado->branchName() . PHP_EOL; // el nombre de la sucursal (en CSD, en FIEL está vacía)
 echo "</br>Serial: </br>" . $certificado->serialNumber()->bytes() . PHP_EOL; // número de serie del certificado
+
+
+
+
+
+use PhpCfdi\SatWsDescargaMasiva\RequestBuilder\FielRequestBuilder\Fiel;
+use PhpCfdi\SatWsDescargaMasiva\RequestBuilder\FielRequestBuilder\FielRequestBuilder;
+use PhpCfdi\SatWsDescargaMasiva\Service;
+use PhpCfdi\SatWsDescargaMasiva\WebClient\GuzzleWebClient;
+
+
+// verificar que la FIEL sea válida (no sea CSD y sea vigente acorde a la fecha del sistema)
+if (! $fiel->isValid()) {
+    return;
+}
+
+// creación del web client basado en Guzzle que implementa WebClientInterface
+// para usarlo necesitas instalar guzzlehttp/guzzle, pues no es una dependencia directa
+$webClient = new GuzzleWebClient();
+
+// creación del objeto encargado de crear las solicitudes firmadas usando una FIEL
+$requestBuilder = new FielRequestBuilder($fiel);
+
+// Creación del servicio
+$service = new Service($requestBuilder, $webClient);
