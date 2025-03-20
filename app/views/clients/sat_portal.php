@@ -98,43 +98,97 @@
                             </div>
                             <div class="ml-3">
                                 <p class="text-sm text-yellow-700">
-                                    Para usar la descarga masiva, primero debe configurar la e.firma del cliente.
+                                    Para usar la descarga masiva, primero debe configurar la e.firma (CER y KEY) del cliente.
                                 </p>
                             </div>
                         </div>
                     </div>
                 <?php else: ?>
-                    <form id="downloadForm" class="space-y-4">
+                    <form id="downloadForm" class="space-y-6">
                         <input type="hidden" name="client_id" value="<?php echo $client_id; ?>">
-                        
+                        <input type="hidden" name="csrf_token" value="<?php echo $token; ?>">
+
+                        <!-- Tipo de Solicitud -->
+                        <div class="space-y-2">
+                            <label class="block text-sm font-medium text-gray-700">Tipo de Solicitud</label>
+                            <div class="grid grid-cols-2 gap-4">
+                                <label class="flex items-center space-x-2">
+                                    <input type="radio" name="request_type" value="metadata" checked 
+                                           class="form-radio text-blue-600">
+                                    <span>Metadata (Recomendado)</span>
+                                </label>
+                                <label class="flex items-center space-x-2">
+                                    <input type="radio" name="request_type" value="cfdi" 
+                                           class="form-radio text-blue-600">
+                                    <span>CFDI (XML Completo)</span>
+                                </label>
+                            </div>
+                        </div>
+
+                        <!-- Tipo de Comprobantes -->
+                        <div class="space-y-2">
+                            <label class="block text-sm font-medium text-gray-700">Tipo de Comprobantes</label>
+                            <div class="grid grid-cols-2 gap-4">
+                                <label class="flex items-center space-x-2">
+                                    <input type="radio" name="document_type" value="issued" checked 
+                                           class="form-radio text-blue-600">
+                                    <span>Emitidos</span>
+                                </label>
+                                <label class="flex items-center space-x-2">
+                                    <input type="radio" name="document_type" value="received" 
+                                           class="form-radio text-blue-600">
+                                    <span>Recibidos</span>
+                                </label>
+                            </div>
+                        </div>
+
+                        <!-- Periodo -->
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div>
                                 <label class="block text-sm font-medium text-gray-700">Fecha Inicio</label>
-                                <input type="date" name="fecha_inicio" required class="mt-1 form-input block w-full rounded-md">
+                                <input type="datetime-local" name="fecha_inicio" required 
+                                       class="mt-1 form-input block w-full rounded-md">
                             </div>
                             <div>
                                 <label class="block text-sm font-medium text-gray-700">Fecha Fin</label>
-                                <input type="date" name="fecha_fin" required class="mt-1 form-input block w-full rounded-md">
+                                <input type="datetime-local" name="fecha_fin" required 
+                                       class="mt-1 form-input block w-full rounded-md">
                             </div>
                         </div>
 
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700">Tipo de Facturas</label>
-                            <select name="tipo" required class="mt-1 form-select block w-full rounded-md">
-                                <option value="emitidas">Emitidas</option>
-                                <option value="recibidas">Recibidas</option>
-                            </select>
+                        <!-- Información de Límites -->
+                        <div class="bg-blue-50 border-l-4 border-blue-400 p-4 text-sm">
+                            <ul class="list-disc list-inside space-y-1 text-blue-700">
+                                <li>Podrás recuperar hasta 200,000 CFDIs por solicitud</li>
+                                <li>Para metadata, el límite es de 1,000,000 de registros</li>
+                                <li>El periodo máximo recomendado es de 72 horas</li>
+                            </ul>
                         </div>
 
-                        <div class="flex justify-end">
-                            <button type="submit" class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-md">
-                                Iniciar Descarga Masiva
+                        <div class="flex justify-end space-x-4">
+                            <button type="submit" class="bg-blue-500 hover:bg-blue-600 text-white px-6 py-2 rounded-md inline-flex items-center">
+                                <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
+                                </svg>
+                                Iniciar Descarga
                             </button>
                         </div>
                     </form>
 
-                    <div id="downloadStatus" class="mt-4 hidden">
-                        <!-- Aquí se mostrará el estado de la descarga -->
+                    <!-- Estado de la Solicitud -->
+                    <div id="requestStatus" class="mt-6 hidden">
+                        <h3 class="text-lg font-medium text-gray-900 mb-4">Estado de la Solicitud</h3>
+                        <div class="bg-gray-50 rounded-lg p-4">
+                            <div class="space-y-4">
+                                <div id="statusMessage"></div>
+                                <div id="progressBar" class="hidden">
+                                    <div class="w-full bg-gray-200 rounded-full h-2.5">
+                                        <div class="bg-blue-600 h-2.5 rounded-full" style="width: 0%"></div>
+                                    </div>
+                                </div>
+                                <div id="downloadLinks" class="hidden space-y-2"></div>
+                            </div>
+                        </div>
                     </div>
                 <?php endif; ?>
             </div>
@@ -177,9 +231,19 @@
     document.getElementById('downloadForm')?.addEventListener('submit', async function(e) {
         e.preventDefault();
         const form = e.target;
-        const status = document.getElementById('downloadStatus');
+        const status = document.getElementById('requestStatus');
+        const statusMessage = document.getElementById('statusMessage');
+        const progressBar = document.getElementById('progressBar');
+        const downloadLinks = document.getElementById('downloadLinks');
         
         try {
+            status.classList.remove('hidden');
+            statusMessage.innerHTML = `
+                <div class="bg-blue-50 text-blue-800 p-4 rounded-md">
+                    Iniciando solicitud de descarga...
+                </div>
+            `;
+            
             const response = await fetch('<?php echo BASE_URL; ?>/clients/download-sat-masivo', {
                 method: 'POST',
                 body: new FormData(form)
@@ -187,23 +251,42 @@
             
             const data = await response.json();
             
-            status.classList.remove('hidden');
-            status.innerHTML = `
-                <div class="${data.success ? 'bg-green-50 text-green-800' : 'bg-red-50 text-red-800'} p-4 rounded-md">
-                    ${data.message || data.error}
-                </div>
-            `;
+            if (data.success) {
+                statusMessage.innerHTML = `
+                    <div class="bg-green-50 text-green-800 p-4 rounded-md">
+                        ${data.message}
+                        <div class="mt-2 text-sm">
+                            ID de Solicitud: ${data.requestId || 'No disponible'}
+                        </div>
+                    </div>
+                `;
+                
+                // Iniciar verificación periódica
+                checkRequestStatus(data.requestId);
+            } else {
+                statusMessage.innerHTML = `
+                    <div class="bg-red-50 text-red-800 p-4 rounded-md">
+                        ${data.error}
+                    </div>
+                `;
+            }
         } catch (error) {
             console.error('Error:', error);
-            status.innerHTML = `
+            statusMessage.innerHTML = `
                 <div class="bg-red-50 text-red-800 p-4 rounded-md">
                     Error al procesar la solicitud
                 </div>
             `;
         }
     });
+
+    async function checkRequestStatus(requestId) {
+        // Implementar verificación periódica del estado
+        // Esta función se llamará cada cierto tiempo para verificar el estado de la solicitud
+    }
     </script>
 
     <?php include __DIR__ . '/../partials/footer.php'; ?>
 </body>
+</html> 
 </html> 
