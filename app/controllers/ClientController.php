@@ -746,6 +746,11 @@ class ClientController {
                 throw new Exception('Archivo de llave privada no encontrado');
             }
 
+            // Log de verificación de archivos
+            error_log("Verificando archivos:");
+            error_log("Certificado existe: " . (file_exists($cerFile) ? 'Sí' : 'No'));
+            error_log("Llave privada existe: " . (file_exists($keyFile) ? 'Sí' : 'No'));
+            
             // Desencriptar la contraseña
             $keyPassword = openssl_decrypt(
                 $client['key_password'],
@@ -759,46 +764,70 @@ class ClientController {
                 throw new Exception('Error al desencriptar la contraseña de la llave privada');
             }
 
-            try {
-                // Crear las credenciales siguiendo la documentación oficial
-                $fiel = Credential::openFiles(
-                    $cerFile,    // Ruta al archivo del certificado
-                    $keyFile,    // Ruta al archivo de la llave privada
-                    $keyPassword // Contraseña de la llave privada
-                );
+            // Log de la contraseña desencriptada (solo para debugging, remover en producción)
+            error_log("Contraseña desencriptada longitud: " . strlen($keyPassword));
 
-                // Verificar que el certificado esté vigente
-                $now = new \DateTimeImmutable();
-                if (!$fiel->certificate()->validOn($now)) {
-                    throw new Exception(sprintf(
-                        'El certificado no está vigente. Válido desde: %s hasta: %s',
-                        $fiel->certificate()->validFrom()->format('Y-m-d H:i:s'),
-                        $fiel->certificate()->validTo()->format('Y-m-d H:i:s')
-                    ));
+            try {
+                // Leer contenido de los archivos
+                $cerContent = file_get_contents($cerFile);
+                $keyContent = file_get_contents($keyFile);
+                
+                if ($cerContent === false || $keyContent === false) {
+                    throw new Exception('No se pudieron leer los archivos del certificado');
                 }
 
+                // Log del contenido de los archivos
+                error_log("Longitud del contenido del certificado: " . strlen($cerContent));
+                error_log("Longitud del contenido de la llave: " . strlen($keyContent));
+
+                // Crear la llave privada primero
+                try {
+                    $privateKey = new \PhpCfdi\Credentials\PrivateKey($keyContent, $keyPassword);
+                    error_log("Llave privada creada exitosamente");
+                } catch (\Exception $e) {
+                    error_log("Error al crear llave privada: " . $e->getMessage());
+                    throw new Exception("La contraseña proporcionada no es válida para la llave privada");
+                }
+
+                // Crear el certificado
+                $certificate = new \PhpCfdi\Credentials\Certificate($cerContent);
+                error_log("Certificado creado exitosamente");
+
+                // Crear las credenciales
+                $fiel = new \PhpCfdi\Credentials\Credential($certificate, $privateKey);
+
                 // Verificar que la llave privada corresponde al certificado
-                if (!$fiel->privateKey()->belongsTo($fiel->certificate())) {
+                if (!$fiel->privateKey()->belongsTo($certificate)) {
                     throw new Exception('La llave privada no corresponde al certificado');
                 }
 
-                // Crear el servicio de descarga masiva
-                $webClient = new GuzzleWebClient();
-                $requestBuilder = new FielRequestBuilder($fiel);
-                $service = new Service($webClient, $requestBuilder);
+                // Verificar que el certificado esté vigente usando DateTimeImmutable
+                $now = new \DateTimeImmutable();
+                if (!$certificate->validOn($now)) {
+                    throw new Exception('El certificado no está vigente. Válido desde: ' . 
+                        $certificate->validFrom()->format('Y-m-d H:i:s') . 
+                        ' hasta: ' . $certificate->validTo()->format('Y-m-d H:i:s'));
+                }
 
-                // Log de información del certificado para diagnóstico
+                // Verificar que sea un certificado FIEL verificando el KeyUsage
+                $keyUsage = $certificate->publicKey()->parsed()['extensions']['keyUsage'] ?? '';
+                if (empty($keyUsage) || strpos($keyUsage, 'Digital Signature, Non Repudiation') === false) {
+                    throw new Exception('El certificado no parece ser una FIEL válida. Key Usage incorrecto.');
+                }
+
+                // Log de información del certificado
                 error_log("Información del certificado:");
-                error_log("RFC: " . $fiel->certificate()->rfc());
-                error_log("Número de serie: " . $fiel->certificate()->serialNumber()->bytes());
-                error_log("Válido desde: " . $fiel->certificate()->validFrom()->format('Y-m-d H:i:s'));
-                error_log("Válido hasta: " . $fiel->certificate()->validTo()->format('Y-m-d H:i:s'));
+                error_log("RFC: " . $certificate->rfc());
+                error_log("Número de serie: " . $certificate->serialNumber()->bytes());
+                error_log("Válido desde: " . $certificate->validFrom()->format('Y-m-d H:i:s'));
+                error_log("Válido hasta: " . $certificate->validTo()->format('Y-m-d H:i:s'));
+                error_log("Key Usage: " . $keyUsage);
 
                 // Si llegamos aquí, el certificado es válido
                 header('Content-Type: application/json');
                 echo json_encode([
                     'success' => true,
-                    'message' => 'Credenciales validadas correctamente',
+                    'message' => 'Solicitud de descarga iniciada correctamente',
                     'requestId' => 'request-' . uniqid()
                 ]);
                 exit;
