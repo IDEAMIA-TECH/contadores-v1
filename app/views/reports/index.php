@@ -150,10 +150,11 @@
                     <table class="min-w-full divide-y divide-gray-200">
                         <thead class="bg-gray-50">
                             <tr>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Cliente</th>
                                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Fecha</th>
                                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Emisor</th>
                                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">RFC Emisor</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Receptor</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">RFC Receptor</th>
                                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">UUID</th>
                                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Subtotal</th>
                                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total</th>
@@ -168,9 +169,6 @@
                                 <?php foreach ($reportData as $row): ?>
                                     <tr>
                                         <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                            <?php echo htmlspecialchars($row['cliente']); ?>
-                                        </td>
-                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                                             <?php echo date('d/m/Y', strtotime($row['fecha'])); ?>
                                         </td>
                                         <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
@@ -178,6 +176,12 @@
                                         </td>
                                         <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                                             <?php echo htmlspecialchars($row['emisor_rfc']); ?>
+                                        </td>
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                            <?php echo htmlspecialchars($row['receptor_nombre']); ?>
+                                        </td>
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                            <?php echo htmlspecialchars($row['receptor_rfc']); ?>
                                         </td>
                                         <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                                             <?php echo htmlspecialchars($row['uuid']); ?>
@@ -211,7 +215,7 @@
                                 <?php endforeach; ?>
                             <?php else: ?>
                                 <tr>
-                                    <td colspan="11" class="px-6 py-4 text-center text-sm text-gray-500">
+                                    <td colspan="12" class="px-6 py-4 text-center text-sm text-gray-500">
                                         No se encontraron resultados
                                     </td>
                                 </tr>
@@ -232,6 +236,9 @@
     </div>
 
     <script>
+    // Definir BASE_URL al inicio del script
+    const BASE_URL = '<?php echo BASE_URL; ?>';
+    
     document.addEventListener('DOMContentLoaded', function() {
         const form = document.getElementById('report-form');
         const exportExcel = document.getElementById('export-excel');
@@ -282,6 +289,7 @@
                     formData.append('type[]', type);
                 });
 
+                console.log('Enviando solicitud a:', `${BASE_URL}/reports/export`);
                 const response = await fetch(`${BASE_URL}/reports/export`, {
                     method: 'POST',
                     body: formData
