@@ -816,67 +816,19 @@ class ClientController {
                 error_log("Longitud del contenido del certificado: " . strlen($cerContent));
                 error_log("Longitud del contenido de la llave: " . strlen($keyContent));
 
-                // Crear el certificado
+                // Crear el certificado y la llave privada
                 $certificate = new Certificate($cerContent);
-                error_log("Certificado creado exitosamente");
-
-                // Crear la llave privada
                 $privateKey = new PrivateKey($keyContent, $keyPassword);
-                error_log("Llave privada creada exitosamente");
-
-                // Verificar contenido PEM
-                $certPem = $certificate->pem();
-                $keyPem = $privateKey->pem();
                 
-                error_log("Longitud del contenido PEM del certificado: " . strlen($certPem));
-                error_log("Longitud del contenido PEM de la llave privada: " . strlen($keyPem));
+                // Crear el objeto Credential
+                $credential = new Credential($certificate, $privateKey);
                 
-                // Verificar que los contenidos PEM comienzan correctamente
-                error_log("Inicio del PEM del certificado: " . substr($certPem, 0, 27)); // Debería mostrar "-----BEGIN CERTIFICATE-----"
-                error_log("Inicio del PEM de la llave: " . substr($keyPem, 0, 31)); // Debería mostrar "-----BEGIN PRIVATE KEY-----"
-
-                // Crear el objeto Fiel
-                $fiel = new Fiel(
-                    $certificate->rfc(),
-                    $certificate->serialNumber()->bytes(),
-                    $certPem,
-                    $keyPem
-                );
+                // Crear el objeto Fiel con el Credential
+                $fiel = new Fiel($credential);
                 
-                error_log("Objeto Fiel creado exitosamente");
-                error_log("RFC del objeto Fiel: " . $fiel->rfc());
-                error_log("Número de serie del objeto Fiel: " . $fiel->certificateSerial());
-
-                // Crear el FielRequestBuilder con el objeto Fiel correcto
+                // Crear el FielRequestBuilder con el objeto Fiel
                 $requestBuilder = new FielRequestBuilder($fiel);
-                error_log("FielRequestBuilder creado exitosamente");
-
-                // Crear el servicio de descarga masiva con validaciones
-                error_log("Creando instancias de las clases necesarias...");
-                
-                try {
-                    $webClient = new GuzzleWebClient();
-                    error_log("GuzzleWebClient creado exitosamente");
-                } catch (\Exception $e) {
-                    error_log("Error creando GuzzleWebClient: " . $e->getMessage());
-                    throw new Exception("Error creando el cliente web: " . $e->getMessage());
-                }
-
-                try {
-                    $endpoints = ServiceEndpoints::cfdi();
-                    error_log("ServiceEndpoints creado exitosamente");
-                } catch (\Exception $e) {
-                    error_log("Error creando ServiceEndpoints: " . $e->getMessage());
-                    throw new Exception("Error creando los endpoints: " . $e->getMessage());
-                }
-
-                try {
-                    $service = new Service($webClient, $requestBuilder);
-                    error_log("Service creado exitosamente");
-                } catch (\Exception $e) {
-                    error_log("Error creando Service: " . $e->getMessage());
-                    throw new Exception("Error creando el servicio: " . $e->getMessage());
-                }
+                $service = new Service($webClient, $requestBuilder);
 
                 // Obtener parámetros de la solicitud
                 $requestType = $_POST['request_type'] ?? ''; // metadata o cfdi
