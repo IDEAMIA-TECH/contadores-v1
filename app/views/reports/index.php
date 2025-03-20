@@ -169,37 +169,37 @@
                                 <?php foreach ($reportData as $row): ?>
                                     <tr>
                                         <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                            <?php echo date('d/m/Y', strtotime($row['fecha'])); ?>
+                                            <?php echo date('d/m/Y', strtotime($row['fecha'] ?? '')); ?>
                                         </td>
                                         <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                            <?php echo htmlspecialchars($row['emisor_nombre']); ?>
+                                            <?php echo htmlspecialchars($row['emisor_nombre'] ?? ''); ?>
                                         </td>
                                         <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                            <?php echo htmlspecialchars($row['emisor_rfc']); ?>
+                                            <?php echo htmlspecialchars($row['emisor_rfc'] ?? ''); ?>
                                         </td>
                                         <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                            <?php echo htmlspecialchars($row['receptor_nombre']); ?>
+                                            <?php echo htmlspecialchars($row['receptor_nombre'] ?? ''); ?>
                                         </td>
                                         <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                            <?php echo htmlspecialchars($row['receptor_rfc']); ?>
+                                            <?php echo htmlspecialchars($row['receptor_rfc'] ?? ''); ?>
                                         </td>
                                         <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                            <?php echo htmlspecialchars($row['uuid']); ?>
+                                            <?php echo htmlspecialchars($row['uuid'] ?? ''); ?>
                                         </td>
                                         <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                            $<?php echo number_format($row['subtotal'], 2); ?>
+                                            $<?php echo number_format($row['subtotal'] ?? 0, 2); ?>
                                         </td>
                                         <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                            $<?php echo number_format($row['total'], 2); ?>
+                                            $<?php echo number_format($row['total'] ?? 0, 2); ?>
                                         </td>
                                         <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                            <?php echo ($row['tasa_o_cuota'] * 100) . '%'; ?>
+                                            <?php echo (($row['tasa_o_cuota'] ?? 0) * 100) . '%'; ?>
                                         </td>
                                         <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                            <?php echo htmlspecialchars($row['tipo_factor']); ?>
+                                            <?php echo htmlspecialchars($row['tipo_factor'] ?? ''); ?>
                                         </td>
                                         <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                            $<?php echo number_format($row['total_impuestos_trasladados'], 2); ?>
+                                            $<?php echo number_format($row['total_impuestos_trasladados'] ?? 0, 2); ?>
                                         </td>
                                         <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                                             <?php 
@@ -208,7 +208,8 @@
                                                 'E' => 'Egreso',
                                                 'P' => 'Pago'
                                             ];
-                                            echo htmlspecialchars($tipos[$row['tipo_comprobante']] ?? $row['tipo_comprobante']); 
+                                            $tipoComprobante = $row['tipo_comprobante'] ?? '';
+                                            echo htmlspecialchars($tipos[$tipoComprobante] ?? $tipoComprobante); 
                                             ?>
                                         </td>
                                     </tr>
