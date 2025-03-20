@@ -196,6 +196,8 @@
             }
 
             const formData = new FormData(form);
+            // Asegurarnos de que el token CSRF se incluya en la solicitud
+            formData.append('csrf_token', '<?php echo $_SESSION['csrf_token']; ?>');
             const submitBtn = document.getElementById('submit-btn');
             const progressContainer = document.getElementById('progress-container');
             const progressBar = document.getElementById('progress-bar');

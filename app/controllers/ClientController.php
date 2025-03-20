@@ -207,12 +207,17 @@ class ClientController {
             ini_set('upload_max_filesize', '500M');
             set_time_limit(300);
 
-            // Verificar autenticación y token CSRF
+            // Verificar autenticación
             if (!$this->security->isAuthenticated()) {
                 throw new Exception('No autorizado');
             }
 
-            if (!isset($_POST['csrf_token']) || $_POST['csrf_token'] !== $_SESSION['csrf_token']) {
+            // Debug de tokens
+            error_log("Token recibido: " . ($_POST['csrf_token'] ?? 'no token'));
+            error_log("Token en sesión: " . ($_SESSION['csrf_token'] ?? 'no token en sesión'));
+
+            // Validar token CSRF usando el método correcto
+            if (!isset($_POST['csrf_token']) || !$this->security->validateCsrfToken($_POST['csrf_token'])) {
                 throw new Exception('Token de seguridad inválido');
             }
 
