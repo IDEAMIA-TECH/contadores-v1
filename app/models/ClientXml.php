@@ -6,36 +6,62 @@ class ClientXml {
         $this->db = $db;
     }
     
-    public function exists($uuid, $clientId) {
-        $stmt = $this->db->prepare("SELECT id FROM client_xmls WHERE uuid = ? AND client_id = ?");
-        $stmt->bind_param("si", $uuid, $clientId);
-        $stmt->execute();
-        $result = $stmt->get_result();
-        return $result->num_rows > 0;
-    }
-    
     public function create($data) {
-        $sql = "INSERT INTO client_xmls (client_id, uuid, xml_content, emisor_rfc, emisor_nombre, 
-                receptor_rfc, receptor_nombre, fecha, tipo_comprobante, total, file_name, created_at) 
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
-                
-        $stmt = $this->db->prepare($sql);
-        $stmt->bind_param("issssssssdss",
-            $data['client_id'],
-            $data['uuid'],
-            $data['xml_content'],
-            $data['emisor_rfc'],
-            $data['emisor_nombre'],
-            $data['receptor_rfc'],
-            $data['receptor_nombre'],
-            $data['fecha'],
-            $data['tipo_comprobante'],
-            $data['total'],
-            $data['file_name'],
-            $data['created_at']
-        );
-        
-        return $stmt->execute();
+        try {
+            $sql = "INSERT INTO client_xmls (
+                client_id,
+                file_path,
+                uuid,
+                fecha,
+                tipo_comprobante,
+                serie,
+                folio,
+                subtotal,
+                total,
+                emisor_rfc,
+                emisor_nombre,
+                receptor_rfc,
+                receptor_nombre,
+                created_at
+            ) VALUES (
+                :client_id,
+                :file_path,
+                :uuid,
+                :fecha,
+                :tipo_comprobante,
+                :serie,
+                :folio,
+                :subtotal,
+                :total,
+                :emisor_rfc,
+                :emisor_nombre,
+                :receptor_rfc,
+                :receptor_nombre,
+                NOW()
+            )";
+
+            $stmt = $this->db->prepare($sql);
+            
+            return $stmt->execute([
+                ':client_id' => $data['client_id'],
+                ':file_path' => $data['file_path'],
+                ':uuid' => $data['uuid'] ?? null,
+                ':fecha' => $data['fecha'] ?? null,
+                ':tipo_comprobante' => $data['tipo_comprobante'] ?? null,
+                ':serie' => $data['serie'] ?? null,
+                ':folio' => $data['folio'] ?? null,
+                ':subtotal' => $data['subtotal'] ?? 0,
+                ':total' => $data['total'] ?? 0,
+                ':emisor_rfc' => $data['emisor_rfc'] ?? null,
+                ':emisor_nombre' => $data['emisor_nombre'] ?? null,
+                ':receptor_rfc' => $data['receptor_rfc'] ?? null,
+                ':receptor_nombre' => $data['receptor_nombre'] ?? null
+            ]);
+
+        } catch (PDOException $e) {
+            error_log("Error en ClientXml::create: " . $e->getMessage());
+            return false;
+        }
     }
     
     public function getByClient($clientId) {

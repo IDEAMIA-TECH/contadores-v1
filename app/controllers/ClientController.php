@@ -943,56 +943,39 @@ class ClientController {
 
     private function processXmlFile($xmlContent, $clientId, $fileName) {
         try {
-            // Crear instancia del parser de XML
-            $xmlParser = new CfdiXmlParser();
-            
-            // Validar que el contenido sea un XML válido
-            if (!$xmlParser->isValidXml($xmlContent)) {
-                throw new Exception("El archivo {$fileName} no es un XML válido");
+            // Crear directorio para XMLs si no existe
+            $uploadDir = ROOT_PATH . '/uploads/xml/' . $clientId . '/';
+            if (!is_dir($uploadDir)) {
+                mkdir($uploadDir, 0755, true);
             }
-            
+
+            // Generar nombre único para el archivo
+            $uniqueFileName = uniqid('xml_') . '_' . preg_replace('/[^a-zA-Z0-9.]/', '_', $fileName);
+            $filePath = $uploadDir . $uniqueFileName;
+
+            // Guardar el archivo XML
+            if (file_put_contents($filePath, $xmlContent) === false) {
+                throw new Exception("Error al guardar el archivo {$fileName}");
+            }
+
             // Parsear el XML
+            $xmlParser = new CfdiXmlParser();
             $xmlData = $xmlParser->parse($xmlContent);
-            
-            // Validar que sea un CFDI
-            if (!$xmlParser->isCfdi($xmlData)) {
-                throw new Exception("El archivo {$fileName} no es un CFDI válido");
-            }
-            
-            // Preparar datos para la base de datos
-            $data = [
-                'client_id' => $clientId,
-                'uuid' => $xmlParser->getUuid($xmlData),
-                'xml_content' => $xmlContent,
-                'emisor_rfc' => $xmlParser->getEmisorRfc($xmlData),
-                'emisor_nombre' => $xmlParser->getEmisorNombre($xmlData),
-                'receptor_rfc' => $xmlParser->getReceptorRfc($xmlData),
-                'receptor_nombre' => $xmlParser->getReceptorNombre($xmlData),
-                'fecha' => $xmlParser->getFecha($xmlData),
-                'tipo_comprobante' => $xmlParser->getTipoComprobante($xmlData),
-                'total' => $xmlParser->getTotal($xmlData),
-                'file_name' => $fileName,
-                'created_at' => date('Y-m-d H:i:s')
-            ];
-            
-            // Crear instancia del modelo ClientXml
-            $clientXml = new ClientXml($this->db);
-            
-            // Verificar si el XML ya existe
-            if ($clientXml->exists($data['uuid'], $clientId)) {
-                throw new Exception("El XML {$fileName} ya existe en la base de datos");
-            }
-            
+
             // Guardar en la base de datos
-            if (!$clientXml->create($data)) {
-                throw new Exception("Error al guardar el XML {$fileName} en la base de datos");
+            $clientXml = new ClientXml($this->db);
+            $xmlData['client_id'] = $clientId;
+            $xmlData['file_path'] = 'xml/' . $clientId . '/' . $uniqueFileName;
+            
+            if (!$clientXml->create($xmlData)) {
+                throw new Exception("Error al guardar los datos del XML {$fileName} en la base de datos");
             }
-            
+
             return true;
-            
+
         } catch (Exception $e) {
             error_log("Error procesando XML {$fileName}: " . $e->getMessage());
-            throw $e;
+            throw new Exception("Error al procesar {$fileName}: " . $e->getMessage());
         }
     }
 } 
