@@ -937,21 +937,20 @@ class ClientController {
                     error_log("=== Creando parámetros de consulta ===");
                     error_log("Periodo creado: " . $period->getStart()->format('Y-m-d\TH:i:s') . " a " . $period->getEnd()->format('Y-m-d\TH:i:s'));
                     
-                    // Crear los tipos enumerados correctamente
-                    error_log("Creando DownloadType...");
+                    // Crear los tipos usando los métodos estáticos correctos
+                    error_log("Creando tipos de solicitud...");
                     $downloadType = $requestType === 'metadata' ? 
-                        DownloadType::create(DownloadType::METADATA) : 
-                        DownloadType::create(DownloadType::CFDI);
-                    error_log("DownloadType creado: " . $downloadType->value());
+                        \PhpCfdi\SatWsDescargaMasiva\Shared\DownloadType::metadata() : 
+                        \PhpCfdi\SatWsDescargaMasiva\Shared\DownloadType::cfdi();
+                    error_log("DownloadType creado");
 
-                    error_log("Creando RequestType...");
                     $documentTypeEnum = $documentType === 'issued' ? 
-                        RequestType::create(RequestType::ISSUED) : 
-                        RequestType::create(RequestType::RECEIVED);
-                    error_log("RequestType creado: " . $documentTypeEnum->value());
+                        \PhpCfdi\SatWsDescargaMasiva\Shared\RequestType::emitidos() : 
+                        \PhpCfdi\SatWsDescargaMasiva\Shared\RequestType::recibidos();
+                    error_log("RequestType creado");
 
-                    // Crear la solicitud con los objetos enumerados
-                    error_log("Creando QueryParameters con los tipos enumerados...");
+                    // Crear la solicitud con los tipos enumerados
+                    error_log("Creando QueryParameters...");
                     $request = QueryParameters::create(
                         $period,
                         $documentTypeEnum,
