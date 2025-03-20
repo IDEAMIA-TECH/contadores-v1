@@ -824,9 +824,11 @@ class ClientController {
                 $credential = new Credential($certificate, $privateKey);
                 
                 // Crear el objeto Fiel con el Credential
-                $fiel = new Fiel($credential);
+                $fiel = new \PhpCfdi\SatWsDescargaMasiva\RequestBuilder\FielRequestBuilder\Fiel($credential);
                 
-                // Crear el FielRequestBuilder con el objeto Fiel
+                // Crear el servicio SAT
+                $webClient = new GuzzleWebClient();
+                $endpoints = ServiceEndpoints::cfdi();
                 $requestBuilder = new FielRequestBuilder($fiel);
                 $service = new Service($webClient, $requestBuilder);
 
@@ -859,7 +861,7 @@ class ClientController {
                     throw new Exception('La solicitud fue rechazada: ' . $query->getStatus()->getMessage());
                 }
 
-                // Guardar el ID de solicitud en la base de datos
+                // Guardar el ID de solicitud y devolver respuesta exitosa
                 $requestId = $query->getRequestId();
                 
                 // Crear directorio para almacenar las descargas si no existe
@@ -884,7 +886,6 @@ class ClientController {
                     $endDate
                 ]);
 
-                // Devolver respuesta exitosa
                 header('Content-Type: application/json');
                 echo json_encode([
                     'success' => true,
