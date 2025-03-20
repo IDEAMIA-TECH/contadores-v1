@@ -9,7 +9,9 @@ require_once __DIR__ . '/../helpers/CfdiXmlParser.php';
 require_once __DIR__ . '/../services/SatService.php';
 use PhpCfdi\SatWsDescargaMasiva\Service;
 use PhpCfdi\SatWsDescargaMasiva\WebClient\GuzzleWebClient;
-use PhpCfdi\SatWsDescargaMasiva\RequestBuilder\FielRequestBuilder;
+use PhpCfdi\SatWsDescargaMasiva\RequestBuilder\RequestBuilder\FielRequestBuilder;
+use PhpCfdi\SatWsDescargaMasiva\Shared\ServiceEndpoints;
+use PhpCfdi\SatWsDescargaMasiva\Services\Query\QueryParameters;
 use PhpCfdi\Credentials\Credential;
 use PhpCfdi\Credentials\Certificate;
 use PhpCfdi\Credentials\PrivateKey;
@@ -836,17 +838,18 @@ class ClientController {
                 $startDateTime = new \DateTimeImmutable($startDate);
                 $endDateTime = new \DateTimeImmutable($endDate);
 
-                // Crear el servicio de descarga masiva
+                // Crear el servicio de descarga masiva con el endpoint correcto
                 $webClient = new GuzzleWebClient();
-                $requestBuilder = new FielRequestBuilder($fiel);
+                $endpoints = new ServiceEndpoints('cfdi'); // o 'retenciones' según necesites
+                $requestBuilder = new FielRequestBuilder($fiel, $endpoints);
                 $service = new Service($webClient, $requestBuilder);
 
                 // Crear la solicitud según el tipo
-                $request = new \PhpCfdi\SatWsDescargaMasiva\Services\Query\QueryParameters(
+                $request = new QueryParameters(
                     $startDateTime,
                     $endDateTime,
-                    $documentType === 'issued' ? \PhpCfdi\SatWsDescargaMasiva\Services\Query\QueryParameters::DOCUMENT_TYPE_ISSUED : \PhpCfdi\SatWsDescargaMasiva\Services\Query\QueryParameters::DOCUMENT_TYPE_RECEIVED,
-                    $requestType === 'metadata' ? \PhpCfdi\SatWsDescargaMasiva\Services\Query\QueryParameters::DOWNLOAD_TYPE_METADATA : \PhpCfdi\SatWsDescargaMasiva\Services\Query\QueryParameters::DOWNLOAD_TYPE_CFDI
+                    $documentType === 'issued' ? QueryParameters::DOCUMENT_TYPE_ISSUED : QueryParameters::DOCUMENT_TYPE_RECEIVED,
+                    $requestType === 'metadata' ? QueryParameters::DOWNLOAD_TYPE_METADATA : QueryParameters::DOWNLOAD_TYPE_CFDI
                 );
 
                 // Realizar la solicitud
@@ -937,7 +940,8 @@ class ClientController {
             // Crear el servicio SAT con las credenciales
             $fiel = $this->createFielFromClient($client);
             $webClient = new GuzzleWebClient();
-            $requestBuilder = new FielRequestBuilder($fiel);
+            $endpoints = new ServiceEndpoints('cfdi'); // o 'retenciones' según necesites
+            $requestBuilder = new FielRequestBuilder($fiel, $endpoints);
             $service = new Service($webClient, $requestBuilder);
 
             // Verificar estado
