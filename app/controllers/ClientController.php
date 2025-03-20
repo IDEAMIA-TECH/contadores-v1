@@ -937,14 +937,14 @@ class ClientController {
                     error_log("=== Creando parámetros de consulta ===");
                     error_log("Periodo creado: " . $period->getStart()->format('Y-m-d\TH:i:s') . " a " . $period->getEnd()->format('Y-m-d\TH:i:s'));
                     
-                    // Crear los tipos usando los constructores estáticos correctos
-                    $downloadType = \PhpCfdi\SatWsDescargaMasiva\Shared\DownloadType::create(
-                        $requestType === 'metadata' ? 'metadata' : 'xml'
-                    );
+                    // Crear los tipos usando los métodos estáticos correctos
+                    $downloadType = $requestType === 'metadata' ? 
+                        \PhpCfdi\SatWsDescargaMasiva\Shared\DownloadType::metadata() : 
+                        \PhpCfdi\SatWsDescargaMasiva\Shared\DownloadType::xml();
                     
-                    $documentTypeEnum = \PhpCfdi\SatWsDescargaMasiva\Shared\RequestType::create(
-                        $documentType === 'issued' ? 'I' : 'R'
-                    );
+                    $documentTypeEnum = $documentType === 'issued' ? 
+                        \PhpCfdi\SatWsDescargaMasiva\Shared\RequestType::issued() : 
+                        \PhpCfdi\SatWsDescargaMasiva\Shared\RequestType::received();
 
                     // Crear la solicitud con los tipos enumerados
                     error_log("Creando QueryParameters...");
