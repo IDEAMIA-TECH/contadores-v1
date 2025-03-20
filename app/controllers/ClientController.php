@@ -961,9 +961,10 @@ class ClientController {
                 // Crear credencial
                 $fiel = new Credential($certificate, $privateKey);
 
-                // Validar que sea FIEL y no CSD
-                if ($certificate->isCsd()) {
-                    throw new Exception('El certificado proporcionado es un CSD. Se requiere una FIEL.');
+                // Validar que sea FIEL y no CSD usando los atributos del certificado
+                $keyUsage = $certificate->satType()->get();  // Obtener el tipo de certificado
+                if ($keyUsage !== 'FIEL') {
+                    throw new Exception('El certificado proporcionado no es una FIEL válida. Se detectó: ' . $keyUsage);
                 }
 
                 // Verificar que el certificado no esté expirado
