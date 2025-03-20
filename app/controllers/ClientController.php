@@ -897,8 +897,13 @@ class ClientController {
                 error_log("Información del certificado:");
                 error_log("Serial Number: " . $certificate->serialNumber()->bytes());
                 error_log("RFC: " . $certificate->rfc());
-                error_log("Válido desde: " . $certificate->validFrom()->format('Y-m-d H:i:s'));
-                error_log("Válido hasta: " . $certificate->validTo()->format('Y-m-d H:i:s'));
+                
+                // Convertir las fechas a objetos DateTime antes de formatearlas
+                $validFrom = $certificate->validFrom();
+                $validTo = $certificate->validTo();
+                
+                error_log("Válido desde: " . ($validFrom instanceof \DateTime ? $validFrom->format('Y-m-d H:i:s') : 'No disponible'));
+                error_log("Válido hasta: " . ($validTo instanceof \DateTime ? $validTo->format('Y-m-d H:i:s') : 'No disponible'));
                 
                 // Obtener y mostrar todos los key usages
                 $parsed = $certificate->publicKey()->parsed();
