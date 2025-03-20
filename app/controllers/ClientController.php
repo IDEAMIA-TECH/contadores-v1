@@ -921,18 +921,22 @@ class ClientController {
                     $period = new DateTimePeriod($startDateTime, $endDateTime);
                     error_log("Periodo creado exitosamente");
 
-                    // Crear la solicitud con el periodo y los tipos enumerados correctos
+                    // Crear la solicitud con los tipos correctos
                     $request = QueryParameters::create(
                         $period,
-                        $documentType === 'issued' ? RequestType::ISSUED : RequestType::RECEIVED,
-                        $requestType === 'metadata' ? DownloadType::METADATA : DownloadType::CFDI
+                        $documentType === 'issued' ? 
+                            \PhpCfdi\SatWsDescargaMasiva\Services\Query\QueryParameters::DOCUMENT_TYPE_ISSUED :
+                            \PhpCfdi\SatWsDescargaMasiva\Services\Query\QueryParameters::DOCUMENT_TYPE_RECEIVED,
+                        $requestType === 'metadata' ? 
+                            \PhpCfdi\SatWsDescargaMasiva\Services\Query\QueryParameters::REQUEST_TYPE_METADATA :
+                            \PhpCfdi\SatWsDescargaMasiva\Services\Query\QueryParameters::REQUEST_TYPE_XML
                     );
-                    error_log("Parámetros de consulta creados exitosamente");
 
+                    error_log("Parámetros de consulta creados exitosamente");
                     error_log("Creando parámetros de consulta con:");
                     error_log("- Periodo: " . $period->getStart()->format('Y-m-d\TH:i:s') . " a " . $period->getEnd()->format('Y-m-d\TH:i:s'));
                     error_log("- Tipo de documento: " . ($documentType === 'issued' ? 'ISSUED' : 'RECEIVED'));
-                    error_log("- Tipo de descarga: " . ($requestType === 'metadata' ? 'METADATA' : 'CFDI'));
+                    error_log("- Tipo de descarga: " . ($requestType === 'metadata' ? 'METADATA' : 'XML'));
 
                     // Realizar la solicitud
                     error_log("Enviando solicitud al SAT...");
