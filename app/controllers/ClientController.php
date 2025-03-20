@@ -962,8 +962,18 @@ class ClientController {
                 $fiel = new Credential($certificate, $privateKey);
 
                 // Validar que sea FIEL y no CSD
-                if (!$fiel->certificate()->validForSign()) {
-                    throw new Exception('El certificado proporcionado no es una FIEL válida');
+                if ($certificate->isCsd()) {
+                    throw new Exception('El certificado proporcionado es un CSD. Se requiere una FIEL.');
+                }
+
+                // Verificar que el certificado no esté expirado
+                if ($certificate->validTo() < new \DateTime()) {
+                    throw new Exception('El certificado FIEL ha expirado');
+                }
+
+                // Verificar que el certificado ya esté activo
+                if ($certificate->validFrom() > new \DateTime()) {
+                    throw new Exception('El certificado FIEL aún no está activo');
                 }
 
                 // Crear el servicio de descarga masiva
