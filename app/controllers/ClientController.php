@@ -104,10 +104,14 @@ class ClientController {
 
             // Procesar contraseña de la FIEL si se proporcionó
             if (!empty($_POST['key_password'])) {
-                // Guardar la contraseña en texto plano para la FIEL
-                $data['key_password'] = $_POST['key_password'];
-                // Nota: En un ambiente de producción, deberías usar encriptación segura
-                // en lugar de guardar en texto plano
+                // Guardar la contraseña encriptada de manera reversible para la FIEL
+                $data['key_password'] = openssl_encrypt(
+                    $_POST['key_password'],
+                    'AES-256-CBC',
+                    getenv('APP_KEY'),
+                    0,
+                    substr(getenv('APP_KEY'), 0, 16)
+                );
             }
             
             if ($this->client->create($data)) {
@@ -631,7 +635,13 @@ class ClientController {
 
             // Actualizar contraseña solo si se proporcionó una nueva
             if (!empty($_POST['key_password'])) {
-                $data['key_password'] = password_hash($_POST['key_password'], PASSWORD_DEFAULT);
+                $data['key_password'] = openssl_encrypt(
+                    $_POST['key_password'],
+                    'AES-256-CBC',
+                    getenv('APP_KEY'),
+                    0,
+                    substr(getenv('APP_KEY'), 0, 16)
+                );
             }
 
             if ($this->client->update($data)) {
@@ -871,7 +881,6 @@ class ClientController {
             }
 
             try {
-                // Crear el certificado y la llave privada correctamente
                 $certificate = new Certificate(
                     file_get_contents($cerFile)
                 );
@@ -879,11 +888,18 @@ class ClientController {
                 // Desencriptar la contraseña almacenada
                 $rawPassword = '';
                 if (!empty($client['key_password'])) {
-                    // Si la contraseña está hasheada con password_hash, necesitamos la original
-                    if (str_starts_with($client['key_password'], '$2y$')) {
-                        throw new Exception('La contraseña de la FIEL debe estar en texto plano, no hasheada');
+                    // Desencriptar la contraseña
+                    $rawPassword = openssl_decrypt(
+                        $client['key_password'],
+                        'AES-256-CBC',
+                        getenv('APP_KEY'),
+                        0,
+                        substr(getenv('APP_KEY'), 0, 16)
+                    );
+                    
+                    if ($rawPassword === false) {
+                        throw new Exception('Error al desencriptar la contraseña de la FIEL');
                     }
-                    $rawPassword = $client['key_password'];
                 }
                 
                 try {
