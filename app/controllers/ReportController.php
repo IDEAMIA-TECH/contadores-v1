@@ -13,7 +13,7 @@ class ReportController {
     public function __construct() {
         $this->db = Database::getInstance()->getConnection();
         $this->security = new Security();
-        $this->report = new Report($this->db);
+        $this->report = new Report();
         $this->client = new Client($this->db);
     }
     
@@ -67,50 +67,86 @@ class ReportController {
     }
     
     public function export() {
+        if (!$this->security->isAuthenticated()) {
+            header('Content-Type: application/json');
+            http_response_code(401);
+            echo json_encode(['error' => 'No autorizado']);
+            exit;
+        }
+
         try {
-            if (!$this->security->isAuthenticated()) {
-                throw new Exception('No autorizado');
-            }
-            
             // Validar token CSRF
-            if (!$this->security->validateCsrfToken($_POST['csrf_token'] ?? '')) {
+            if (!isset($_POST['csrf_token']) || !$this->security->validateToken($_POST['csrf_token'])) {
                 throw new Exception('Token de seguridad inválido');
             }
-            
-            // Obtener parámetros de filtrado
-            $filters = [
-                'client_id' => filter_input(INPUT_POST, 'client_id', FILTER_VALIDATE_INT),
-                'start_date' => filter_input(INPUT_POST, 'start_date'),
-                'end_date' => filter_input(INPUT_POST, 'end_date'),
-                'type' => filter_input(INPUT_POST, 'type'),
-                'format' => filter_input(INPUT_POST, 'format')
-            ];
-            
-            if (!in_array($filters['format'], ['excel', 'pdf'])) {
-                throw new Exception('Formato de exportación no válido');
+
+            // Validar formato
+            if (!isset($_POST['format']) || !in_array($_POST['format'], ['excel', 'pdf'])) {
+                throw new Exception('Formato no válido');
             }
 
-            // Obtener los datos del reporte
-            $reportData = $this->report->generateReport($filters);
-            
+            // Obtener datos del reporte
+            $data = $this->getReportData($_POST);
+
             // Exportar según el formato
-            if ($filters['format'] === 'excel') {
-                header('Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-                header('Content-Disposition: attachment;filename="reporte.xlsx"');
-                $this->report->exportToExcel($reportData);
+            if ($_POST['format'] === 'excel') {
+                return $this->report->generateExcelReport($data);
             } else {
-                header('Content-Type: application/pdf');
-                header('Content-Disposition: attachment;filename="reporte.pdf"');
-                $this->report->exportToPdf($reportData);
+                return $this->report->generatePdfReport($data);
             }
-            
+
         } catch (Exception $e) {
-            error_log("Error en reports/export: " . $e->getMessage());
+            error_log("Error en exportación: " . $e->getMessage());
             header('Content-Type: application/json');
-            echo json_encode([
-                'success' => false,
-                'message' => $e->getMessage()
-            ]);
+            http_response_code(400);
+            echo json_encode(['error' => $e->getMessage()]);
+            exit;
         }
+    }
+
+    private function getReportData($params) {
+        // Validar parámetros requeridos
+        if (empty($params['start_date']) || empty($params['end_date'])) {
+            throw new Exception('Las fechas son obligatorias');
+        }
+
+        $query = "
+            SELECT 
+                cx.fecha,
+                cx.emisor_nombre,
+                cx.emisor_rfc,
+                cx.nombre_receptor as receptor_nombre,
+                cx.rfc_receptor as receptor_rfc,
+                cx.uuid,
+                cx.subtotal,
+                cx.total,
+                cxt.tasa_o_cuota,
+                cxt.tipo_factor,
+                cxt.total_impuestos_trasladados,
+                cx.tipo_comprobante
+            FROM client_xmls cx
+            LEFT JOIN client_xml_taxes cxt ON cx.id = cxt.xml_id
+            WHERE cx.fecha BETWEEN :start_date AND :end_date
+        ";
+
+        $parameters = [
+            ':start_date' => $params['start_date'],
+            ':end_date' => $params['end_date']
+        ];
+
+        if (!empty($params['client_id'])) {
+            $query .= " AND cx.client_id = :client_id";
+            $parameters[':client_id'] = $params['client_id'];
+        }
+
+        if (!empty($params['type'])) {
+            $types = (array)$params['type'];
+            $query .= " AND cx.tipo_comprobante IN (" . implode(',', array_fill(0, count($types), '?')) . ")";
+            $parameters = array_merge($parameters, $types);
+        }
+
+        $stmt = $this->db->prepare($query);
+        $stmt->execute($parameters);
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
 } 

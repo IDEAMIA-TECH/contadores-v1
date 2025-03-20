@@ -99,4 +99,61 @@ class Report {
     private function exportToPdf($data) {
         // Implementación pendiente
     }
+
+    public function generateExcelReport($data) {
+        try {
+            require_once __DIR__ . '/../vendor/autoload.php';
+
+            $spreadsheet = new \PhpOffice\PhpSpreadsheet\Spreadsheet();
+            $sheet = $spreadsheet->getActiveSheet();
+
+            // Establecer encabezados
+            $headers = [
+                'Fecha', 'Emisor', 'RFC Emisor', 'Receptor', 'RFC Receptor',
+                'UUID', 'Subtotal', 'Total', 'Tasa o Cuota', 'Tipo Factor',
+                'Impuestos Trasladados', 'Tipo'
+            ];
+
+            foreach (range('A', 'L') as $i => $column) {
+                $sheet->setCellValue($column . '1', $headers[$i]);
+                $sheet->getColumnDimension($column)->setAutoSize(true);
+            }
+
+            // Agregar datos
+            $row = 2;
+            foreach ($data as $item) {
+                $sheet->setCellValue('A' . $row, date('d/m/Y', strtotime($item['fecha'])));
+                $sheet->setCellValue('B' . $row, $item['emisor_nombre']);
+                $sheet->setCellValue('C' . $row, $item['emisor_rfc']);
+                $sheet->setCellValue('D' . $row, $item['receptor_nombre']);
+                $sheet->setCellValue('E' . $row, $item['receptor_rfc']);
+                $sheet->setCellValue('F' . $row, $item['uuid']);
+                $sheet->setCellValue('G' . $row, $item['subtotal']);
+                $sheet->setCellValue('H' . $row, $item['total']);
+                $sheet->setCellValue('I' . $row, ($item['tasa_o_cuota'] * 100) . '%');
+                $sheet->setCellValue('J' . $row, $item['tipo_factor']);
+                $sheet->setCellValue('K' . $row, $item['total_impuestos_trasladados']);
+                $sheet->setCellValue('L' . $row, $item['tipo_comprobante']);
+                $row++;
+            }
+
+            // Configurar la respuesta
+            header('Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+            header('Content-Disposition: attachment;filename="reporte.xlsx"');
+            header('Cache-Control: max-age=0');
+
+            $writer = new \PhpOffice\PhpSpreadsheet\Writer\Xlsx($spreadsheet);
+            $writer->save('php://output');
+            exit;
+
+        } catch (Exception $e) {
+            error_log("Error generando Excel: " . $e->getMessage());
+            throw new Exception('Error al generar el archivo Excel');
+        }
+    }
+
+    public function generatePdfReport($data) {
+        // Implementar la generación de PDF aquí
+        throw new Exception('Generación de PDF no implementada aún');
+    }
 } 
