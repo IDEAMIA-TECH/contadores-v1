@@ -197,98 +197,70 @@
 
             const formData = new FormData();
             
-            // Agregar el token CSRF primero
+            // Obtener el token CSRF y client_id del formulario
             const csrfToken = document.querySelector('input[name="csrf_token"]').value;
-            formData.append('csrf_token', csrfToken);
-            
-            // Agregar el client_id
             const clientId = document.querySelector('input[name="client_id"]').value;
+            
+            // Agregar token CSRF y client_id al FormData
+            formData.append('csrf_token', csrfToken);
             formData.append('client_id', clientId);
             
             // Agregar los archivos
             files.forEach(file => {
                 formData.append('xml_files[]', file);
             });
-            
+
             const submitBtn = document.getElementById('submit-btn');
             const progressContainer = document.getElementById('progress-container');
             const progressBar = document.getElementById('progress-bar');
-            
+
             try {
-                // Deshabilitar botón y mostrar progreso
                 submitBtn.disabled = true;
                 progressContainer.classList.remove('hidden');
-                
+
                 // Debug logs
                 console.log('CSRF Token:', csrfToken);
-                console.log('Enviando petición a:', form.action);
+                console.log('Client ID:', clientId);
                 console.log('Número de archivos:', files.length);
 
                 const response = await fetch(form.action, {
                     method: 'POST',
                     body: formData,
-                    // Agregar headers específicos
-                    headers: {
-                        'X-Requested-With': 'XMLHttpRequest'
-                    }
+                    credentials: 'same-origin' // Importante para las cookies de sesión
                 });
 
-                // Agregar log de la respuesta
-                console.log('Código de respuesta:', response.status);
-                console.log('Headers:', response.headers);
+                // Log de la respuesta
+                console.log('Status:', response.status);
+                console.log('Headers:', Object.fromEntries(response.headers));
 
-                // Verificar si la respuesta es JSON
+                if (!response.ok) {
+                    throw new Error(`Error HTTP: ${response.status}`);
+                }
+
                 const contentType = response.headers.get('content-type');
                 if (!contentType || !contentType.includes('application/json')) {
-                    throw new Error(`Respuesta no válida del servidor (${response.status}): ${await response.text()}`);
+                    throw new Error('Respuesta no válida del servidor');
                 }
 
                 const result = await response.json();
-                console.log('Respuesta del servidor:', result);
-                
+                console.log('Respuesta:', result);
+
                 if (result.success) {
-                    // Mostrar mensaje de éxito
-                    const message = `Se procesaron ${result.files_processed} archivos correctamente.`;
-                    alert(message);
-                    
-                    // Redireccionar
+                    alert(`Se procesaron ${result.files_processed} archivos correctamente.`);
                     if (result.redirect_url) {
                         window.location.href = result.redirect_url;
                     }
                 } else {
-                    // Mostrar errores detallados
-                    let errorMessage = 'Errores encontrados:\n';
-                    
+                    let errorMessage = result.message || 'Error al procesar los archivos';
                     if (result.errors && result.errors.length > 0) {
-                        errorMessage += result.errors.join('\n');
-                    } else if (result.message) {
-                        errorMessage += result.message;
-                    } else {
-                        errorMessage += 'Error desconocido al procesar los archivos';
+                        errorMessage += '\n\n' + result.errors.join('\n');
                     }
-                    
-                    console.error('Error detallado:', errorMessage);
                     alert(errorMessage);
-                    
-                    // Redireccionar en caso de error si hay URL
-                    if (result.redirect_url) {
-                        window.location.href = result.redirect_url;
-                    }
                 }
             } catch (error) {
-                // Mejorar el mensaje de error
-                console.error('Error detallado:', error);
-                let errorMessage = 'Error al subir los archivos:\n';
-                errorMessage += error.message || 'Error de conexión con el servidor';
-                
-                // Verificar si hay error de tamaño de archivo
-                if (error.name === 'TypeError' && files.some(f => f.size > 50 * 1024 * 1024)) {
-                    errorMessage += '\nAlgunos archivos pueden ser demasiado grandes.';
-                }
-                
-                alert(errorMessage);
+                console.error('Error:', error);
+                alert('Error al subir los archivos: ' + error.message);
             } finally {
-                // Restaurar estado del formulario
                 submitBtn.disabled = false;
                 progressContainer.classList.add('hidden');
                 progressBar.style.width = '0%';
