@@ -17,20 +17,51 @@ class CfdiXmlParser {
             $uuid = isset($tfd[0]) ? (string)$tfd[0]['UUID'] : null;
             $fechaTimbrado = isset($tfd[0]) ? (string)$tfd[0]['FechaTimbrado'] : null;
             
+            // Obtener impuestos trasladados
+            $impuestosTrasladados = 0;
+            $impuesto = null;
+            $tasaCuota = null;
+            
+            if (isset($xml->Impuestos) && isset($xml->Impuestos->Traslados)) {
+                foreach ($xml->Impuestos->Traslados->Traslado as $traslado) {
+                    $impuestosTrasladados += (float)($traslado['Importe'] ?? 0);
+                    // Tomamos el primer impuesto y tasa como referencia
+                    if ($impuesto === null) {
+                        $impuesto = (string)$traslado['Impuesto'];
+                        $tasaCuota = (string)$traslado['TasaOCuota'];
+                    }
+                }
+            }
+            
             // Extraer datos básicos del comprobante
             $data = [
                 'uuid' => $uuid,
                 'fecha_timbrado' => $fechaTimbrado,
                 'fecha' => (string)$xml['Fecha'],
+                'lugar_expedicion' => (string)$xml['LugarExpedicion'],
                 'tipo_comprobante' => (string)$xml['TipoDeComprobante'],
+                'forma_pago' => (string)$xml['FormaPago'],
+                'metodo_pago' => (string)$xml['MetodoPago'],
+                'moneda' => (string)$xml['Moneda'],
                 'serie' => (string)$xml['Serie'],
                 'folio' => (string)$xml['Folio'],
                 'subtotal' => (float)$xml['SubTotal'],
                 'total' => (float)$xml['Total'],
+                'total_impuestos_trasladados' => $impuestosTrasladados,
+                'impuesto' => $impuesto,
+                'tasa_cuota' => $tasaCuota,
+                
+                // Datos del emisor
                 'emisor_rfc' => (string)$xml->Emisor['Rfc'],
                 'emisor_nombre' => (string)$xml->Emisor['Nombre'],
+                'emisor_regimen_fiscal' => (string)$xml->Emisor['RegimenFiscal'],
+                
+                // Datos del receptor
                 'receptor_rfc' => (string)$xml->Receptor['Rfc'],
-                'receptor_nombre' => (string)$xml->Receptor['Nombre']
+                'receptor_nombre' => (string)$xml->Receptor['Nombre'],
+                'receptor_regimen_fiscal' => (string)$xml->Receptor['RegimenFiscalReceptor'],
+                'receptor_domicilio_fiscal' => (string)$xml->Receptor['DomicilioFiscalReceptor'],
+                'receptor_uso_cfdi' => (string)$xml->Receptor['UsoCFDI']
             ];
             
             return $data;
