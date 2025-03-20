@@ -13,7 +13,7 @@ class ReportController {
     public function __construct() {
         $this->db = Database::getInstance()->getConnection();
         $this->security = new Security();
-        $this->report = new Report();
+        $this->report = new Report($this->db);
         $this->client = new Client($this->db);
     }
     

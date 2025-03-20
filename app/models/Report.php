@@ -2,8 +2,12 @@
 class Report {
     private $db;
     
-    public function __construct($db) {
-        $this->db = $db;
+    public function __construct($db = null) {
+        if ($db === null) {
+            $this->db = Database::getInstance()->getConnection();
+        } else {
+            $this->db = $db;
+        }
     }
     
     public function generateReport($filters) {
