@@ -917,96 +917,76 @@ class ClientController {
                 error_log("- Request Type: " . $requestType);
                 error_log("- Document Type: " . $documentType);
 
-                // Convertir fechas al formato requerido por el SAT
-                try {
-                    error_log("Convirtiendo fechas al formato SAT...");
-                    
-                    // Crear objetos DateTime específicos del SAT
-                    $startDateTime = SatDateTime::create($startDate);
-                    $endDateTime = SatDateTime::create($endDate);
-                    
-                    error_log("Fechas convertidas exitosamente:");
-                    error_log("- Inicio: " . $startDateTime->format('Y-m-d\TH:i:s'));
-                    error_log("- Fin: " . $endDateTime->format('Y-m-d\TH:i:s'));
+                // Crear los tipos usando los valores enumerados correctos según la documentación
+                error_log("Creando tipos de solicitud...");
+                
+                // Crear DownloadType (metadata o xml)
+                $downloadType = $requestType === 'metadata' ? 
+                    \PhpCfdi\SatWsDescargaMasiva\Shared\DownloadType::create('Metadata') : 
+                    \PhpCfdi\SatWsDescargaMasiva\Shared\DownloadType::create('Cfdi');
+                error_log("DownloadType creado: " . $downloadType->value());
+                
+                // Crear RequestType (emitidos o recibidos)
+                $documentTypeEnum = $documentType === 'issued' ? 
+                    \PhpCfdi\SatWsDescargaMasiva\Shared\RequestType::create('Emitidos') : 
+                    \PhpCfdi\SatWsDescargaMasiva\Shared\RequestType::create('Recibidos');
+                error_log("RequestType creado: " . $documentTypeEnum->value());
 
-                    // Crear el periodo usando los objetos DateTime del SAT
-                    $period = new DateTimePeriod($startDateTime, $endDateTime);
-                    error_log("Periodo creado exitosamente");
+                // Crear el periodo usando DateTime del SAT
+                $startDateTime = \PhpCfdi\SatWsDescargaMasiva\Shared\DateTime::create($startDate);
+                $endDateTime = \PhpCfdi\SatWsDescargaMasiva\Shared\DateTime::create($endDate);
+                $period = new \PhpCfdi\SatWsDescargaMasiva\Shared\DateTimePeriod($startDateTime, $endDateTime);
 
-                    // Agregar logs para debugging
-                    error_log("=== Creando parámetros de consulta ===");
-                    error_log("Periodo creado: " . $period->getStart()->format('Y-m-d\TH:i:s') . " a " . $period->getEnd()->format('Y-m-d\TH:i:s'));
-                    
-                    error_log("Creando tipos de solicitud...");
-                    
-                    // Crear DownloadType usando las constantes correctas
-                    $downloadType = new DownloadType(
-                        $requestType === 'metadata' ? DownloadType::TYPES_METADATA : DownloadType::TYPES_CFDI
-                    );
-                    error_log("DownloadType creado: " . $downloadType->value());
-                    
-                    // Crear RequestType usando las constantes correctas
-                    $documentTypeEnum = new RequestType(
-                        $documentType === 'issued' ? RequestType::TYPES_ISSUED : RequestType::TYPES_RECEIVED
-                    );
-                    error_log("RequestType creado: " . $documentTypeEnum->value());
+                // Crear la solicitud con los parámetros correctos según la documentación
+                error_log("Creando QueryParameters...");
+                $request = \PhpCfdi\SatWsDescargaMasiva\Services\Query\QueryParameters::create(
+                    $period,
+                    $documentTypeEnum,
+                    $downloadType
+                );
+                error_log("QueryParameters creado exitosamente");
 
-                    // Crear la solicitud con los tipos enumerados
-                    error_log("Creando QueryParameters...");
-                    $request = QueryParameters::create(
-                        $period,
-                        $documentTypeEnum,
-                        $downloadType
-                    );
-                    error_log("QueryParameters creado exitosamente");
-
-                    // Realizar la solicitud
-                    error_log("Enviando solicitud al SAT...");
-                    $query = $service->query($request);
-                    error_log("Respuesta recibida del SAT");
-                    
-                    if (!$query->getStatus()->isAccepted()) {
-                        error_log("La solicitud fue rechazada por el SAT: " . $query->getStatus()->getMessage());
-                        throw new Exception('La solicitud fue rechazada: ' . $query->getStatus()->getMessage());
-                    }
-
-                    error_log("Solicitud aceptada por el SAT");
-                    $requestId = $query->getRequestId();
-                    error_log("ID de solicitud generado: " . $requestId);
-
-                    // Guardar el ID de solicitud y devolver respuesta exitosa
-                    $stmt = $this->db->prepare("
-                        INSERT INTO sat_download_requests 
-                        (client_id, request_id, request_type, document_type, start_date, end_date, status, created_at) 
-                        VALUES (?, ?, ?, ?, ?, ?, 'REQUESTED', NOW())
-                    ");
-                    
-                    $stmt->execute([
-                        $clientId,
-                        $requestId,
-                        $requestType,
-                        $documentType,
-                        $startDate,
-                        $endDate
-                    ]);
-
-                    header('Content-Type: application/json');
-                    echo json_encode([
-                        'success' => true,
-                        'message' => 'Solicitud de descarga iniciada correctamente',
-                        'requestId' => $requestId
-                    ]);
-                    exit;
-
-                } catch (\Exception $e) {
-                    error_log("Error al procesar las fechas o crear la solicitud: " . $e->getMessage());
-                    throw new Exception("Error al crear la solicitud: " . $e->getMessage());
+                // Realizar la solicitud
+                error_log("Enviando solicitud al SAT...");
+                $query = $service->query($request);
+                error_log("Respuesta recibida del SAT");
+                
+                if (!$query->getStatus()->isAccepted()) {
+                    error_log("La solicitud fue rechazada por el SAT: " . $query->getStatus()->getMessage());
+                    throw new Exception('La solicitud fue rechazada: ' . $query->getStatus()->getMessage());
                 }
 
+                error_log("Solicitud aceptada por el SAT");
+                $requestId = $query->getRequestId();
+                error_log("ID de solicitud generado: " . $requestId);
+
+                // Guardar el ID de solicitud y devolver respuesta exitosa
+                $stmt = $this->db->prepare("
+                    INSERT INTO sat_download_requests 
+                    (client_id, request_id, request_type, document_type, start_date, end_date, status, created_at) 
+                    VALUES (?, ?, ?, ?, ?, ?, 'REQUESTED', NOW())
+                ");
+                
+                $stmt->execute([
+                    $clientId,
+                    $requestId,
+                    $requestType,
+                    $documentType,
+                    $startDate,
+                    $endDate
+                ]);
+
+                header('Content-Type: application/json');
+                echo json_encode([
+                    'success' => true,
+                    'message' => 'Solicitud de descarga iniciada correctamente',
+                    'requestId' => $requestId
+                ]);
+                exit;
+
             } catch (\Exception $e) {
-                error_log("Error detallado al procesar la solicitud: " . $e->getMessage());
-                error_log("Stack trace: " . $e->getTraceAsString());
-                throw new Exception("Error al procesar la e.firma: " . $e->getMessage());
+                error_log("Error al procesar las fechas o crear la solicitud: " . $e->getMessage());
+                throw new Exception("Error al crear la solicitud: " . $e->getMessage());
             }
 
         } catch (Exception $e) {
@@ -1148,6 +1128,66 @@ class ClientController {
         } catch (Exception $e) {
             error_log("Error procesando XML {$fileName}: " . $e->getMessage());
             throw new Exception("Error al procesar {$fileName}: " . $e->getMessage());
+        }
+    }
+
+    public function downloadPackages($requestId) {
+        try {
+            if (!$this->security->isAuthenticated()) {
+                throw new Exception('No autorizado');
+            }
+
+            // Obtener información de la solicitud
+            $stmt = $this->db->prepare("
+                SELECT * FROM sat_download_requests 
+                WHERE request_id = ? AND status = 'READY_TO_DOWNLOAD'
+                LIMIT 1
+            ");
+            $stmt->execute([$requestId]);
+            $request = $stmt->fetch(PDO::FETCH_ASSOC);
+
+            if (!$request) {
+                throw new Exception('Solicitud no encontrada o no lista para descargar');
+            }
+
+            // Verificar estado y obtener IDs de paquetes
+            $verify = $service->verify($requestId);
+            if (!$verify->getStatus()->isAccepted() || !$verify->getStatusRequest()->isFinished()) {
+                throw new Exception('La solicitud no está lista para descargar');
+            }
+
+            $packagesIds = $verify->getPackagesIds();
+            $downloadedFiles = [];
+
+            foreach ($packagesIds as $packageId) {
+                $download = $service->download($packageId);
+                if (!$download->getStatus()->isAccepted()) {
+                    error_log("Error al descargar paquete {$packageId}: " . $download->getStatus()->getMessage());
+                    continue;
+                }
+
+                // Guardar el paquete
+                $fileName = "sat_package_{$packageId}.zip";
+                $filePath = ROOT_PATH . '/uploads/sat/packages/' . $fileName;
+                if (!is_dir(dirname($filePath))) {
+                    mkdir(dirname($filePath), 0755, true);
+                }
+
+                file_put_contents($filePath, $download->getPackageContent());
+                $downloadedFiles[] = $fileName;
+            }
+
+            return [
+                'success' => true,
+                'files' => $downloadedFiles
+            ];
+
+        } catch (Exception $e) {
+            error_log("Error en downloadPackages: " . $e->getMessage());
+            return [
+                'success' => false,
+                'error' => $e->getMessage()
+            ];
         }
     }
 } 
