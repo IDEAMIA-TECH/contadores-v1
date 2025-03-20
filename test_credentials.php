@@ -2,77 +2,87 @@
 
 declare(strict_types=1);
 
-namespace PhpCfdi\SatWsDescargaMasiva\Tests\Integration;
+require_once __DIR__ . '/vendor/autoload.php';
 
-use LogicException;
-use PhpCfdi\SatWsDescargaMasiva\Services\Query\QueryParameters;
-use PhpCfdi\SatWsDescargaMasiva\Shared\ComplementoRetenciones;
+use PhpCfdi\Credentials\Credential;
+use PhpCfdi\SatWsDescargaMasiva\Service;
+use PhpCfdi\SatWsDescargaMasiva\WebClient\GuzzleWebClient;
+use PhpCfdi\SatWsDescargaMasiva\RequestBuilder\FielRequestBuilder\Fiel;
+use PhpCfdi\SatWsDescargaMasiva\RequestBuilder\FielRequestBuilder\FielRequestBuilder;
+use PhpCfdi\SatWsDescargaMasiva\Shared\DateTime;
 use PhpCfdi\SatWsDescargaMasiva\Shared\DateTimePeriod;
-use PhpCfdi\SatWsDescargaMasiva\Shared\DocumentStatus;
+use PhpCfdi\SatWsDescargaMasiva\Services\Query\QueryParameters;
 use PhpCfdi\SatWsDescargaMasiva\Shared\DownloadType;
 use PhpCfdi\SatWsDescargaMasiva\Shared\RequestType;
-use PhpCfdi\SatWsDescargaMasiva\Shared\RfcMatch;
-use PhpCfdi\SatWsDescargaMasiva\Shared\RfcOnBehalf;
-use PhpCfdi\SatWsDescargaMasiva\Shared\ServiceEndpoints;
-use PhpCfdi\SatWsDescargaMasiva\Shared\ServiceType;
-use PhpCfdi\SatWsDescargaMasiva\Shared\Uuid;
 
-/**
- * @todo Parameter ComplementoRetenciones is failing, enable when SAT is working
- */
-final class ConsumeRetencionesServicesUsingFakeFielTest extends ConsumeServiceTestCase
-{
-    protected function getServiceEndpoints(): ServiceEndpoints
-    {
-        return ServiceEndpoints::retenciones();
-    }
+try {
+    // 1. Primero probamos que podemos leer y usar las credenciales
+    echo "=== Prueba de credenciales ===\n";
+    
+    // Rutas de los archivos
+    $cerFile = __DIR__ . '/uploads/sat/sat_cer_67db47408517a.cer';
+    $keyFile = __DIR__ . '/uploads/sat/sat_key_67db47408517a.key';
+    $passPhrase = 'Japc20078';
 
-    public function testQueryChangeFilters(): void
-    {
-        $service = $this->createService();
+    echo "Verificando archivos...\n";
+    echo "Certificado existe: " . (file_exists($cerFile) ? 'Sí' : 'No') . "\n";
+    echo "Llave existe: " . (file_exists($keyFile) ? 'Sí' : 'No') . "\n";
 
-        $parameters = QueryParameters::create()
-            ->withPeriod(DateTimePeriod::createFromValues('2019-01-01 00:00:00', '2019-01-01 00:04:00'))
-            ->withDownloadType(DownloadType::received())
-            ->withRequestType(RequestType::xml())
-            //->withComplement(ComplementoRetenciones::undefined())
-            //->withDocumentStatus(DocumentStatus::active())
-            //->withRfcOnBehalf(RfcOnBehalf::create('XXX01010199A'))
-            //->withRfcMatch(RfcMatch::create('AAA010101AAA'))
-        ;
+    // Verificar contenido de los archivos
+    if (file_exists($cerFile) && file_exists($keyFile)) {
+        $cerContent = file_get_contents($cerFile);
+        $keyContent = file_get_contents($keyFile);
+        
+        // Crear el certificado y la llave privada
+        $certificate = new Certificate($cerContent);
+        $privateKey = new PrivateKey($keyContent, $passPhrase);
+        
+        // Crear credencial
+        $credential = new Credential($certificate, $privateKey);
+        
+        echo "\nInformación del certificado:\n";
+        echo "- RFC: " . $certificate->rfc() . "\n";
+        echo "- Nombre legal: " . $certificate->legalName() . "\n";
+        echo "- Número de serie: " . $certificate->serialNumber()->bytes() . "\n";
 
-        $result = $service->query($parameters);
-        $this->assertSame(
-            305,
-            $result->getStatus()->getCode(),
-            'Expected to receive a 305 - Certificado Inválido from SAT since FIEL is for testing'
+        // Crear Fiel y probar la firma
+        $fiel = new Fiel($credential);
+        
+        // Crear el servicio
+        $webClient = new GuzzleWebClient();
+        $requestBuilder = new FielRequestBuilder($fiel);
+        $service = new Service($requestBuilder, $webClient);
+
+        // Crear periodo de prueba
+        $startDate = DateTime::create('2024-01-01T00:00:00');
+        $endDate = DateTime::create('2024-01-31T23:59:59');
+        $period = new DateTimePeriod($startDate, $endDate);
+
+        // Crear tipos para la consulta
+        $downloadType = DownloadType::create('Metadata');
+        $requestType = RequestType::create('Emitidos');
+
+        // Crear parámetros de consulta
+        $parameters = QueryParameters::create(
+            $period,
+            $requestType,
+            $downloadType
         );
+
+        echo "\nRealizando consulta de prueba al SAT...\n";
+        $query = $service->query($parameters);
+        
+        if ($query->getStatus()->isAccepted()) {
+            echo "Consulta aceptada. Request ID: " . $query->getRequestId() . "\n";
+        } else {
+            echo "Consulta rechazada: " . $query->getStatus()->getMessage() . "\n";
+        }
+
+    } else {
+        throw new Exception("No se encontraron los archivos necesarios");
     }
 
-    public function testQueryByUuid(): void
-    {
-        $service = $this->createService();
-
-        $parameters = QueryParameters::create()
-            ->withUuid(Uuid::create('96623061-61fe-49de-b298-c7156476aa8b'))
-        ;
-
-        $result = $service->query($parameters);
-        $this->assertSame(
-            305,
-            $result->getStatus()->getCode(),
-            'Expected to receive a 305 - Certificado Inválido from SAT since FIEL is for testing'
-        );
-    }
-
-    public function testServiceEndpointsDifferentThanQueryEndpointsThrowsError(): void
-    {
-        $service = $this->createService();
-
-        $otherServiceType = ServiceType::cfdi();
-        $parameters = QueryParameters::create()->withServiceType($otherServiceType);
-
-        $this->expectException(LogicException::class);
-        $service->query($parameters);
-    }
+} catch (Exception $e) {
+    echo "\nError: " . $e->getMessage() . "\n";
+    echo "Trace:\n" . $e->getTraceAsString() . "\n";
 }
