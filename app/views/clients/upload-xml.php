@@ -41,8 +41,8 @@
             </div>
 
             <form id="upload-form" action="<?php echo BASE_URL; ?>/clients/upload-xml" method="POST" enctype="multipart/form-data">
-                <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($_SESSION['csrf_token']); ?>">
-                <input type="hidden" name="client_id" value="<?php echo htmlspecialchars($client['id']); ?>">
+                <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($_SESSION['csrf_token']); ?>" id="csrf_token">
+                <input type="hidden" name="client_id" value="<?php echo htmlspecialchars($client['id']); ?>" id="client_id">
                 <input type="file" id="xml_files" name="xml_files[]" accept=".xml" multiple class="hidden">
 
                 <!-- Barra de progreso -->
@@ -197,11 +197,11 @@
 
             const formData = new FormData();
             
-            // Obtener el token CSRF y client_id del formulario
-            const csrfToken = document.querySelector('input[name="csrf_token"]').value;
-            const clientId = document.querySelector('input[name="client_id"]').value;
+            // Obtener el token CSRF y client_id
+            const csrfToken = document.getElementById('csrf_token').value;
+            const clientId = document.getElementById('client_id').value;
             
-            // Agregar token CSRF y client_id al FormData
+            // Agregar los datos al FormData
             formData.append('csrf_token', csrfToken);
             formData.append('client_id', clientId);
             
@@ -218,44 +218,21 @@
                 submitBtn.disabled = true;
                 progressContainer.classList.remove('hidden');
 
-                // Debug logs
-                console.log('CSRF Token:', csrfToken);
-                console.log('Client ID:', clientId);
-                console.log('Número de archivos:', files.length);
-
                 const response = await fetch(form.action, {
                     method: 'POST',
                     body: formData,
-                    credentials: 'same-origin' // Importante para las cookies de sesión
+                    credentials: 'same-origin'
                 });
 
-                // Log de la respuesta
-                console.log('Status:', response.status);
-                console.log('Headers:', Object.fromEntries(response.headers));
-
-                if (!response.ok) {
-                    throw new Error(`Error HTTP: ${response.status}`);
-                }
-
-                const contentType = response.headers.get('content-type');
-                if (!contentType || !contentType.includes('application/json')) {
-                    throw new Error('Respuesta no válida del servidor');
-                }
-
                 const result = await response.json();
-                console.log('Respuesta:', result);
-
+                
                 if (result.success) {
                     alert(`Se procesaron ${result.files_processed} archivos correctamente.`);
                     if (result.redirect_url) {
                         window.location.href = result.redirect_url;
                     }
                 } else {
-                    let errorMessage = result.message || 'Error al procesar los archivos';
-                    if (result.errors && result.errors.length > 0) {
-                        errorMessage += '\n\n' + result.errors.join('\n');
-                    }
-                    alert(errorMessage);
+                    alert(result.message || 'Error al procesar los archivos');
                 }
             } catch (error) {
                 console.error('Error:', error);

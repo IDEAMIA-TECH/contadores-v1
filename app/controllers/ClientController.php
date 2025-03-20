@@ -199,107 +199,132 @@ class ClientController {
     
     public function uploadXml() {
         try {
-            // Aumentar límites de PHP en tiempo de ejecución
-            ini_set('max_execution_time', '300');
-            ini_set('max_input_time', '300');
-            ini_set('memory_limit', '512M');
-            ini_set('post_max_size', '500M');
-            ini_set('upload_max_filesize', '500M');
-            set_time_limit(300);
-
             // Verificar autenticación
             if (!$this->security->isAuthenticated()) {
                 throw new Exception('No autorizado');
             }
 
-            // Debug de tokens
-            $receivedToken = isset($_POST['csrf_token']) ? $_POST['csrf_token'] : 'no token';
-            $sessionToken = isset($_SESSION['csrf_token']) ? $_SESSION['csrf_token'] : 'no token en sesión';
-            error_log("Token recibido: " . $receivedToken);
-            error_log("Token en sesión: " . $sessionToken);
-
-            // Validar token CSRF
-            if (!isset($_POST['csrf_token'])) {
-                throw new Exception('Token CSRF no proporcionado');
-            }
-
-            if (!$this->security->validateCsrfToken($_POST['csrf_token'])) {
-                error_log("Tokens no coinciden - Recibido: {$_POST['csrf_token']} vs Sesión: {$_SESSION['csrf_token']}");
-                throw new Exception('Token de seguridad inválido');
-            }
-
-            // Validar cliente_id
-            if (empty($_POST['client_id'])) {
-                throw new Exception('ID de cliente no proporcionado');
-            }
-
-            // Validar archivos
-            if (empty($_FILES['xml_files'])) {
-                throw new Exception('No se recibieron archivos');
-            }
-
-            $clientId = $_POST['client_id'];
-            $filesProcessed = 0;
-            $errors = [];
-            
-            // Procesar archivos en lotes para evitar sobrecarga de memoria
-            $batchSize = 50; // Procesar 50 archivos a la vez
-            $totalFiles = count($_FILES['xml_files']['name']);
-            
-            for ($i = 0; $i < $totalFiles; $i += $batchSize) {
-                $batch = array_slice($_FILES['xml_files']['name'], $i, $batchSize);
-                $batchTmp = array_slice($_FILES['xml_files']['tmp_name'], $i, $batchSize);
-                $batchErrors = array_slice($_FILES['xml_files']['error'], $i, $batchSize);
-                
-                foreach ($batch as $index => $fileName) {
-                    if ($batchErrors[$index] === UPLOAD_ERR_OK) {
-                        try {
-                            $xmlContent = file_get_contents($batchTmp[$index]);
-                            
-                            // Procesar el XML
-                            $this->processXmlFile($xmlContent, $clientId, $fileName);
-                            $filesProcessed++;
-                            
-                            // Liberar memoria
-                            unset($xmlContent);
-                        } catch (Exception $e) {
-                            $errors[] = "Error en archivo {$fileName}: " . $e->getMessage();
-                        }
-                    } else {
-                        $errors[] = "Error al subir {$fileName}: " . $this->getUploadErrorMessage($batchErrors[$index]);
-                    }
+            // Si es GET, mostrar la vista
+            if ($_SERVER['REQUEST_METHOD'] === 'GET') {
+                $clientId = isset($_GET['id']) ? $_GET['id'] : null;
+                if (!$clientId) {
+                    throw new Exception('ID de cliente no proporcionado');
                 }
+
+                $client = $this->client->getClientById($clientId);
+                if (!$client) {
+                    throw new Exception('Cliente no encontrado');
+                }
+
+                // Generar nuevo token CSRF si no existe
+                if (!isset($_SESSION['csrf_token'])) {
+                    $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
+                }
+
+                include APP_PATH . '/views/clients/upload-xml.php';
+                return;
+            }
+
+            // Si es POST, procesar la carga de archivos
+            if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+                // Debug de tokens
+                $receivedToken = isset($_POST['csrf_token']) ? $_POST['csrf_token'] : 'no token';
+                $sessionToken = isset($_SESSION['csrf_token']) ? $_SESSION['csrf_token'] : 'no token en sesión';
+                error_log("Token recibido: " . $receivedToken);
+                error_log("Token en sesión: " . $sessionToken);
+
+                // Validar token CSRF
+                if (!isset($_POST['csrf_token'])) {
+                    throw new Exception('Token CSRF no proporcionado');
+                }
+
+                if (!$this->security->validateCsrfToken($_POST['csrf_token'])) {
+                    error_log("Tokens no coinciden - Recibido: {$_POST['csrf_token']} vs Sesión: {$_SESSION['csrf_token']}");
+                    throw new Exception('Token de seguridad inválido');
+                }
+
+                // Aumentar límites de PHP
+                ini_set('max_execution_time', '300');
+                ini_set('max_input_time', '300');
+                ini_set('memory_limit', '512M');
+                ini_set('post_max_size', '500M');
+                ini_set('upload_max_filesize', '500M');
+                set_time_limit(300);
+
+                // Validar client_id
+                if (empty($_POST['client_id'])) {
+                    throw new Exception('ID de cliente no proporcionado');
+                }
+
+                // Validar archivos
+                if (empty($_FILES['xml_files'])) {
+                    throw new Exception('No se recibieron archivos');
+                }
+
+                $clientId = $_POST['client_id'];
+                $filesProcessed = 0;
+                $errors = [];
                 
-                // Liberar memoria después de cada lote
-                gc_collect_cycles();
+                // Procesar archivos en lotes para evitar sobrecarga de memoria
+                $batchSize = 50; // Procesar 50 archivos a la vez
+                $totalFiles = count($_FILES['xml_files']['name']);
+                
+                for ($i = 0; $i < $totalFiles; $i += $batchSize) {
+                    $batch = array_slice($_FILES['xml_files']['name'], $i, $batchSize);
+                    $batchTmp = array_slice($_FILES['xml_files']['tmp_name'], $i, $batchSize);
+                    $batchErrors = array_slice($_FILES['xml_files']['error'], $i, $batchSize);
+                    
+                    foreach ($batch as $index => $fileName) {
+                        if ($batchErrors[$index] === UPLOAD_ERR_OK) {
+                            try {
+                                $xmlContent = file_get_contents($batchTmp[$index]);
+                                
+                                // Procesar el XML
+                                $this->processXmlFile($xmlContent, $clientId, $fileName);
+                                $filesProcessed++;
+                                
+                                // Liberar memoria
+                                unset($xmlContent);
+                            } catch (Exception $e) {
+                                $errors[] = "Error en archivo {$fileName}: " . $e->getMessage();
+                            }
+                        } else {
+                            $errors[] = "Error al subir {$fileName}: " . $this->getUploadErrorMessage($batchErrors[$index]);
+                        }
+                    }
+                    
+                    // Liberar memoria después de cada lote
+                    gc_collect_cycles();
+                }
+
+                // Preparar respuesta
+                $response = [
+                    'success' => true,
+                    'files_processed' => $filesProcessed,
+                    'redirect_url' => BASE_URL . '/clients/view/' . $clientId
+                ];
+
+                if (!empty($errors)) {
+                    $response['errors'] = $errors;
+                }
+
+                header('Content-Type: application/json');
+                echo json_encode($response);
+                exit;
             }
-
-            // Preparar respuesta
-            $response = [
-                'success' => true,
-                'files_processed' => $filesProcessed,
-                'redirect_url' => BASE_URL . '/clients/view/' . $clientId
-            ];
-
-            if (!empty($errors)) {
-                $response['errors'] = $errors;
-            }
-
-            header('Content-Type: application/json');
-            echo json_encode($response);
-            exit;
 
         } catch (Exception $e) {
             error_log("Error en uploadXml: " . $e->getMessage());
-            header('Content-Type: application/json');
-            echo json_encode([
-                'success' => false,
-                'message' => $e->getMessage(),
-                'debug' => [
-                    'received_token' => $receivedToken ?? null,
-                    'session_token' => $sessionToken ?? null
-                ]
-            ]);
+            if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+                header('Content-Type: application/json');
+                echo json_encode([
+                    'success' => false,
+                    'message' => $e->getMessage()
+                ]);
+            } else {
+                $_SESSION['error'] = $e->getMessage();
+                header('Location: ' . BASE_URL . '/clients');
+            }
             exit;
         }
     }
