@@ -908,7 +908,13 @@ class ClientController {
                 // Crear la solicitud
                 error_log("=== Creando solicitud de descarga ===");
                 
-                $request = new QueryParameters(
+                error_log("Creando parámetros de consulta con los siguientes valores:");
+                error_log("- Fecha inicio: " . $startDateTime->format('Y-m-d\TH:i:s'));
+                error_log("- Fecha fin: " . $endDateTime->format('Y-m-d\TH:i:s'));
+                error_log("- Tipo de documento: " . ($documentType === 'issued' ? 'Emitidos' : 'Recibidos'));
+                error_log("- Tipo de descarga: " . ($requestType === 'metadata' ? 'Metadata' : 'CFDI'));
+
+                $request = QueryParameters::create(
                     $startDateTime,
                     $endDateTime,
                     $documentType === 'issued' ? QueryParameters::DOCUMENT_TYPE_ISSUED : QueryParameters::DOCUMENT_TYPE_RECEIVED,
