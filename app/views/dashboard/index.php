@@ -14,20 +14,25 @@
             <h1 class="text-2xl font-bold text-gray-800 mb-4">Dashboard</h1>
             
             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                <!-- Estadísticas -->
+                <?php if (isset($_SESSION['error'])): ?>
+                    <div class="col-span-3 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative" role="alert">
+                        <span class="block sm:inline"><?php echo htmlspecialchars($_SESSION['error']); ?></span>
+                    </div>
+                <?php endif; ?>
+                
                 <div class="bg-blue-50 rounded-lg p-6">
                     <h3 class="text-lg font-semibold text-blue-800">Total Clientes</h3>
-                    <p class="text-3xl font-bold text-blue-600"><?php echo number_format($totalClients); ?></p>
+                    <p class="text-3xl font-bold text-blue-600"><?php echo number_format($totalClients ?? 0); ?></p>
                 </div>
                 
                 <div class="bg-green-50 rounded-lg p-6">
                     <h3 class="text-lg font-semibold text-green-800">XMLs Procesados</h3>
-                    <p class="text-3xl font-bold text-green-600"><?php echo number_format($totalXmls); ?></p>
+                    <p class="text-3xl font-bold text-green-600"><?php echo number_format($totalXmls ?? 0); ?></p>
                 </div>
                 
                 <div class="bg-purple-50 rounded-lg p-6">
                     <h3 class="text-lg font-semibold text-purple-800">Reportes Generados</h3>
-                    <p class="text-3xl font-bold text-purple-600"><?php echo number_format($totalReports); ?></p>
+                    <p class="text-3xl font-bold text-purple-600"><?php echo number_format($totalReports ?? 0); ?></p>
                 </div>
             </div>
 

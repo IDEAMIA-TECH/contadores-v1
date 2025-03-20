@@ -19,46 +19,69 @@ class DashboardController {
         }
         
         try {
-            // Obtener el ID del contador actual
-            $accountantId = $_SESSION['user_id'];
+            // Inicializar variables con valores por defecto
+            $totalClients = 0;
+            $totalXmls = 0;
+            $totalReports = 0;
             
-            // Obtener total de clientes
-            $clientsQuery = "SELECT COUNT(*) as total FROM clients WHERE accountant_id = ?";
+            // Obtener el ID del contador actual
+            $userId = $_SESSION['user_id'];
+            
+            // Obtener total de clientes (usando user_id en lugar de accountant_id)
+            $clientsQuery = "SELECT COUNT(*) as total FROM clients WHERE user_id = ?";
             $stmt = $this->db->prepare($clientsQuery);
-            $stmt->execute([$accountantId]);
-            $totalClients = $stmt->fetch(PDO::FETCH_ASSOC)['total'];
+            $stmt->execute([$userId]);
+            $result = $stmt->fetch(PDO::FETCH_ASSOC);
+            if ($result) {
+                $totalClients = $result['total'];
+            }
             
             // Obtener total de XMLs procesados
             $xmlsQuery = "SELECT COUNT(*) as total FROM client_xmls cx 
                          INNER JOIN clients c ON cx.client_id = c.id 
-                         WHERE c.accountant_id = ?";
+                         WHERE c.user_id = ?";
             $stmt = $this->db->prepare($xmlsQuery);
-            $stmt->execute([$accountantId]);
-            $totalXmls = $stmt->fetch(PDO::FETCH_ASSOC)['total'];
+            $stmt->execute([$userId]);
+            $result = $stmt->fetch(PDO::FETCH_ASSOC);
+            if ($result) {
+                $totalXmls = $result['total'];
+            }
             
-            // Obtener total de reportes generados (si tienes una tabla de reportes)
-            $reportsQuery = "SELECT COUNT(*) as total FROM reports r 
-                           INNER JOIN clients c ON r.client_id = c.id 
-                           WHERE c.accountant_id = ?";
-            $stmt = $this->db->prepare($reportsQuery);
-            $stmt->execute([$accountantId]);
-            $totalReports = $stmt->fetch(PDO::FETCH_ASSOC)['total'];
-            
-            // Pasar los datos a la vista
-            $data = [
-                'totalClients' => $totalClients,
-                'totalXmls' => $totalXmls,
-                'totalReports' => $totalReports
-            ];
-            
-            // Incluir la vista con los datos
-            extract($data);
-            require_once __DIR__ . '/../views/dashboard/index.php';
+            // Verificar si existe la tabla reports antes de consultar
+            $checkTableQuery = "SHOW TABLES LIKE 'reports'";
+            $stmt = $this->db->prepare($checkTableQuery);
+            $stmt->execute();
+            if ($stmt->rowCount() > 0) {
+                // La tabla reports existe, hacer la consulta
+                $reportsQuery = "SELECT COUNT(*) as total FROM reports r 
+                               INNER JOIN clients c ON r.client_id = c.id 
+                               WHERE c.user_id = ?";
+                $stmt = $this->db->prepare($reportsQuery);
+                $stmt->execute([$userId]);
+                $result = $stmt->fetch(PDO::FETCH_ASSOC);
+                if ($result) {
+                    $totalReports = $result['total'];
+                }
+            }
             
         } catch (Exception $e) {
             error_log("Error en Dashboard: " . $e->getMessage());
             $_SESSION['error'] = 'Error al cargar el dashboard';
-            require_once __DIR__ . '/../views/dashboard/index.php';
         }
+        
+        // Asegurar que las variables estén definidas incluso si hay error
+        $data = [
+            'totalClients' => $totalClients ?? 0,
+            'totalXmls' => $totalXmls ?? 0,
+            'totalReports' => $totalReports ?? 0,
+            'error' => $_SESSION['error'] ?? null
+        ];
+        
+        // Limpiar mensaje de error después de usarlo
+        unset($_SESSION['error']);
+        
+        // Incluir la vista con los datos
+        extract($data);
+        require_once __DIR__ . '/../views/dashboard/index.php';
     }
 } 
