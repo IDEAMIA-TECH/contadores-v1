@@ -810,10 +810,10 @@ class ClientController {
                 }
 
                 // Verificar que sea un certificado FIEL verificando el KeyUsage
-                $keyUsage = $certificate->publicKey()->parsed()['extensions']['keyUsage'] ?? '';
-                if (empty($keyUsage) || strpos($keyUsage, 'Digital Signature, Non Repudiation') === false) {
-                    throw new Exception('El certificado no parece ser una FIEL válida. Key Usage incorrecto.');
-                }
+              //  $keyUsage = $certificate->publicKey()->parsed()['extensions']['keyUsage'] ?? '';
+               // if (empty($keyUsage) || strpos($keyUsage, 'Digital Signature, Non Repudiation') === false) {
+                 //   throw new Exception('El certificado no parece ser una FIEL válida. Key Usage incorrecto.');
+               // }
 
                 // Log de información del certificado
                 error_log("Información del certificado:");
