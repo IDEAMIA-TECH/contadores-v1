@@ -924,10 +924,15 @@ class ClientController {
                     // Crear la solicitud con el periodo y los tipos enumerados correctos
                     $request = QueryParameters::create(
                         $period,
-                        $documentType === 'issued' ? RequestType::emitidos() : RequestType::recibidos(),
-                        $requestType === 'metadata' ? DownloadType::metadata() : DownloadType::cfdi()
+                        $documentType === 'issued' ? RequestType::ISSUED : RequestType::RECEIVED,
+                        $requestType === 'metadata' ? DownloadType::METADATA : DownloadType::CFDI
                     );
                     error_log("Parámetros de consulta creados exitosamente");
+
+                    error_log("Creando parámetros de consulta con:");
+                    error_log("- Periodo: " . $period->getStart()->format('Y-m-d\TH:i:s') . " a " . $period->getEnd()->format('Y-m-d\TH:i:s'));
+                    error_log("- Tipo de documento: " . ($documentType === 'issued' ? 'ISSUED' : 'RECEIVED'));
+                    error_log("- Tipo de descarga: " . ($requestType === 'metadata' ? 'METADATA' : 'CFDI'));
 
                     // Realizar la solicitud
                     error_log("Enviando solicitud al SAT...");
