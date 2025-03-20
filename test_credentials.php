@@ -21,7 +21,7 @@ try {
     
     // Rutas de los archivos
     $cerFile = __DIR__ . '/uploads/sat/sat_cer_67db47408517a.cer';
-    $keyFile = __DIR__ . '/uploads/sat/sat_key_67db47408517a.key';
+    $keyFile = __DIR__ . '/uploads/sat/sat_key_67db4740851a2.key';
     $passPhrase = 'Japc20078';
 
     echo "Verificando archivos...\n";
