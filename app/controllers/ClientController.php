@@ -213,11 +213,18 @@ class ClientController {
             }
 
             // Debug de tokens
-            error_log("Token recibido: " . ($_POST['csrf_token'] ?? 'no token'));
-            error_log("Token en sesión: " . ($_SESSION['csrf_token'] ?? 'no token en sesión'));
+            $receivedToken = isset($_POST['csrf_token']) ? $_POST['csrf_token'] : 'no token';
+            $sessionToken = isset($_SESSION['csrf_token']) ? $_SESSION['csrf_token'] : 'no token en sesión';
+            error_log("Token recibido: " . $receivedToken);
+            error_log("Token en sesión: " . $sessionToken);
 
-            // Validar token CSRF usando el método correcto
-            if (!isset($_POST['csrf_token']) || !$this->security->validateCsrfToken($_POST['csrf_token'])) {
+            // Validar token CSRF
+            if (!isset($_POST['csrf_token'])) {
+                throw new Exception('Token CSRF no proporcionado');
+            }
+
+            if (!$this->security->validateCsrfToken($_POST['csrf_token'])) {
+                error_log("Tokens no coinciden - Recibido: {$_POST['csrf_token']} vs Sesión: {$_SESSION['csrf_token']}");
                 throw new Exception('Token de seguridad inválido');
             }
 
@@ -287,7 +294,11 @@ class ClientController {
             header('Content-Type: application/json');
             echo json_encode([
                 'success' => false,
-                'message' => $e->getMessage()
+                'message' => $e->getMessage(),
+                'debug' => [
+                    'received_token' => $receivedToken ?? null,
+                    'session_token' => $sessionToken ?? null
+                ]
             ]);
             exit;
         }

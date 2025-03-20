@@ -195,9 +195,21 @@
                 return;
             }
 
-            const formData = new FormData(form);
-            // Asegurarnos de que el token CSRF se incluya en la solicitud
-            formData.append('csrf_token', '<?php echo $_SESSION['csrf_token']; ?>');
+            const formData = new FormData();
+            
+            // Agregar el token CSRF primero
+            const csrfToken = document.querySelector('input[name="csrf_token"]').value;
+            formData.append('csrf_token', csrfToken);
+            
+            // Agregar el client_id
+            const clientId = document.querySelector('input[name="client_id"]').value;
+            formData.append('client_id', clientId);
+            
+            // Agregar los archivos
+            files.forEach(file => {
+                formData.append('xml_files[]', file);
+            });
+            
             const submitBtn = document.getElementById('submit-btn');
             const progressContainer = document.getElementById('progress-container');
             const progressBar = document.getElementById('progress-bar');
@@ -207,13 +219,18 @@
                 submitBtn.disabled = true;
                 progressContainer.classList.remove('hidden');
                 
-                // Agregar log de la petición
+                // Debug logs
+                console.log('CSRF Token:', csrfToken);
                 console.log('Enviando petición a:', form.action);
                 console.log('Número de archivos:', files.length);
 
                 const response = await fetch(form.action, {
                     method: 'POST',
-                    body: formData
+                    body: formData,
+                    // Agregar headers específicos
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest'
+                    }
                 });
 
                 // Agregar log de la respuesta
