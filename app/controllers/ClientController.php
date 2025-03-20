@@ -199,282 +199,113 @@ class ClientController {
     
     public function uploadXml() {
         try {
+            // Aumentar límites de PHP en tiempo de ejecución
+            ini_set('max_execution_time', '300');
+            ini_set('max_input_time', '300');
+            ini_set('memory_limit', '512M');
+            ini_set('post_max_size', '500M');
+            ini_set('upload_max_filesize', '500M');
+            set_time_limit(300);
+
+            // Verificar autenticación y token CSRF
             if (!$this->security->isAuthenticated()) {
                 throw new Exception('No autorizado');
             }
 
-            // Si es una solicitud GET, mostrar el formulario
-            if ($_SERVER['REQUEST_METHOD'] === 'GET') {
-                // Obtener el ID del cliente de la URL
-                $id = filter_input(INPUT_GET, 'id', FILTER_VALIDATE_INT);
-                if (!$id) {
-                    throw new Exception('ID de cliente no válido');
-                }
-
-                // Obtener datos del cliente
-                $client = $this->client->getClientById($id);
-                if (!$client) {
-                    throw new Exception('Cliente no encontrado');
-                }
-
-                // Generar token CSRF para el formulario
-                $token = $this->security->generateCsrfToken();
-                
-                include __DIR__ . '/../views/clients/upload-xml.php';
-                return;
+            if (!isset($_POST['csrf_token']) || $_POST['csrf_token'] !== $_SESSION['csrf_token']) {
+                throw new Exception('Token de seguridad inválido');
             }
 
-            // Para solicitudes POST, procesar la carga del archivo
-            if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-                // Validar token CSRF
-                if (!$this->security->validateCsrfToken($_POST['csrf_token'] ?? '')) {
-                    throw new Exception('Token de seguridad inválido');
-                }
-
-                $clientId = filter_input(INPUT_POST, 'client_id', FILTER_VALIDATE_INT);
-                if (!$clientId) {
-                    throw new Exception('Cliente no válido');
-                }
-
-                // Validar que se hayan subido archivos
-                if (!isset($_FILES['xml_files']) || empty($_FILES['xml_files']['name'][0])) {
-                    throw new Exception('No se recibieron archivos XML');
-                }
-
-                $uploadedFiles = [];
-                $errors = [];
-                
-                // Procesar cada archivo
-                foreach ($_FILES['xml_files']['tmp_name'] as $key => $tmpName) {
-                    $fileName = $_FILES['xml_files']['name'][$key];
-                    $fileError = $_FILES['xml_files']['error'][$key];
-
-                    // Validar el archivo
-                    if ($fileError !== UPLOAD_ERR_OK) {
-                        $errors[] = "Error al subir el archivo $fileName";
-                        continue;
-                    }
-
-                    // Validar tipo de archivo
-                    $fileInfo = pathinfo($fileName);
-                    if (strtolower($fileInfo['extension']) !== 'xml') {
-                        $errors[] = "El archivo $fileName debe ser un XML";
-                        continue;
-                    }
-
-                    // Crear directorio si no existe
-                    $uploadDir = ROOT_PATH . '/uploads/xml/';
-                    if (!is_dir($uploadDir)) {
-                        mkdir($uploadDir, 0755, true);
-                    }
-
-                    // Generar nombre único para el archivo
-                    $newFileName = uniqid('xml_') . '.xml';
-                    $filePath = $uploadDir . $newFileName;
-
-                    // Mover archivo
-                    if (!move_uploaded_file($tmpName, $filePath)) {
-                        $errors[] = "Error al guardar el archivo $fileName";
-                        continue;
-                    }
-
-                    try {
-                        // Procesar el XML
-                        $xmlContent = file_get_contents($filePath);
-                        $xml = new SimpleXMLElement($xmlContent);
-                        
-                        // Registrar todos los namespaces disponibles
-                        $namespaces = $xml->getDocNamespaces(true);
-                        error_log("Namespaces encontrados: " . print_r($namespaces, true));
-                        
-                        // Registrar los namespaces manualmente
-                        foreach ($namespaces as $prefix => $namespace) {
-                            $xml->registerXPathNamespace($prefix ?: 'cfdi', $namespace);
-                        }
-                        
-                        // Intentar diferentes rutas XPath para encontrar el TimbreFiscalDigital
-                        $tfdPaths = [
-                            '//tfd:TimbreFiscalDigital',
-                            '//TimbreFiscalDigital',
-                            '//*[local-name()="TimbreFiscalDigital"]'
-                        ];
-                        
-                        $tfd = null;
-                        foreach ($tfdPaths as $path) {
-                            error_log("Intentando ruta XPath: " . $path);
-                            $nodes = $xml->xpath($path);
-                            if (!empty($nodes)) {
-                                $tfd = $nodes[0];
-                                error_log("TFD encontrado usando: " . $path);
-                                break;
-                            }
-                        }
-                        
-                        if (!$tfd) {
-                            error_log("XML completo: " . $xml->asXML());
-                            throw new Exception('No se encontró el TimbreFiscalDigital en el XML');
-                        }
-                        
-                        // Extraer datos del XML con validación y logs
-                        $xmlData = [
-                            'client_id' => $clientId,
-                            'xml_path' => 'xml/' . $newFileName
-                        ];
-                        
-                        // Extraer UUID y fecha de timbrado
-                        $uuid = (string)$tfd['UUID'];
-                        $fechaTimbrado = (string)$tfd['FechaTimbrado'];
-                        
-                        error_log("UUID encontrado: " . $uuid);
-                        error_log("Fecha de timbrado encontrada: " . $fechaTimbrado);
-                        
-                        if (empty($uuid)) {
-                            throw new Exception('UUID no encontrado en el XML');
-                        }
-                        
-                        $xmlData['uuid'] = $uuid;
-                        $xmlData['fecha_timbrado'] = $fechaTimbrado;
-                        
-                        // Extraer datos del comprobante
-                        $comprobante = [
-                            'Serie' => (string)$xml['Serie'],
-                            'Folio' => (string)$xml['Folio'],
-                            'Fecha' => (string)$xml['Fecha'],
-                            'SubTotal' => (float)$xml['SubTotal'],
-                            'Total' => (float)$xml['Total'],
-                            'TipoDeComprobante' => (string)$xml['TipoDeComprobante'],
-                            'FormaPago' => (string)$xml['FormaPago'],
-                            'MetodoPago' => (string)$xml['MetodoPago'],
-                            'Moneda' => (string)$xml['Moneda'],
-                            'LugarExpedicion' => (string)$xml['LugarExpedicion']
-                        ];
-                        
-                        error_log("Datos del comprobante: " . print_r($comprobante, true));
-                        
-                        // Agregar datos del comprobante al array principal
-                        $xmlData = array_merge($xmlData, [
-                            'serie' => $comprobante['Serie'],
-                            'folio' => $comprobante['Folio'],
-                            'fecha' => $comprobante['Fecha'],
-                            'subtotal' => $comprobante['SubTotal'],
-                            'total' => $comprobante['Total'],
-                            'tipo_comprobante' => $comprobante['TipoDeComprobante'],
-                            'forma_pago' => $comprobante['FormaPago'],
-                            'metodo_pago' => $comprobante['MetodoPago'],
-                            'moneda' => $comprobante['Moneda'],
-                            'lugar_expedicion' => $comprobante['LugarExpedicion']
-                        ]);
-                        
-                        // Extraer datos del emisor y receptor
-                        $emisor = $xml->xpath('//cfdi:Emisor')[0] ?? null;
-                        $receptor = $xml->xpath('//cfdi:Receptor')[0] ?? null;
-                        
-                        if (!$emisor || !$receptor) {
-                            throw new Exception('No se encontraron datos de emisor o receptor');
-                        }
-                        
-                        error_log("Datos del emisor: " . print_r($emisor, true));
-                        error_log("Datos del receptor: " . print_r($receptor, true));
-                        
-                        // Agregar datos de emisor y receptor
-                        $xmlData = array_merge($xmlData, [
-                            'emisor_rfc' => (string)$emisor['Rfc'],
-                            'emisor_nombre' => (string)$emisor['Nombre'],
-                            'emisor_regimen_fiscal' => (string)$emisor['RegimenFiscal'],
-                            'receptor_rfc' => (string)$receptor['Rfc'],
-                            'receptor_nombre' => (string)$receptor['Nombre'],
-                            'receptor_regimen_fiscal' => (string)$receptor['RegimenFiscalReceptor'],
-                            'receptor_domicilio_fiscal' => (string)$receptor['DomicilioFiscalReceptor'],
-                            'receptor_uso_cfdi' => (string)$receptor['UsoCFDI']
-                        ]);
-                        
-                        // Extraer impuestos con más detalle
-                        $impuestos = $xml->xpath('//cfdi:Impuestos')[0] ?? null;
-                        $traslados = $xml->xpath('//cfdi:Traslados/cfdi:Traslado')[0] ?? null;
-                        
-                        // Datos de impuestos
-                        $xmlData = array_merge($xmlData, [
-                            'total_impuestos_trasladados' => $impuestos ? (float)$impuestos['TotalImpuestosTrasladados'] : 0,
-                            'impuesto' => $traslados ? (string)$traslados['Impuesto'] : null,
-                            'tasa_o_cuota' => $traslados ? (float)$traslados['TasaOCuota'] : null,
-                            'tipo_factor' => $traslados ? (string)$traslados['TipoFactor'] : null
-                        ]);
-                        
-                        error_log("Datos de impuestos encontrados: " . print_r([
-                            'total' => $xmlData['total_impuestos_trasladados'],
-                            'impuesto' => $xmlData['impuesto'],
-                            'tasa_o_cuota' => $xmlData['tasa_o_cuota'],
-                            'tipo_factor' => $xmlData['tipo_factor']
-                        ], true));
-                        
-                        // Agregar timestamps
-                        $xmlData['created_at'] = date('Y-m-d H:i:s');
-                        $xmlData['updated_at'] = date('Y-m-d H:i:s');
-                        
-                        error_log("Datos finales a guardar: " . print_r($xmlData, true));
-                        
-                        // Validar campos requeridos antes de guardar
-                        $requiredFields = [
-                            'uuid', 'fecha', 'fecha_timbrado',
-                            'emisor_rfc', 'emisor_nombre', 'emisor_regimen_fiscal',
-                            'receptor_rfc', 'receptor_nombre', 'receptor_regimen_fiscal'
-                        ];
-                        
-                        foreach ($requiredFields as $field) {
-                            if (empty($xmlData[$field])) {
-                                error_log("Campo requerido vacío: {$field}");
-                                throw new Exception("El campo {$field} es requerido y está vacío en el XML");
-                            }
-                        }
-                        
-                        // Guardar en la base de datos
-                        $xmlModel = new ClientXml($this->db);
-                        if (!$xmlModel->create($xmlData)) {
-                            if (file_exists($filePath)) {
-                                unlink($filePath);
-                            }
-                            throw new Exception('Error al guardar el XML');
-                        }
-                        
-                        $uploadedFiles[] = $filePath;
-                    } catch (Exception $e) {
-                        $errors[] = "Error al procesar el archivo $fileName: " . $e->getMessage();
-                        if (file_exists($filePath)) {
-                            unlink($filePath);
-                        }
-                    }
-                }
-
-                // Preparar respuesta
-                $response = [
-                    'success' => empty($errors),
-                    'message' => empty($errors) ? 'Archivos procesados correctamente' : 'Errores al procesar archivos',
-                    'errors' => $errors,
-                    'files_processed' => count($uploadedFiles),
-                    'redirect_url' => BASE_URL . '/clients/view/' . $clientId
-                ];
-
-                // Enviar respuesta JSON
-                header('Content-Type: application/json');
-                echo json_encode($response);
-                exit;
+            // Validar cliente_id
+            if (empty($_POST['client_id'])) {
+                throw new Exception('ID de cliente no proporcionado');
             }
+
+            // Validar archivos
+            if (empty($_FILES['xml_files'])) {
+                throw new Exception('No se recibieron archivos');
+            }
+
+            $clientId = $_POST['client_id'];
+            $filesProcessed = 0;
+            $errors = [];
+            
+            // Procesar archivos en lotes para evitar sobrecarga de memoria
+            $batchSize = 50; // Procesar 50 archivos a la vez
+            $totalFiles = count($_FILES['xml_files']['name']);
+            
+            for ($i = 0; $i < $totalFiles; $i += $batchSize) {
+                $batch = array_slice($_FILES['xml_files']['name'], $i, $batchSize);
+                $batchTmp = array_slice($_FILES['xml_files']['tmp_name'], $i, $batchSize);
+                $batchErrors = array_slice($_FILES['xml_files']['error'], $i, $batchSize);
+                
+                foreach ($batch as $index => $fileName) {
+                    if ($batchErrors[$index] === UPLOAD_ERR_OK) {
+                        try {
+                            $xmlContent = file_get_contents($batchTmp[$index]);
+                            
+                            // Procesar el XML
+                            $this->processXmlFile($xmlContent, $clientId, $fileName);
+                            $filesProcessed++;
+                            
+                            // Liberar memoria
+                            unset($xmlContent);
+                        } catch (Exception $e) {
+                            $errors[] = "Error en archivo {$fileName}: " . $e->getMessage();
+                        }
+                    } else {
+                        $errors[] = "Error al subir {$fileName}: " . $this->getUploadErrorMessage($batchErrors[$index]);
+                    }
+                }
+                
+                // Liberar memoria después de cada lote
+                gc_collect_cycles();
+            }
+
+            // Preparar respuesta
+            $response = [
+                'success' => true,
+                'files_processed' => $filesProcessed,
+                'redirect_url' => BASE_URL . '/clients/view/' . $clientId
+            ];
+
+            if (!empty($errors)) {
+                $response['errors'] = $errors;
+            }
+
+            header('Content-Type: application/json');
+            echo json_encode($response);
+            exit;
 
         } catch (Exception $e) {
             error_log("Error en uploadXml: " . $e->getMessage());
-            
-            if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-                header('Content-Type: application/json');
-                echo json_encode([
-                    'success' => false,
-                    'message' => $e->getMessage(),
-                    'redirect_url' => BASE_URL . '/clients/upload-xml?id=' . ($clientId ?? '')
-                ]);
-            } else {
-                $_SESSION['error'] = $e->getMessage();
-                header('Location: ' . BASE_URL . '/clients/upload-xml?id=' . ($clientId ?? ''));
-            }
+            header('Content-Type: application/json');
+            echo json_encode([
+                'success' => false,
+                'message' => $e->getMessage()
+            ]);
             exit;
+        }
+    }
+
+    private function getUploadErrorMessage($errorCode) {
+        switch ($errorCode) {
+            case UPLOAD_ERR_INI_SIZE:
+                return 'El archivo excede el tamaño máximo permitido por el servidor';
+            case UPLOAD_ERR_FORM_SIZE:
+                return 'El archivo excede el tamaño máximo permitido por el formulario';
+            case UPLOAD_ERR_PARTIAL:
+                return 'El archivo se subió parcialmente';
+            case UPLOAD_ERR_NO_FILE:
+                return 'No se subió ningún archivo';
+            case UPLOAD_ERR_NO_TMP_DIR:
+                return 'Falta la carpeta temporal';
+            case UPLOAD_ERR_CANT_WRITE:
+                return 'Error al escribir el archivo en el disco';
+            case UPLOAD_ERR_EXTENSION:
+                return 'Una extensión de PHP detuvo la carga del archivo';
+            default:
+                return 'Error desconocido al subir el archivo';
         }
     }
 
