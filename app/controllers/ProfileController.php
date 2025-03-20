@@ -18,8 +18,15 @@ class ProfileController {
         try {
             $userId = $_SESSION['user_id'];
             
-            // Obtener datos del usuario
-            $query = "SELECT id, name, email, created_at FROM users WHERE id = ?";
+            // Obtener la estructura de la tabla users
+            $describeQuery = "DESCRIBE users";
+            $stmt = $this->db->prepare($describeQuery);
+            $stmt->execute();
+            $columns = $stmt->fetchAll(PDO::FETCH_COLUMN);
+            error_log("Columnas en tabla users: " . print_r($columns, true));
+            
+            // Obtener datos del usuario usando las columnas correctas
+            $query = "SELECT id, username, email, created_at FROM users WHERE id = ?";
             $stmt = $this->db->prepare($query);
             $stmt->execute([$userId]);
             $user = $stmt->fetch(PDO::FETCH_ASSOC);
@@ -27,6 +34,9 @@ class ProfileController {
             if (!$user) {
                 throw new Exception('Usuario no encontrado');
             }
+            
+            // Agregar el campo name para la vista (usando username)
+            $user['name'] = $user['username'];
             
             require_once __DIR__ . '/../views/profile/index.php';
             
@@ -65,11 +75,11 @@ class ProfileController {
                 throw new Exception('El email ya está en uso');
             }
             
-            // Actualizar datos básicos
-            $query = "UPDATE users SET name = ?, email = ? WHERE id = ?";
+            // Actualizar datos básicos (username en lugar de name)
+            $query = "UPDATE users SET username = ?, email = ? WHERE id = ?";
             $stmt = $this->db->prepare($query);
             $stmt->execute([
-                $_POST['name'],
+                $_POST['name'], // Usamos el campo 'name' del formulario para username
                 $_POST['email'],
                 $userId
             ]);
@@ -87,6 +97,7 @@ class ProfileController {
             }
             
             $_SESSION['success'] = 'Perfil actualizado correctamente';
+            $_SESSION['username'] = $_POST['name']; // Actualizar el nombre en la sesión
             
         } catch (Exception $e) {
             error_log("Error en Profile Update: " . $e->getMessage());
