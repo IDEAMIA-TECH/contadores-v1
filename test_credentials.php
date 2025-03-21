@@ -36,7 +36,7 @@ try {
     // ✅ Crear los parámetros de la consulta
     $parameters = QueryParameters::create(
         $period,
-        new RequestType(RequestType::RECEIVED),
+        new RequestType('recibidos'),              // 👈 CORREGIDO
         new DownloadType(DownloadType::XML)
     );
 
