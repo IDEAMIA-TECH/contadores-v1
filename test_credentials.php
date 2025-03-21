@@ -92,8 +92,9 @@ try {
     // Crear Fiel y verificar validez
     $fiel = new Fiel($credential);
     
-    // Verificar que sea FIEL y no CSD
-    if (!$certificate->validOn(new DateTime())) {
+    // Verificar que sea FIEL y no CSD usando DateTimeImmutable en lugar de DateTime
+    $now = new DateTimeImmutable();
+    if (!$certificate->validOn($now)) {
         throw new Exception("El certificado no es válido en la fecha actual");
     }
 
