@@ -18,8 +18,8 @@ use PhpCfdi\SatWsDescargaMasiva\Shared\RequestType;
 
 try {
     // Rutas de los archivos
-    $cerFile = __DIR__ . '/uploads/sat/sat_cer_67db47408517a.cer';
-    $keyFile = __DIR__ . '/uploads/sat/sat_key_67db4740851a2.key';
+    $cerFile = __DIR__ . '/uploads/sat/sat_cer_67ddeea05318f.cer';
+    $keyFile = __DIR__ . '/uploads/sat/sat_key_67ddeea0531c5.key';
     $passPhrase = 'Japc20078';
 
     // Verificar que los archivos existan
