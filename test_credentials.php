@@ -45,58 +45,36 @@ try {
         echo "- RFC: " . $certificate->rfc() . "\n";
         echo "- Número de serie: " . $certificate->serialNumber()->bytes() . "\n";
         
-        // Convertir las fechas a DateTime si es necesario
+        // Obtener fechas del certificado
         $validFrom = $certificate->validFrom();
         $validTo = $certificate->validTo();
         
         echo "- Tipo de validFrom: " . gettype($validFrom) . "\n";
         echo "- Tipo de validTo: " . gettype($validTo) . "\n";
         
-        // Formatear fechas con verificación de tipo
-        $validFromStr = ($validFrom instanceof DateTime) ? 
-            $validFrom->format('Y-m-d H:i:s') : 
-            "No se pudo obtener la fecha de inicio";
-            
-        $validToStr = ($validTo instanceof DateTime) ? 
-            $validTo->format('Y-m-d H:i:s') : 
-            "No se pudo obtener la fecha de fin";
-            
-        echo "- Válido desde: " . $validFromStr . "\n";
-        echo "- Válido hasta: " . $validToStr . "\n";
+        // Formatear fechas de manera segura
+        if (is_string($validFrom)) {
+            echo "- Válido desde (string): " . $validFrom . "\n";
+            $validFrom = new DateTimeImmutable($validFrom);
+        }
+        echo "- Válido desde: " . $validFrom->format('Y-m-d H:i:s') . "\n";
         
+        if (is_string($validTo)) {
+            echo "- Válido hasta (string): " . $validTo . "\n";
+            $validTo = new DateTimeImmutable($validTo);
+        }
+        echo "- Válido hasta: " . $validTo->format('Y-m-d H:i:s') . "\n";
+
         // Verificar si el certificado está vigente
         $now = new DateTimeImmutable();
         echo "- Fecha actual: " . $now->format('Y-m-d H:i:s') . "\n";
-        
-        // Obtener fechas del certificado como DateTimeImmutable
-        $validFrom = $certificate->validFrom();
-        $validTo = $certificate->validTo();
-        
-        echo "- Fecha inicio certificado: " . $validFrom->format('Y-m-d H:i:s') . "\n";
-        echo "- Fecha fin certificado: " . $validTo->format('Y-m-d H:i:s') . "\n";
 
-        // Verificar si está dentro del rango de fechas usando comparación de DateTimeImmutable
-        $isAfterStart = $now >= $validFrom;
-        $isBeforeEnd = $now <= $validTo;
-        
-        echo "- ¿Posterior a fecha inicio? " . ($isAfterStart ? "SÍ" : "NO") . "\n";
-        echo "- ¿Anterior a fecha fin? " . ($isBeforeEnd ? "SÍ" : "NO") . "\n";
-        
-        // Verificar otros aspectos del certificado
-        echo "- RFC del certificado: " . $certificate->rfc() . "\n";
-        echo "- Número de serie: " . $certificate->serialNumber()->bytes() . "\n";
-        
         // Verificar validez usando el método validOn
         $isValid = $certificate->validOn($now);
         echo "- ¿Es certificado válido? " . ($isValid ? "SÍ" : "NO") . "\n";
 
         if (!$isValid) {
-            throw new Exception(sprintf(
-                "El certificado no es válido en la fecha actual.\nVálido desde: %s\nVálido hasta: %s\nFecha actual: %s",
-                $validFrom->format('Y-m-d H:i:s'),
-                $validTo->format('Y-m-d H:i:s'),
-                $now->format('Y-m-d H:i:s')
-            ));
+            throw new Exception("El certificado no es válido en la fecha actual");
         }
 
         echo "La FIEL ha sido validada correctamente\n";
