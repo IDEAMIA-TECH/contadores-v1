@@ -3,17 +3,11 @@ require 'vendor/autoload.php';
 
 use PhpCfdi\SatWsDescargaMasiva\Service;
 use PhpCfdi\SatWsDescargaMasiva\WebClient\GuzzleWebClient;
-use PhpCfdi\SatWsDescargaMasiva\Shared\ServiceEndpoints;
 use PhpCfdi\SatWsDescargaMasiva\Services\Query\QueryParameters;
 use PhpCfdi\SatWsDescargaMasiva\RequestBuilder\FielRequestBuilder\FielRequestBuilder;
 use PhpCfdi\SatWsDescargaMasiva\RequestBuilder\FielRequestBuilder\Fiel;
 use PhpCfdi\Credentials\Credential;
-use PhpCfdi\Credentials\Certificate;
-use PhpCfdi\Credentials\PrivateKey;
-use PhpCfdi\SatWsDescargaMasiva\Shared\DateTime as SatDateTime;
 use PhpCfdi\SatWsDescargaMasiva\Shared\DateTimePeriod;
-use PhpCfdi\SatWsDescargaMasiva\Shared\DownloadType;
-use PhpCfdi\SatWsDescargaMasiva\Shared\RequestType;
 
 try {
     // 🔐 Rutas de los archivos de la FIEL
@@ -60,6 +54,14 @@ try {
     if (empty($packageIds)) {
         echo "⚠️ No se encontraron CFDI para este periodo.\n";
     } else {
+        echo "📦 Se encontraron " . count($packageIds) . " paquete(s) para descargar.\n";
+
+        // 🗂 Crear carpeta para guardar los ZIP
+        $outputDir = __DIR__ . '/descargas_xml';
+        if (!is_dir($outputDir)) {
+            mkdir($outputDir, 0777, true);
+        }
+
         foreach ($packageIds as $index => $packageId) {
             $downloadResult = $service->download($packageId);
             if (! $downloadResult->isAccepted()) {
@@ -67,10 +69,11 @@ try {
                 continue;
             }
 
-            $outputFile = __DIR__ . "/CFDI_{$index}.zip";
+            $outputFile = $outputDir . "/CFDI_{$index}.zip";
             file_put_contents($outputFile, $downloadResult->getZipFileContents());
             echo "✅ Paquete {$index} descargado como {$outputFile}\n";
         }
+
         echo "🎉 Proceso de descarga completado.\n";
     }
 
