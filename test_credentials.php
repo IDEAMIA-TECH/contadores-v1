@@ -30,8 +30,8 @@ try {
     // Crear parámetros de consulta
     $parameters = QueryParameters::create(
         DateTimePeriod::createFromValues('2024-03-01T00:00:00', '2024-03-15T23:59:59'),
-        new RequestType('RECIBIDOS'),
-        new DownloadType('XML')
+        new RequestType('Recibidos'),
+        new DownloadType('xml')
     );
 
     // Realizar la consulta
