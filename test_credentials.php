@@ -1,5 +1,6 @@
 <?php 
 require 'vendor/autoload.php';
+date_default_timezone_set("America/Mexico_City");
 
 use PhpCfdi\SatWsDescargaMasiva\Service;
 use PhpCfdi\SatWsDescargaMasiva\WebClient\GuzzleWebClient;
@@ -100,6 +101,7 @@ try {
 
     // Si llegamos aquí, la FIEL es válida
     echo "La FIEL ha sido validada correctamente\n";
+
 
     // Crear los servicios
     $webClient = new GuzzleWebClient();
