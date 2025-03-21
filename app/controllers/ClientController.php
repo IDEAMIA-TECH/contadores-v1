@@ -717,39 +717,6 @@ class ClientController {
 
     public function downloadSatMasivo() {
         try {
-            // Verificar que las clases necesarias existen
-            $requiredClasses = [
-                'PhpCfdi\SatWsDescargaMasiva\Service' => false,
-                'PhpCfdi\SatWsDescargaMasiva\WebClient\GuzzleWebClient' => false,
-                'PhpCfdi\SatWsDescargaMasiva\Shared\ServiceEndpoints' => false,
-                'PhpCfdi\SatWsDescargaMasiva\Services\Query\QueryParameters' => false
-            ];
-
-            foreach ($requiredClasses as $class => $_) {
-                if (class_exists($class)) {
-                    error_log("Clase {$class} encontrada");
-                    $requiredClasses[$class] = true;
-                } else {
-                    error_log("Clase {$class} NO encontrada");
-                }
-            }
-
-            // Verificar el autoloader
-            error_log("Verificando autoloader...");
-            error_log("Vendor autoload path: " . __DIR__ . '/../../vendor/autoload.php');
-            error_log("Vendor directory exists: " . (is_dir(__DIR__ . '/../../vendor') ? 'Sí' : 'No'));
-            
-            // Verificar la estructura de directorios de la librería
-            $satWsPath = __DIR__ . '/../../vendor/phpcfdi/sat-ws-descarga-masiva';
-            error_log("Verificando estructura de la librería sat-ws-descarga-masiva...");
-            error_log("Path principal existe: " . (is_dir($satWsPath) ? 'Sí' : 'No'));
-            if (is_dir($satWsPath)) {
-                error_log("Contenido del directorio sat-ws-descarga-masiva:");
-                $files = scandir($satWsPath);
-                error_log(print_r($files, true));
-            }
-
-            // Verificaciones iniciales...
             if (!$this->security->isAuthenticated()) {
                 throw new Exception('No autorizado');
             }
@@ -758,41 +725,28 @@ class ClientController {
                 throw new Exception('Token de seguridad inválido');
             }
 
-            if (empty($_POST['client_id'])) {
-                throw new Exception('ID de cliente no proporcionado');
+            // Validar parámetros básicos
+            $clientId = filter_input(INPUT_POST, 'client_id', FILTER_VALIDATE_INT);
+            if (!$clientId) {
+                throw new Exception('ID de cliente no proporcionado o inválido');
             }
 
-            $clientId = $_POST['client_id'];
+            // Obtener datos del cliente
             $client = $this->client->getClientById($clientId);
-
             if (!$client) {
                 throw new Exception('Cliente no encontrado');
             }
 
-            // Validar archivos y contraseña
-            if (empty($client['cer_path']) || empty($client['key_path']) || empty($client['key_password'])) {
-                throw new Exception('Certificado, llave privada o contraseña no configurados');
-            }
-
-            // Obtener rutas y desencriptar contraseña
+            // Verificar archivos y contraseña
             $cerFile = ROOT_PATH . '/uploads/' . $client['cer_path'];
             $keyFile = ROOT_PATH . '/uploads/' . $client['key_path'];
-            
-            // Verificar que los archivos existan
-            if (!file_exists($cerFile)) {
-                throw new Exception('Archivo de certificado no encontrado');
-            }
-            if (!file_exists($keyFile)) {
-                throw new Exception('Archivo de llave privada no encontrado');
+
+            if (!file_exists($cerFile) || !file_exists($keyFile)) {
+                throw new Exception('Archivos de certificado o llave privada no encontrados');
             }
 
-            // Log de verificación de archivos
-            error_log("Verificando archivos:");
-            error_log("Certificado existe: " . (file_exists($cerFile) ? 'Sí' : 'No'));
-            error_log("Llave privada existe: " . (file_exists($keyFile) ? 'Sí' : 'No'));
-            
-            // Desencriptar la contraseña
-            $keyPassword = openssl_decrypt(
+            // Desencriptar contraseña
+            $passPhrase = openssl_decrypt(
                 $client['key_password'],
                 'AES-256-CBC',
                 getenv('APP_KEY'),
@@ -800,213 +754,96 @@ class ClientController {
                 substr(getenv('APP_KEY'), 0, 16)
             );
 
-            if ($keyPassword === false) {
-                throw new Exception('Error al desencriptar la contraseña de la llave privada');
+            if ($passPhrase === false) {
+                throw new Exception('Error al desencriptar la contraseña');
             }
 
-            // Log de la contraseña desencriptada (solo para debugging, remover en producción)
-            error_log("Contraseña desencriptada longitud: " . strlen($keyPassword));
+            // Crear credencial y FIEL
+            $credential = Credential::openFiles($cerFile, $keyFile, $passPhrase);
+            $fiel = new Fiel($credential);
 
-            try {
-                // Leer contenido de los archivos
-                $cerContent = file_get_contents($cerFile);
-                $keyContent = file_get_contents($keyFile);
-                
-                if ($cerContent === false || $keyContent === false) {
-                    throw new Exception('No se pudieron leer los archivos del certificado');
-                }
-
-                // Log del contenido de los archivos
-                error_log("Longitud del contenido del certificado: " . strlen($cerContent));
-                error_log("Longitud del contenido de la llave: " . strlen($keyContent));
-
-                // Crear el certificado y la llave privada
-                error_log("=== Iniciando creación de credenciales ===");
-                
-                $certificate = new Certificate($cerContent);
-                error_log("Certificado creado exitosamente");
-                error_log("Información del certificado:");
-                error_log("- RFC: " . $certificate->rfc());
-                error_log("- Número de serie: " . $certificate->serialNumber()->bytes());
-
-                // Manejar las fechas de manera segura
-                try {
-                    $validFrom = $certificate->validFrom();
-                    $validTo = $certificate->validTo();
-                    
-                    error_log("- Válido desde: " . ($validFrom instanceof \DateTimeInterface ? 
-                        $validFrom->format('Y-m-d H:i:s') : 
-                        'No disponible'));
-                    error_log("- Válido hasta: " . ($validTo instanceof \DateTimeInterface ? 
-                        $validTo->format('Y-m-d H:i:s') : 
-                        'No disponible'));
-                } catch (\Exception $e) {
-                    error_log("Error al obtener fechas del certificado: " . $e->getMessage());
-                    error_log("- Válido desde: No disponible");
-                    error_log("- Válido hasta: No disponible");
-                }
-
-                // Verificar la vigencia del certificado de manera segura
-                $now = new \DateTimeImmutable();
-                try {
-                    $isValid = $certificate->validOn($now);
-                    error_log("Certificado vigente: " . ($isValid ? 'Sí' : 'No'));
-                } catch (\Exception $e) {
-                    error_log("Error al verificar vigencia del certificado: " . $e->getMessage());
-                    throw new Exception("No se pudo verificar la vigencia del certificado");
-                }
-
-                $privateKey = new PrivateKey($keyContent, $keyPassword);
-                error_log("Llave privada creada exitosamente");
-
-                // Crear el objeto Credential
-                $credential = new Credential($certificate, $privateKey);
-                error_log("Credential creado exitosamente");
-
-                // Verificar que la llave privada corresponde al certificado
-                if (!$credential->privateKey()->belongsTo($credential->certificate())) {
-                    throw new Exception('La llave privada no corresponde al certificado');
-                }
-                error_log("Verificación de correspondencia entre certificado y llave privada exitosa");
-
-                // Crear el objeto Fiel
-                error_log("=== Iniciando creación del servicio SAT ===");
-                
-                $fiel = new \PhpCfdi\SatWsDescargaMasiva\RequestBuilder\FielRequestBuilder\Fiel($credential);
-                error_log("Objeto Fiel creado exitosamente");
-
-                // Crear los componentes del servicio en orden
-                $requestBuilder = new FielRequestBuilder($fiel);
-                error_log("RequestBuilder creado exitosamente");
-
-                $webClient = new GuzzleWebClient();
-                error_log("WebClient creado exitosamente");
-
-                // Crear el servicio con los argumentos en el orden correcto
-                $service = new Service($requestBuilder, $webClient);
-                error_log("Service creado exitosamente");
-
-                // Obtener parámetros de la solicitud
-                error_log("=== Procesando parámetros de la solicitud ===");
-                
-                $requestType = $_POST['request_type'] ?? '';
-                $documentType = $_POST['document_type'] ?? '';
-                $startDate = $_POST['fecha_inicio'] ?? '';
-                $endDate = $_POST['fecha_fin'] ?? '';
-
-                error_log("Parámetros recibidos:");
-                error_log("- Tipo de solicitud: " . $requestType);
-                error_log("- Tipo de documento: " . $documentType);
-                error_log("- Fecha inicio: " . $startDate);
-                error_log("- Fecha fin: " . $endDate);
-
-                if (!preg_match('/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/', $startDate) ||
-                    !preg_match('/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/', $endDate)) {
-                    throw new Exception('Las fechas deben estar en formato YYYY-MM-DDTHH:mm');
-                }
-
-                // Validar que los tipos sean válidos
-                if (!in_array($requestType, ['metadata', 'xml'])) {
-                    throw new Exception('Tipo de solicitud inválido');
-                }
-                if (!in_array($documentType, ['issued', 'received'])) {
-                    throw new Exception('Tipo de documento inválido');
-                }
-
-                error_log("Tipos de solicitud validados:");
-                error_log("- Request Type: " . $requestType);
-                error_log("- Document Type: " . $documentType);
-
-                // Crear los tipos usando los valores enumerados correctos según la documentación
-                error_log("Creando tipos de solicitud...");
-                
-                // Crear DownloadType (metadata o xml)
-                $downloadType = $requestType === 'metadata' ? 
-                    \PhpCfdi\SatWsDescargaMasiva\Shared\DownloadType::create('Metadata') : 
-                    \PhpCfdi\SatWsDescargaMasiva\Shared\DownloadType::create('Cfdi');
-                error_log("DownloadType creado: " . $downloadType->value());
-                
-                // Crear RequestType (emitidos o recibidos)
-                $documentTypeEnum = $documentType === 'issued' ? 
-                    \PhpCfdi\SatWsDescargaMasiva\Shared\RequestType::create('Emitidos') : 
-                    \PhpCfdi\SatWsDescargaMasiva\Shared\RequestType::create('Recibidos');
-                error_log("RequestType creado: " . $documentTypeEnum->value());
-
-                // Crear el periodo usando DateTime del SAT
-                $startDateTime = \PhpCfdi\SatWsDescargaMasiva\Shared\DateTime::create($startDate);
-                $endDateTime = \PhpCfdi\SatWsDescargaMasiva\Shared\DateTime::create($endDate);
-                $period = new \PhpCfdi\SatWsDescargaMasiva\Shared\DateTimePeriod($startDateTime, $endDateTime);
-
-                // Crear la solicitud con los parámetros correctos según la documentación
-                error_log("Creando QueryParameters...");
-                $request = \PhpCfdi\SatWsDescargaMasiva\Services\Query\QueryParameters::create(
-                    $period,
-                    $documentTypeEnum,
-                    $downloadType
-                );
-                error_log("QueryParameters creado exitosamente");
-
-                // Realizar la solicitud
-                error_log("Enviando solicitud al SAT...");
-                $query = $service->query($request);
-                error_log("Respuesta recibida del SAT");
-                
-                if (!$query->getStatus()->isAccepted()) {
-                    error_log("La solicitud fue rechazada por el SAT: " . $query->getStatus()->getMessage());
-                    throw new Exception('La solicitud fue rechazada: ' . $query->getStatus()->getMessage());
-                }
-
-                error_log("Solicitud aceptada por el SAT");
-                $requestId = $query->getRequestId();
-                error_log("ID de solicitud generado: " . $requestId);
-
-                // Guardar el ID de solicitud y devolver respuesta exitosa
-                $stmt = $this->db->prepare("
-                    INSERT INTO sat_download_requests 
-                    (client_id, request_id, request_type, document_type, start_date, end_date, status, created_at) 
-                    VALUES (?, ?, ?, ?, ?, ?, 'REQUESTED', NOW())
-                ");
-                
-                $stmt->execute([
-                    $clientId,
-                    $requestId,
-                    $requestType,
-                    $documentType,
-                    $startDate,
-                    $endDate
-                ]);
-
-                header('Content-Type: application/json');
-                echo json_encode([
-                    'success' => true,
-                    'message' => 'Solicitud de descarga iniciada correctamente',
-                    'requestId' => $requestId
-                ]);
-                exit;
-
-            } catch (\Exception $e) {
-                error_log("Error al procesar las fechas o crear la solicitud: " . $e->getMessage());
-                throw new Exception("Error al crear la solicitud: " . $e->getMessage());
+            if (!$fiel->isValid()) {
+                throw new Exception('La FIEL no es válida');
             }
+
+            // Crear el cliente del SAT
+            $webClient = new GuzzleWebClient();
+            $requestBuilder = new FielRequestBuilder($fiel);
+            $service = new Service($requestBuilder, $webClient);
+
+            // Validar y formatear fechas
+            $startDate = $_POST['fecha_inicio'] ?? '';
+            $endDate = $_POST['fecha_fin'] ?? '';
+
+            if (empty($startDate) || empty($endDate)) {
+                throw new Exception('Fechas no proporcionadas');
+            }
+
+            // Crear periodo
+            $period = DateTimePeriod::createFromValues(
+                $startDate . 'T00:00:00',
+                $endDate . 'T23:59:59'
+            );
+
+            // Determinar tipo de solicitud
+            $downloadType = $_POST['request_type'] === 'metadata' ? 
+                DownloadType::metadata() : 
+                DownloadType::xml();
+
+            $requestType = $_POST['document_type'] === 'issued' ? 
+                RequestType::issued() : 
+                RequestType::received();
+
+            // Crear parámetros de consulta
+            $parameters = QueryParameters::create(
+                $period,
+                $downloadType,
+                $requestType
+            );
+
+            // Realizar la solicitud
+            $queryResult = $service->query($parameters);
+
+            if (!$queryResult->getStatus()->isAccepted()) {
+                throw new Exception('La solicitud fue rechazada por el SAT: ' . $queryResult->getStatus()->getMessage());
+            }
+
+            // Guardar el ID de solicitud
+            $requestId = $queryResult->getRequestId();
+            $stmt = $this->db->prepare("
+                INSERT INTO sat_download_requests 
+                (client_id, request_id, request_type, document_type, start_date, end_date, status, created_at) 
+                VALUES (?, ?, ?, ?, ?, ?, 'REQUESTED', NOW())
+            ");
+
+            $stmt->execute([
+                $clientId,
+                $requestId,
+                $_POST['request_type'],
+                $_POST['document_type'],
+                $startDate,
+                $endDate
+            ]);
+
+            // Devolver respuesta exitosa
+            header('Content-Type: application/json');
+            echo json_encode([
+                'success' => true,
+                'message' => 'Solicitud de descarga iniciada correctamente',
+                'requestId' => $requestId
+            ]);
 
         } catch (Exception $e) {
             error_log("Error en downloadSatMasivo: " . $e->getMessage());
-            error_log("Stack trace: " . $e->getTraceAsString());
             header('Content-Type: application/json');
             echo json_encode([
                 'success' => false,
-                'error' => $e->getMessage(),
-                'debug_info' => [
-                    'required_classes' => $requiredClasses ?? [],
-                    'vendor_path' => __DIR__ . '/../../vendor',
-                    'autoload_exists' => file_exists(__DIR__ . '/../../vendor/autoload.php')
-                ]
+                'error' => $e->getMessage()
             ]);
-            exit;
         }
+        exit;
     }
 
-    // Agregar nuevo método para verificar el estado de la solicitud
     public function checkDownloadStatus() {
         try {
             if (!$this->security->isAuthenticated()) {
@@ -1018,10 +855,12 @@ class ClientController {
                 throw new Exception('ID de solicitud no proporcionado');
             }
 
-            // Obtener información de la solicitud de la base de datos
+            // Obtener información de la solicitud
             $stmt = $this->db->prepare("
-                SELECT * FROM sat_download_requests 
-                WHERE request_id = ? AND status != 'COMPLETED'
+                SELECT r.*, c.cer_path, c.key_path, c.key_password 
+                FROM sat_download_requests r
+                JOIN clients c ON c.id = r.client_id
+                WHERE r.request_id = ? AND r.status != 'COMPLETED'
                 LIMIT 1
             ");
             $stmt->execute([$requestId]);
@@ -1031,16 +870,23 @@ class ClientController {
                 throw new Exception('Solicitud no encontrada o ya completada');
             }
 
-            // Obtener credenciales del cliente
-            $client = $this->client->getClientById($request['client_id']);
+            // Crear credenciales
+            $cerFile = ROOT_PATH . '/uploads/' . $request['cer_path'];
+            $keyFile = ROOT_PATH . '/uploads/' . $request['key_path'];
+            $passPhrase = openssl_decrypt(
+                $request['key_password'],
+                'AES-256-CBC',
+                getenv('APP_KEY'),
+                0,
+                substr(getenv('APP_KEY'), 0, 16)
+            );
+
+            $credential = Credential::openFiles($cerFile, $keyFile, $passPhrase);
+            $fiel = new Fiel($credential);
             
-            // Crear el servicio SAT con las credenciales
-            $fiel = $this->createFielFromClient($client);
+            // Crear servicio
             $webClient = new GuzzleWebClient();
-            $endpoints = ServiceEndpoints::cfdi();
-            $requestBuilder = new \PhpCfdi\SatWsDescargaMasiva\RequestBuilder\FielRequestBuilder\FielRequestBuilder($fiel);
-            
-            // Crear el servicio con el orden correcto de argumentos
+            $requestBuilder = new FielRequestBuilder($fiel);
             $service = new Service($requestBuilder, $webClient);
 
             // Verificar estado
@@ -1058,7 +904,6 @@ class ClientController {
                     'message' => 'La solicitud está siendo procesada'
                 ];
             } elseif ($status->isFinished()) {
-                // Actualizar estado en la base de datos
                 $stmt = $this->db->prepare("
                     UPDATE sat_download_requests 
                     SET status = 'READY_TO_DOWNLOAD', 
@@ -1080,7 +925,6 @@ class ClientController {
 
             header('Content-Type: application/json');
             echo json_encode($response);
-            exit;
 
         } catch (Exception $e) {
             error_log("Error en checkDownloadStatus: " . $e->getMessage());
@@ -1089,8 +933,8 @@ class ClientController {
                 'success' => false,
                 'error' => $e->getMessage()
             ]);
-            exit;
         }
+        exit;
     }
 
     private function processXmlFile($xmlContent, $clientId, $fileName) {
