@@ -52,18 +52,48 @@ try {
         echo "- Tipo de validFrom: " . gettype($validFrom) . "\n";
         echo "- Tipo de validTo: " . gettype($validTo) . "\n";
         
-        // Formatear fechas de manera segura
-        if (is_string($validFrom)) {
-            echo "- Válido desde (string): " . $validFrom . "\n";
-            $validFrom = new DateTimeImmutable($validFrom);
+        // Función helper para parsear fechas ASN.1/UTC
+        function parseAsn1UtcTime($timeString) {
+            // Formato esperado: "YYMMDDHHMMSSZ"
+            $pattern = '/^(\d{2})(\d{2})(\d{2})(\d{2})(\d{2})(\d{2})Z$/';
+            if (preg_match($pattern, $timeString, $matches)) {
+                $year = intval($matches[1]);
+                // Ajustar el año (20xx para años mayores a 50, 19xx para años menores)
+                $year = $year >= 50 ? 1900 + $year : 2000 + $year;
+                return DateTimeImmutable::createFromFormat(
+                    'Y-m-d H:i:s',
+                    sprintf('%04d-%02d-%02d %02d:%02d:%02d',
+                        $year,
+                        intval($matches[2]),
+                        intval($matches[3]),
+                        intval($matches[4]),
+                        intval($matches[5]),
+                        intval($matches[6])
+                    ),
+                    new DateTimeZone('UTC')
+                );
+            }
+            throw new Exception("Formato de fecha inválido: $timeString");
         }
-        echo "- Válido desde: " . $validFrom->format('Y-m-d H:i:s') . "\n";
         
-        if (is_string($validTo)) {
-            echo "- Válido hasta (string): " . $validTo . "\n";
-            $validTo = new DateTimeImmutable($validTo);
+        // Parsear fechas del certificado
+        try {
+            if (is_string($validFrom)) {
+                echo "- Válido desde (raw): " . $validFrom . "\n";
+                $validFrom = parseAsn1UtcTime($validFrom);
+            }
+            
+            if (is_string($validTo)) {
+                echo "- Válido hasta (raw): " . $validTo . "\n";
+                $validTo = parseAsn1UtcTime($validTo);
+            }
+            
+            echo "- Válido desde: " . $validFrom->format('Y-m-d H:i:s') . "\n";
+            echo "- Válido hasta: " . $validTo->format('Y-m-d H:i:s') . "\n";
+            
+        } catch (Exception $e) {
+            throw new Exception("Error al parsear fechas del certificado: " . $e->getMessage());
         }
-        echo "- Válido hasta: " . $validTo->format('Y-m-d H:i:s') . "\n";
 
         // Verificar si el certificado está vigente
         $now = new DateTimeImmutable();
