@@ -1,12 +1,19 @@
 <?php 
 require 'vendor/autoload.php';
 
-use PhpCfdi\Credentials\Credential;
-use PhpCfdi\SatWsDescargaMasiva\Shared\Fiel;
-use PhpCfdi\SatWsDescargaMasiva\WebClient\GuzzleWebClient;
-use PhpCfdi\SatWsDescargaMasiva\RequestBuilder\FielRequestBuilder;
 use PhpCfdi\SatWsDescargaMasiva\Service;
+use PhpCfdi\SatWsDescargaMasiva\WebClient\GuzzleWebClient;
+use PhpCfdi\SatWsDescargaMasiva\Shared\ServiceEndpoints;
+use PhpCfdi\SatWsDescargaMasiva\Services\Query\QueryParameters;
+use PhpCfdi\SatWsDescargaMasiva\RequestBuilder\FielRequestBuilder\FielRequestBuilder;
+use PhpCfdi\SatWsDescargaMasiva\RequestBuilder\FielRequestBuilder\Fiel;
+use PhpCfdi\Credentials\Credential;
+use PhpCfdi\Credentials\Certificate;
+use PhpCfdi\Credentials\PrivateKey;
+use PhpCfdi\SatWsDescargaMasiva\Shared\DateTime as SatDateTime;
 use PhpCfdi\SatWsDescargaMasiva\Shared\DateTimePeriod;
+use PhpCfdi\SatWsDescargaMasiva\Shared\DownloadType;
+use PhpCfdi\SatWsDescargaMasiva\Shared\RequestType;
 
 try {
     // Rutas de los archivos
