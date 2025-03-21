@@ -34,12 +34,49 @@ try {
     echo "Llave privada: " . $keyFile . " (" . filesize($keyFile) . " bytes)\n";
 
     // Crear el certificado y la llave privada primero para validar
-    $certificate = new Certificate(file_get_contents($cerFile));
-    echo "Información del certificado:\n";
-    echo "- RFC: " . $certificate->rfc() . "\n";
-    echo "- Número de serie: " . $certificate->serialNumber()->bytes() . "\n";
-    echo "- Válido desde: " . $certificate->validFrom()->format('Y-m-d H:i:s') . "\n";
-    echo "- Válido hasta: " . $certificate->validTo()->format('Y-m-d H:i:s') . "\n";
+    try {
+        $certificateContents = file_get_contents($cerFile);
+        echo "Contenido del certificado leído: " . (empty($certificateContents) ? "VACÍO" : strlen($certificateContents) . " bytes") . "\n";
+        
+        $certificate = new Certificate($certificateContents);
+        
+        echo "Información del certificado:\n";
+        echo "- RFC: " . $certificate->rfc() . "\n";
+        echo "- Número de serie: " . $certificate->serialNumber()->bytes() . "\n";
+        
+        // Convertir las fechas a DateTime si es necesario
+        $validFrom = $certificate->validFrom();
+        $validTo = $certificate->validTo();
+        
+        echo "- Tipo de validFrom: " . gettype($validFrom) . "\n";
+        echo "- Tipo de validTo: " . gettype($validTo) . "\n";
+        
+        // Formatear fechas con verificación de tipo
+        $validFromStr = ($validFrom instanceof DateTime) ? 
+            $validFrom->format('Y-m-d H:i:s') : 
+            "No se pudo obtener la fecha de inicio";
+            
+        $validToStr = ($validTo instanceof DateTime) ? 
+            $validTo->format('Y-m-d H:i:s') : 
+            "No se pudo obtener la fecha de fin";
+            
+        echo "- Válido desde: " . $validFromStr . "\n";
+        echo "- Válido hasta: " . $validToStr . "\n";
+        
+        // Verificar si el certificado está vigente
+        $now = new DateTime();
+        echo "- Fecha actual: " . $now->format('Y-m-d H:i:s') . "\n";
+        
+        if ($validFrom instanceof DateTime && $validTo instanceof DateTime) {
+            echo "- ¿Certificado vigente? " . 
+                ($now >= $validFrom && $now <= $validTo ? "SÍ" : "NO") . "\n";
+        } else {
+            echo "- No se puede determinar la vigencia del certificado\n";
+        }
+
+    } catch (Exception $e) {
+        throw new Exception("Error al procesar el certificado: " . $e->getMessage());
+    }
 
     // Crear la llave privada
     $privateKey = new PrivateKey(file_get_contents($keyFile), $passPhrase);
