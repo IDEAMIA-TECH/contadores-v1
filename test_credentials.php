@@ -168,7 +168,7 @@ try {
     $service = new Service($requestBuilder, $webClient);
 
     // Definir el periodo de fechas para descargar los CFDI "recibidos"
-    $period = DateTimePeriod::createFromValues('2024-03-01T00:00:00', '2024-03-15T23:59:59');
+    $period = DateTimePeriod::createFromValues('2025-01-01T00:00:00', '2025-01-31T23:59:59');
 
     // Realizar la solicitud
     $queryResult = $service->query($period, 'recibidos', 'xml');
