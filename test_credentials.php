@@ -22,7 +22,7 @@ use PhpCfdi\SatWsDescargaMasiva\Shared\RequestType;
     $keyFile = __DIR__ . '/uploads/sat/sat_key_67db4740851a2.key';
     $passPhrase = 'Japc20078';
 // 🔹 Configurar credenciales e.firma
-$credential = Credential::createFromFiel($cerFile, $keyFile, $passPhrase);
+$credential = Credential::openFiles($cerFile, $keyFile, $passPhrase);
 
 // 🔹 Autenticación
 $webService = new WebService();
@@ -33,9 +33,10 @@ $authToken = $authService->authenticate($credential);
 $requestService = new RequestService($webService);
 $requestResult = $requestService->request(
     $authToken,
-    '2024-03-01T00:00:00', // Fecha de inicio
-    '2024-03-15T23:59:59', // Fecha de fin
-    'Recibidos' // Opción: 'Emitidos' o 'Recibidos'
+    '2025-01-01T00:00:00', // Fecha de inicio
+    '2025-01-31T23:59:59', // Fecha de fin
+    'Recibidos',// Opción: 'Emitidos' o 'Recibidos'
+    'XML' // Tipo de descarga: 'XML' o 'ZIP'
 );
 
 // Obtener el ID de la solicitud
