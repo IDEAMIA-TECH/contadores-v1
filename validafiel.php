@@ -2,7 +2,7 @@
 require 'vendor/autoload.php';
 
 use PhpCfdi\Credentials\Credential;
-use PhpCfdi\SatWsDescargaMasiva\Shared\Fiel;
+use PhpCfdi\SatWsDescargaMasiva\RequestBuilder\FielRequestBuilder\Fiel;
 
 try {
     // Rutas de los archivos de la FIEL
