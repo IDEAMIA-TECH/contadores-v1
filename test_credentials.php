@@ -2,7 +2,6 @@
 require 'vendor/autoload.php';
 
 use PhpCfdi\Credentials\Credential;
-use PhpCfdi\SatWsDescargaMasiva\WebClient\WebService;
 use PhpCfdi\SatWsDescargaMasiva\Services\Authenticate\AuthenticateService;
 use PhpCfdi\SatWsDescargaMasiva\Services\Request\RequestService;
 use PhpCfdi\SatWsDescargaMasiva\Services\Verify\VerifyService;
