@@ -93,15 +93,40 @@ try {
     // Crear Fiel y verificar validez
     $fiel = new Fiel($credential);
     
-    // Verificar que sea FIEL y no CSD usando DateTimeImmutable en lugar de DateTime
+    // Verificar validez del certificado con logs detallados
     $now = new DateTimeImmutable();
-    if (!$certificate->validOn($now)) {
-        throw new Exception("El certificado no es válido en la fecha actual");
+    echo "\nValidación detallada del certificado:\n";
+    echo "- Fecha actual: " . $now->format('Y-m-d H:i:s') . "\n";
+    echo "- Fecha inicio certificado: " . $certificate->validFrom()->format('Y-m-d H:i:s') . "\n";
+    echo "- Fecha fin certificado: " . $certificate->validTo()->format('Y-m-d H:i:s') . "\n";
+
+    // Verificar si está dentro del rango de fechas
+    $isAfterStart = $now >= $certificate->validFrom();
+    $isBeforeEnd = $now <= $certificate->validTo();
+    
+    echo "- ¿Posterior a fecha inicio? " . ($isAfterStart ? "SÍ" : "NO") . "\n";
+    echo "- ¿Anterior a fecha fin? " . ($isBeforeEnd ? "SÍ" : "NO") . "\n";
+    
+    // Verificar otros aspectos del certificado
+    echo "- RFC del certificado: " . $certificate->rfc() . "\n";
+    echo "- Número de serie: " . $certificate->serialNumber()->bytes() . "\n";
+    echo "- ¿Es certificado válido? " . ($certificate->validOn($now) ? "SÍ" : "NO") . "\n";
+
+    // Verificar si es FIEL
+    try {
+        if (!$certificate->validOn($now)) {
+            throw new Exception(sprintf(
+                "El certificado no es válido en la fecha actual.\nVálido desde: %s\nVálido hasta: %s\nFecha actual: %s",
+                $certificate->validFrom()->format('Y-m-d H:i:s'),
+                $certificate->validTo()->format('Y-m-d H:i:s'),
+                $now->format('Y-m-d H:i:s')
+            ));
+        }
+        
+        echo "La FIEL ha sido validada correctamente\n";
+    } catch (Exception $e) {
+        throw new Exception("Error de validación del certificado: " . $e->getMessage());
     }
-
-    // Si llegamos aquí, la FIEL es válida
-    echo "La FIEL ha sido validada correctamente\n";
-
 
     // Crear los servicios
     $webClient = new GuzzleWebClient();
