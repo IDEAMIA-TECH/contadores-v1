@@ -18,7 +18,7 @@ use PhpCfdi\SatWsDescargaMasiva\Shared\DownloadType;
 use PhpCfdi\SatWsDescargaMasiva\Shared\RequestType;
 
 // 🔹 Configurar credenciales e.firma
-$credential = Credential::createFromFiel($cerFile, $keyFile, $passPhrase);
+$credential = Credential::openFiles($cerFile, $keyFile, $passPhrase);
 
 // 🔹 Autenticación
 $webService = new WebService();
