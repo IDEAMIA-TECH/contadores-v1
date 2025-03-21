@@ -37,7 +37,7 @@ try {
     $parameters = QueryParameters::create(
         $period,
         DownloadType::issued(),           // CFDI recibidos
-        RequestType::metadata()                  // Archivos XML completos
+        RequestType::xml()                  // Archivos XML completos
     );
 
     // 📨 Realizar la solicitud
