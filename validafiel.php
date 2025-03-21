@@ -5,21 +5,20 @@ use PhpCfdi\Credentials\Credential;
 use PhpCfdi\SatWsDescargaMasiva\RequestBuilder\FielRequestBuilder\Fiel;
 
 try {
-    // Rutas de los archivos de la FIEL
-    $cerFile = __DIR__ . '/uploads/sat/sat_cer_67db47408517a.cer';
-    $keyFile = __DIR__ . '/uploads/sat/sat_key_67db4740851a2.key';
-    $passPhrase = 'Japc20078';
-
-    if (!file_exists($cerFile)) {
-        echo "❌ No se encontró el archivo CER: $cerFile\n";
-    }
-    
-    if (!file_exists($keyFile)) {
-        echo "❌ No se encontró el archivo KEY: $keyFile\n";
-    }
-
-    // Cargar la FIEL desde los archivos
-    $credential = Credential::openFiles('/uploads/sat/sat_cer_67db47408517a.cer', '/uploads/sat/sat_key_67db4740851a2.key', 'Japc20078');
+      // Rutas de los archivos de la FIEL
+      $cerFile = __DIR__ . '/uploads/sat/sat_cer_67db47408517a.cer';
+      $keyFile = __DIR__ . '/uploads/sat/sat_key_67db4740851a2.key';
+      $passPhrase = 'Japc20078';
+  
+      if (!file_exists($cerFile)) {
+          echo "❌ No se encontró el archivo CER: $cerFile\n";
+      }
+      
+      if (!file_exists($keyFile)) {
+          echo "❌ No se encontró el archivo KEY: $keyFile\n";
+      }
+      
+    $credential = Credential::openFiles($cerFile, $keyFile, $passPhrase);
     $fiel = new Fiel($credential);
 
     // 🔹 Validar si la FIEL es válida
