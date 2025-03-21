@@ -3,11 +3,13 @@ require 'vendor/autoload.php';
 
 use PhpCfdi\SatWsDescargaMasiva\Service;
 use PhpCfdi\SatWsDescargaMasiva\WebClient\GuzzleWebClient;
-use PhpCfdi\SatWsDescargaMasiva\Services\Query\QueryParameters;
 use PhpCfdi\SatWsDescargaMasiva\RequestBuilder\FielRequestBuilder\FielRequestBuilder;
 use PhpCfdi\SatWsDescargaMasiva\RequestBuilder\FielRequestBuilder\Fiel;
 use PhpCfdi\Credentials\Credential;
 use PhpCfdi\SatWsDescargaMasiva\Shared\DateTimePeriod;
+use PhpCfdi\SatWsDescargaMasiva\Services\Query\QueryParameters;
+use PhpCfdi\SatWsDescargaMasiva\Shared\RequestType;
+use PhpCfdi\SatWsDescargaMasiva\Shared\DownloadType;
 
 try {
     // 🔐 Rutas de los archivos de la FIEL
@@ -31,8 +33,15 @@ try {
     // 📅 Rango de fechas: enero 2025
     $period = DateTimePeriod::createFromValues('2025-01-01T00:00:00', '2025-01-31T23:59:59');
 
+    // ✅ Crear los parámetros de la consulta
+    $parameters = QueryParameters::create(
+        $period,
+        new RequestType(RequestType::RECEIVED),
+        new DownloadType(DownloadType::XML)
+    );
+
     // 📨 Realizar la solicitud de CFDI recibidos
-    $queryResult = $service->query($period, 'recibidos');
+    $queryResult = $service->query($parameters);
 
     if (! $queryResult->isAccepted()) {
         throw new Exception('❌ La solicitud fue rechazada por el SAT: ' . $queryResult->getStatusMessage());
