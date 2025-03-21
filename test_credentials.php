@@ -1,86 +1,51 @@
 <?php
 
-declare(strict_types=1);
+require 'vendor/autoload.php';
 
-require_once __DIR__ . '/vendor/autoload.php';
+use PhpCfdi\SatWsDescargaMasiva\Shared\Credential;
+use PhpCfdi\SatWsDescargaMasiva\WebClient\WebService;
+use PhpCfdi\SatWsDescargaMasiva\Services\Authenticate\AuthenticateService;
+use PhpCfdi\SatWsDescargaMasiva\Services\Request\RequestService;
+use PhpCfdi\SatWsDescargaMasiva\Services\Verify\VerifyService;
+use PhpCfdi\SatWsDescargaMasiva\Services\Download\DownloadService;
 
-use PhpCfdi\Credentials\Credential;
-use PhpCfdi\Credentials\Certificate;
-use PhpCfdi\Credentials\PrivateKey;
-use PhpCfdi\SatWsDescargaMasiva\Service;
-use PhpCfdi\SatWsDescargaMasiva\WebClient\GuzzleWebClient;
-use PhpCfdi\SatWsDescargaMasiva\RequestBuilder\FielRequestBuilder\Fiel;
-use PhpCfdi\SatWsDescargaMasiva\RequestBuilder\FielRequestBuilder\FielRequestBuilder;
-use PhpCfdi\SatWsDescargaMasiva\Shared\DateTime;
-use PhpCfdi\SatWsDescargaMasiva\Shared\DateTimePeriod;
-use PhpCfdi\SatWsDescargaMasiva\Services\Query\QueryParameters;
-use PhpCfdi\SatWsDescargaMasiva\Shared\DownloadType;
-use PhpCfdi\SatWsDescargaMasiva\Shared\RequestType;
+// 🔹 Configurar credenciales e.firma
+$credential = Credential::createFromFiel($cerFile, $keyFile, $passPhrase);
 
-try {
-    // 1. Primero probamos que podemos leer y usar las credenciales
-    echo "=== Prueba de credenciales ===\n";
-    
-    // Rutas de los archivos
-    $cerFile = __DIR__ . '/uploads/sat/sat_cer_67db47408517a.cer';
-    $keyFile = __DIR__ . '/uploads/sat/sat_key_67db4740851a2.key';
-    $passPhrase = 'Japc20078';
+// 🔹 Autenticación
+$webService = new WebService();
+$authService = new AuthenticateService($webService);
+$authToken = $authService->authenticate($credential);
 
-    echo "Verificando archivos...\n";
-    echo "Certificado existe: " . (file_exists($cerFile) ? 'Sí' : 'No') . "\n";
-    echo "Llave existe: " . (file_exists($keyFile) ? 'Sí' : 'No') . "\n";
+// 🔹 Hacer la solicitud de descarga
+$requestService = new RequestService($webService);
+$requestResult = $requestService->request(
+    $authToken,
+    '2024-03-01T00:00:00', // Fecha de inicio
+    '2024-03-15T23:59:59', // Fecha de fin
+    'Recibidos' // Opción: 'Emitidos' o 'Recibidos'
+);
 
-    // Verificar contenido de los archivos
-    if (file_exists($cerFile) && file_exists($keyFile)) {
-        $cerContent = file_get_contents($cerFile);
-        $keyContent = file_get_contents($keyFile);
-        
-        // Crear el certificado y la llave privada
-        $certificate = new Certificate($cerContent);
-        $privateKey = new PrivateKey($keyContent, $passPhrase);
-        
-        // Crear credencial
-        $credential = new Credential($certificate, $privateKey);
-        
-        echo "\nInformación del certificado:\n";
-        echo "- RFC: " . $certificate->rfc() . "\n";
-        echo "- Nombre legal: " . $certificate->legalName() . "\n";
-        echo "- Número de serie: " . $certificate->serialNumber()->bytes() . "\n";
+// Obtener el ID de la solicitud
+$requestId = $requestResult->getRequestId();
+echo "Solicitud enviada. ID: $requestId\n";
 
-        // Crear Fiel y probar la firma
-        $fiel = new Fiel($credential);
-        
-        // Crear el servicio
-        $webClient = new GuzzleWebClient();
-        $requestBuilder = new FielRequestBuilder($fiel);
-        $service = new Service($requestBuilder, $webClient);
+// 🔹 Verificar si la solicitud está lista para descarga
+$verifyService = new VerifyService($webService);
+do {
+    sleep(10); // Esperar 10 segundos antes de revisar
+    $verifyResult = $verifyService->verify($authToken, $requestId);
+    echo "Estado de la solicitud: " . $verifyResult->getStatus() . "\n";
+} while (!$verifyResult->isReady());
 
-       
+// 🔹 Descargar los XML cuando estén listos
+$downloadService = new DownloadService($webService);
+$downloadResult = $downloadService->download($authToken, $requestId);
 
-        $parameters = QueryParameters::create()
-        ->withPeriod(DateTimePeriod::createFromValues('2024-01-01 00:00:00', '2024-01-31 11:59:00'))
-        ->withDownloadType(DownloadType::received())
-        ->withRequestType(RequestType::xml())
-       
-    ;
-
-
-
-
-        echo "\nRealizando consulta de prueba al SAT...\n";
-        $query = $service->query($parameters);
-        
-        if ($query->getStatus()->isAccepted()) {
-            echo "Consulta aceptada. Request ID: " . $query->getRequestId() . "\n";
-        } else {
-            echo "Consulta rechazada: " . $query->getStatus()->getCode() . "\n";
-        }
-
-    } else {
-        throw new Exception("No se encontraron los archivos necesarios");
-    }
-
-} catch (Exception $e) {
-    echo "\nError: " . $e->getMessage() . "\n";
-    echo "Trace:\n" . $e->getTraceAsString() . "\n";
+foreach ($downloadResult->getPackages() as $index => $package) {
+    file_put_contents("CFDI_{$index}.zip", $package->getContents());
+    echo "Paquete {$index} descargado.\n";
 }
+
+echo "Descarga finalizada.\n";
+?>
