@@ -771,7 +771,7 @@ class ClientController {
             $requestBuilder = new FielRequestBuilder($fiel);
             $service = new Service($requestBuilder, $webClient);
     
-            // Validar y formatear fechas
+            // Validar y normalizar fechas
             $startDate = $_POST['fecha_inicio'] ?? '';
             $endDate = $_POST['fecha_fin'] ?? '';
     
@@ -779,26 +779,27 @@ class ClientController {
                 throw new Exception('Fechas no proporcionadas');
             }
     
+            // Agregar formato solo si no lo traen
+            $startDateTime = (strpos($startDate, 'T') === false) ? $startDate . 'T00:00:00' : $startDate;
+            $endDateTime = (strpos($endDate, 'T') === false) ? $endDate . 'T23:59:59' : $endDate;
+    
             // Crear periodo
-            $period = DateTimePeriod::createFromValues(
-                $startDate . 'T00:00:00',
-                $endDate . 'T23:59:59'
-            );
+            $period = DateTimePeriod::createFromValues($startDateTime, $endDateTime);
     
             // Determinar tipo de solicitud
-            $downloadType = $_POST['request_type'] === 'metadata' ? 
-                DownloadType::metadata() : 
+            $downloadType = $_POST['request_type'] === 'metadata' ?
+                DownloadType::metadata() :
                 DownloadType::xml();
     
-            $requestType = $_POST['document_type'] === 'issued' ? 
-                RequestType::issued() : 
+            $requestType = $_POST['document_type'] === 'issued' ?
+                RequestType::issued() :
                 RequestType::received();
     
-            // ✅ Crear parámetros de consulta (orden corregido)
+            // Crear parámetros de consulta (orden correcto)
             $parameters = QueryParameters::create(
                 $period,
-                $requestType,   // Primero el tipo de solicitud
-                $downloadType   // Luego el tipo de descarga
+                $requestType,
+                $downloadType
             );
     
             // Realizar la solicitud
