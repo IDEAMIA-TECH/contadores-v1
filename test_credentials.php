@@ -21,13 +21,47 @@ try {
     $keyFile = __DIR__ . '/uploads/sat/sat_key_67db4740851a2.key';
     $passPhrase = 'Japc20078';
 
-    // Crear Fiel desde Credential
-    $credential = Credential::openFiles($cerFile, $keyFile, $passPhrase);
-    $fiel = new Fiel($credential);
-
-    if (! $fiel->isValid()) {
-        throw new Exception('La FIEL no es válida.');
+    // Verificar que los archivos existan
+    if (!file_exists($cerFile)) {
+        throw new Exception("El archivo del certificado no existe: $cerFile");
     }
+    if (!file_exists($keyFile)) {
+        throw new Exception("El archivo de la llave privada no existe: $keyFile");
+    }
+
+    echo "Verificando archivos...\n";
+    echo "Certificado: " . $cerFile . " (" . filesize($cerFile) . " bytes)\n";
+    echo "Llave privada: " . $keyFile . " (" . filesize($keyFile) . " bytes)\n";
+
+    // Crear el certificado y la llave privada primero para validar
+    $certificate = new Certificate(file_get_contents($cerFile));
+    echo "Información del certificado:\n";
+    echo "- RFC: " . $certificate->rfc() . "\n";
+    echo "- Número de serie: " . $certificate->serialNumber()->bytes() . "\n";
+    echo "- Válido desde: " . $certificate->validFrom()->format('Y-m-d H:i:s') . "\n";
+    echo "- Válido hasta: " . $certificate->validTo()->format('Y-m-d H:i:s') . "\n";
+
+    // Crear la llave privada
+    $privateKey = new PrivateKey(file_get_contents($keyFile), $passPhrase);
+    
+    // Crear credencial
+    $credential = new Credential($certificate, $privateKey);
+
+    // Verificar que la llave privada corresponde al certificado
+    if (!$credential->privateKey()->belongsTo($credential->certificate())) {
+        throw new Exception("La llave privada no corresponde al certificado");
+    }
+
+    // Crear Fiel y verificar validez
+    $fiel = new Fiel($credential);
+    
+    // Verificar que sea FIEL y no CSD
+    if (!$certificate->validOn(new DateTime())) {
+        throw new Exception("El certificado no es válido en la fecha actual");
+    }
+
+    // Si llegamos aquí, la FIEL es válida
+    echo "La FIEL ha sido validada correctamente\n";
 
     // Crear los servicios
     $webClient = new GuzzleWebClient();
