@@ -65,15 +65,41 @@ try {
         echo "- Válido hasta: " . $validToStr . "\n";
         
         // Verificar si el certificado está vigente
-        $now = new DateTime();
+        $now = new DateTimeImmutable();
         echo "- Fecha actual: " . $now->format('Y-m-d H:i:s') . "\n";
         
-        if ($validFrom instanceof DateTime && $validTo instanceof DateTime) {
-            echo "- ¿Certificado vigente? " . 
-                ($now >= $validFrom && $now <= $validTo ? "SÍ" : "NO") . "\n";
-        } else {
-            echo "- No se puede determinar la vigencia del certificado\n";
+        // Obtener fechas del certificado como DateTimeImmutable
+        $validFrom = $certificate->validFrom();
+        $validTo = $certificate->validTo();
+        
+        echo "- Fecha inicio certificado: " . $validFrom->format('Y-m-d H:i:s') . "\n";
+        echo "- Fecha fin certificado: " . $validTo->format('Y-m-d H:i:s') . "\n";
+
+        // Verificar si está dentro del rango de fechas usando comparación de DateTimeImmutable
+        $isAfterStart = $now >= $validFrom;
+        $isBeforeEnd = $now <= $validTo;
+        
+        echo "- ¿Posterior a fecha inicio? " . ($isAfterStart ? "SÍ" : "NO") . "\n";
+        echo "- ¿Anterior a fecha fin? " . ($isBeforeEnd ? "SÍ" : "NO") . "\n";
+        
+        // Verificar otros aspectos del certificado
+        echo "- RFC del certificado: " . $certificate->rfc() . "\n";
+        echo "- Número de serie: " . $certificate->serialNumber()->bytes() . "\n";
+        
+        // Verificar validez usando el método validOn
+        $isValid = $certificate->validOn($now);
+        echo "- ¿Es certificado válido? " . ($isValid ? "SÍ" : "NO") . "\n";
+
+        if (!$isValid) {
+            throw new Exception(sprintf(
+                "El certificado no es válido en la fecha actual.\nVálido desde: %s\nVálido hasta: %s\nFecha actual: %s",
+                $validFrom->format('Y-m-d H:i:s'),
+                $validTo->format('Y-m-d H:i:s'),
+                $now->format('Y-m-d H:i:s')
+            ));
         }
+
+        echo "La FIEL ha sido validada correctamente\n";
 
     } catch (Exception $e) {
         throw new Exception("Error al procesar el certificado: " . $e->getMessage());
