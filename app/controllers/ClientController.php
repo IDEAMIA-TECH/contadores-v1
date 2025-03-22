@@ -779,16 +779,15 @@ class ClientController {
                 throw new Exception('Fechas no proporcionadas');
             }
     
-            // Agregar formato si no lo trae
             $startDateTime = (strpos($startDate, 'T') === false) ? $startDate . 'T00:00:00' : $startDate;
             $endDateTime = (strpos($endDate, 'T') === false) ? $endDate . 'T23:59:59' : $endDate;
     
             $period = DateTimePeriod::createFromValues($startDateTime, $endDateTime);
     
-            // ✅ Usar constructor en lugar de métodos estáticos (compatibilidad total)
+            // ✅ Usar valores correctos para DownloadType
             $downloadType = ($_POST['request_type'] === 'metadata')
-                ? new DownloadType('metadata')
-                : new DownloadType('xml');
+                ? new DownloadType('Metadata')
+                : new DownloadType('CFDI');
     
             $requestType = ($_POST['document_type'] === 'issued')
                 ? new RequestType('issued')
