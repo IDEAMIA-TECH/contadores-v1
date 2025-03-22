@@ -841,7 +841,15 @@ class ClientController {
                 throw new Exception('No autorizado');
             }
 
-            $requestId = $_POST['requestId'] ?? '';
+            // Obtener requestId de POST o GET
+            $requestId = $_POST['requestId'] ?? $_GET['requestId'] ?? null;
+            
+            // Log para diagnóstico
+            error_log("Verificando estado de solicitud:");
+            error_log("POST data: " . print_r($_POST, true));
+            error_log("GET data: " . print_r($_GET, true));
+            error_log("RequestId recibido: " . ($requestId ?? 'no proporcionado'));
+
             if (empty($requestId)) {
                 throw new Exception('ID de solicitud no proporcionado');
             }
@@ -854,12 +862,16 @@ class ClientController {
                 WHERE r.request_id = ? AND r.status != 'COMPLETED'
                 LIMIT 1
             ");
+            
+            error_log("Ejecutando consulta para requestId: " . $requestId);
             $stmt->execute([$requestId]);
             $request = $stmt->fetch(PDO::FETCH_ASSOC);
 
             if (!$request) {
                 throw new Exception('Solicitud no encontrada o ya completada');
             }
+
+            error_log("Solicitud encontrada, procesando verificación...");
 
             // Crear credenciales
             $cerFile = ROOT_PATH . '/uploads/' . $request['cer_path'];
@@ -888,41 +900,36 @@ class ClientController {
                 throw new Exception('La solicitud ha expirado');
             }
 
-            if ($status->isPending()) {
-                $response = [
-                    'success' => true,
-                    'status' => 'PENDING',
-                    'message' => 'La solicitud está siendo procesada'
-                ];
-            } elseif ($status->isFinished()) {
-                $stmt = $this->db->prepare("
-                    UPDATE sat_download_requests 
-                    SET status = 'READY_TO_DOWNLOAD', 
-                        packages_count = ?, 
-                        updated_at = NOW() 
-                    WHERE request_id = ?
-                ");
-                $stmt->execute([$verify->getPackagesCount(), $requestId]);
+            $response = [
+                'success' => true,
+                'requestId' => $requestId, // Agregamos el requestId en la respuesta
+                'status' => $status->isPending() ? 'PENDING' : ($status->isFinished() ? 'READY' : 'UNKNOWN'),
+                'message' => $status->isPending() ? 
+                    'La solicitud está siendo procesada' : 
+                    ($status->isFinished() ? 'Los archivos están listos para descargar' : 'Estado desconocido')
+            ];
 
-                $response = [
-                    'success' => true,
-                    'status' => 'READY',
-                    'message' => 'Los archivos están listos para descargar',
-                    'packagesCount' => $verify->getPackagesCount()
-                ];
-            } else {
-                throw new Exception('Estado de solicitud desconocido');
+            if ($status->isFinished()) {
+                $response['packagesCount'] = $verify->getPackagesCount();
             }
 
+            error_log("Enviando respuesta: " . print_r($response, true));
+            
             header('Content-Type: application/json');
             echo json_encode($response);
 
         } catch (Exception $e) {
             error_log("Error en checkDownloadStatus: " . $e->getMessage());
+            error_log("Stack trace: " . $e->getTraceAsString());
+            
             header('Content-Type: application/json');
             echo json_encode([
                 'success' => false,
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
+                'debug' => [
+                    'post' => $_POST,
+                    'get' => $_GET
+                ]
             ]);
         }
         exit;
