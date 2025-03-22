@@ -844,7 +844,7 @@ class ClientController {
         exit;
     }
 
-    public function checkDownloadStatus() {
+    public function checkDownloadStatus($urlRequestId = null) {
         try {
             if (!$this->security->isAuthenticated()) {
                 throw new Exception('No autorizado');
@@ -859,13 +859,15 @@ class ClientController {
             
             // Log de todas las fuentes posibles
             error_log("Verificando fuentes de requestId:");
+            error_log("URL Parameter: " . ($urlRequestId ?? 'no proporcionado'));
             error_log("POST data: " . print_r($_POST, true));
             error_log("GET data: " . print_r($_GET, true));
             error_log("JSON input: " . $inputJSON);
             error_log("Decoded JSON: " . print_r($input, true));
 
-            // Intentar obtener el requestId de diferentes fuentes en orden
-            $requestId = $_POST['requestId'] 
+            // Intentar obtener el requestId de diferentes fuentes en orden de prioridad
+            $requestId = $urlRequestId // Primero revisar el parámetro de la URL
+                ?? $_POST['requestId'] 
                 ?? $_POST['request_id'] 
                 ?? $_GET['requestId'] 
                 ?? $_GET['request_id']
@@ -875,6 +877,25 @@ class ClientController {
                 ?? null;
 
             error_log("RequestId final encontrado: " . ($requestId ?? 'no proporcionado'));
+
+            // Si aún no tenemos requestId, intentar obtenerlo de la última solicitud del cliente
+            if (empty($requestId)) {
+                // Obtener el último request_id de la base de datos
+                $stmt = $this->db->prepare("
+                    SELECT request_id 
+                    FROM sat_download_requests 
+                    WHERE status != 'COMPLETED' 
+                    ORDER BY created_at DESC 
+                    LIMIT 1
+                ");
+                $stmt->execute();
+                $lastRequest = $stmt->fetch(PDO::FETCH_ASSOC);
+                
+                if ($lastRequest) {
+                    $requestId = $lastRequest['request_id'];
+                    error_log("RequestId obtenido de la última solicitud: " . $requestId);
+                }
+            }
 
             if (empty($requestId)) {
                 throw new Exception('ID de solicitud no proporcionado. Por favor, incluya el requestId en la solicitud.');
@@ -933,7 +954,8 @@ class ClientController {
                     'status' => $status->isPending() ? 'PENDING' : ($status->isFinished() ? 'READY' : 'UNKNOWN'),
                     'message' => $status->isPending() ? 
                         'La solicitud está siendo procesada' : 
-                        ($status->isFinished() ? 'Los archivos están listos para descargar' : 'Estado desconocido')
+                        ($status->isFinished() ? 'Los archivos están listos para descargar' : 'Estado desconocido'),
+                    'source' => $urlRequestId ? 'url' : ($lastRequest ? 'last_request' : 'request')
                 ]
             ];
 
@@ -955,9 +977,11 @@ class ClientController {
                 'success' => false,
                 'error' => $e->getMessage(),
                 'debug' => [
+                    'url_param' => $urlRequestId ?? null,
                     'post' => $_POST,
                     'get' => $_GET,
-                    'json' => $input ?? null
+                    'json' => $input ?? null,
+                    'last_request' => $lastRequest ?? null
                 ]
             ]);
         }
