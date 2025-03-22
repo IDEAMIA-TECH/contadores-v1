@@ -942,25 +942,41 @@ class ClientController {
             // Verificar estado
             $verify = $service->verify($requestId);
             $status = $verify->getStatus();
+            $statusRequest = $verify->getStatusRequest();
 
-            if ($status->isExpired()) {
-                throw new Exception('La solicitud ha expirado');
+            // Verificar los estados usando los métodos correctos
+            $isPending = $statusRequest->isPending();
+            $isFinished = $statusRequest->isFinished();
+            $isAccepted = $status->isAccepted();
+
+            if (!$isAccepted) {
+                throw new Exception('La solicitud fue rechazada: ' . $status->getMessage());
             }
 
             $response = [
                 'success' => true,
                 'data' => [
                     'requestId' => $requestId,
-                    'status' => $status->isPending() ? 'PENDING' : ($status->isFinished() ? 'READY' : 'UNKNOWN'),
-                    'message' => $status->isPending() ? 
+                    'status' => $isPending ? 'PENDING' : ($isFinished ? 'READY' : 'UNKNOWN'),
+                    'message' => $isPending ? 
                         'La solicitud está siendo procesada' : 
-                        ($status->isFinished() ? 'Los archivos están listos para descargar' : 'Estado desconocido'),
+                        ($isFinished ? 'Los archivos están listos para descargar' : 'Estado desconocido'),
                     'source' => $urlRequestId ? 'url' : ($lastRequest ? 'last_request' : 'request')
                 ]
             ];
 
-            if ($status->isFinished()) {
+            if ($isFinished) {
                 $response['data']['packagesCount'] = $verify->getPackagesCount();
+                
+                // Actualizar el estado en la base de datos
+                $stmt = $this->db->prepare("
+                    UPDATE sat_download_requests 
+                    SET status = 'READY_TO_DOWNLOAD',
+                        packages_count = ?,
+                        updated_at = NOW()
+                    WHERE request_id = ?
+                ");
+                $stmt->execute([$verify->getPackagesCount(), $requestId]);
             }
 
             error_log("Enviando respuesta checkDownloadStatus: " . json_encode($response));
@@ -1085,4 +1101,7 @@ class ClientController {
             ];
         }
     }
+
+
+
 } 
