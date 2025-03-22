@@ -817,12 +817,21 @@ class ClientController {
                 $endDate
             ]);
     
-            header('Content-Type: application/json');
-            echo json_encode([
+            // Modificar la respuesta para incluir el requestId en un formato específico
+            $response = [
                 'success' => true,
                 'message' => 'Solicitud de descarga iniciada correctamente',
-                'requestId' => $requestId
-            ]);
+                'data' => [
+                    'requestId' => $requestId,
+                    'status' => 'REQUESTED'
+                ]
+            ];
+
+            // Log para verificar qué estamos enviando
+            error_log("Enviando respuesta downloadSatMasivo: " . json_encode($response));
+            
+            header('Content-Type: application/json');
+            echo json_encode($response);
     
         } catch (Exception $e) {
             error_log("Error en downloadSatMasivo: " . $e->getMessage());
@@ -841,17 +850,34 @@ class ClientController {
                 throw new Exception('No autorizado');
             }
 
-            // Obtener requestId de POST o GET
-            $requestId = $_POST['requestId'] ?? $_GET['requestId'] ?? null;
+            // Intentar obtener el requestId de diferentes fuentes
+            $requestId = null;
             
-            // Log para diagnóstico
-            error_log("Verificando estado de solicitud:");
+            // Verificar en el cuerpo JSON
+            $inputJSON = file_get_contents('php://input');
+            $input = json_decode($inputJSON, TRUE);
+            
+            // Log de todas las fuentes posibles
+            error_log("Verificando fuentes de requestId:");
             error_log("POST data: " . print_r($_POST, true));
             error_log("GET data: " . print_r($_GET, true));
-            error_log("RequestId recibido: " . ($requestId ?? 'no proporcionado'));
+            error_log("JSON input: " . $inputJSON);
+            error_log("Decoded JSON: " . print_r($input, true));
+
+            // Intentar obtener el requestId de diferentes fuentes en orden
+            $requestId = $_POST['requestId'] 
+                ?? $_POST['request_id'] 
+                ?? $_GET['requestId'] 
+                ?? $_GET['request_id']
+                ?? $input['requestId'] 
+                ?? $input['request_id']
+                ?? $input['data']['requestId']
+                ?? null;
+
+            error_log("RequestId final encontrado: " . ($requestId ?? 'no proporcionado'));
 
             if (empty($requestId)) {
-                throw new Exception('ID de solicitud no proporcionado');
+                throw new Exception('ID de solicitud no proporcionado. Por favor, incluya el requestId en la solicitud.');
             }
 
             // Obtener información de la solicitud
@@ -902,18 +928,20 @@ class ClientController {
 
             $response = [
                 'success' => true,
-                'requestId' => $requestId, // Agregamos el requestId en la respuesta
-                'status' => $status->isPending() ? 'PENDING' : ($status->isFinished() ? 'READY' : 'UNKNOWN'),
-                'message' => $status->isPending() ? 
-                    'La solicitud está siendo procesada' : 
-                    ($status->isFinished() ? 'Los archivos están listos para descargar' : 'Estado desconocido')
+                'data' => [
+                    'requestId' => $requestId,
+                    'status' => $status->isPending() ? 'PENDING' : ($status->isFinished() ? 'READY' : 'UNKNOWN'),
+                    'message' => $status->isPending() ? 
+                        'La solicitud está siendo procesada' : 
+                        ($status->isFinished() ? 'Los archivos están listos para descargar' : 'Estado desconocido')
+                ]
             ];
 
             if ($status->isFinished()) {
-                $response['packagesCount'] = $verify->getPackagesCount();
+                $response['data']['packagesCount'] = $verify->getPackagesCount();
             }
 
-            error_log("Enviando respuesta: " . print_r($response, true));
+            error_log("Enviando respuesta checkDownloadStatus: " . json_encode($response));
             
             header('Content-Type: application/json');
             echo json_encode($response);
@@ -928,7 +956,8 @@ class ClientController {
                 'error' => $e->getMessage(),
                 'debug' => [
                     'post' => $_POST,
-                    'get' => $_GET
+                    'get' => $_GET,
+                    'json' => $input ?? null
                 ]
             ]);
         }
