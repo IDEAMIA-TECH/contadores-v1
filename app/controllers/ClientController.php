@@ -804,8 +804,8 @@ class ClientController {
     
             $stmt = $this->db->prepare("
                 INSERT INTO sat_download_requests 
-                (client_id, request_id, request_type, document_type, start_date, end_date, status, created_at) 
-                VALUES (?, ?, ?, ?, ?, ?, 'REQUESTED', NOW())
+                (client_id, request_id, request_type, document_type, start_date, end_date, status, created_at, updated_at) 
+                VALUES (?, ?, ?, ?, ?, ?, 'REQUESTED', NOW(), NOW())
             ");
     
             $stmt->execute([
