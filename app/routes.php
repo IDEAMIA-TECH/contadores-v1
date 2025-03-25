@@ -2,7 +2,7 @@
 // Rutas de autenticación
 $router->addRoute('login', 'AuthController', 'showLogin');
 $router->addRoute('auth/login', 'AuthController', 'login');
-$router->addRoute('logout', 'AuthController', 'logout');
+$router->addRoute('auth/logout', 'AuthController', 'logout');
 $router->addRoute('forgot-password', 'AuthController', 'showForgotPassword');
 $router->addRoute('reset-password', 'AuthController', 'showResetPassword');
 

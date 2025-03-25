@@ -66,16 +66,17 @@ class AuthController {
     
     public function logout() {
         try {
-            // Log de inicio del proceso de logout
-            error_log("Iniciando proceso de logout");
+            // Verificar el token CSRF si es necesario
+            if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+                if (!$this->security->validateCsrfToken($_POST['csrf_token'] ?? '')) {
+                    throw new Exception('Token de seguridad inválido');
+                }
+            }
 
             // Iniciar sesión si no está iniciada
             if (session_status() === PHP_SESSION_NONE) {
                 session_start();
             }
-
-            // Log de información de la sesión antes de destruirla
-            error_log("Sesión actual: " . print_r($_SESSION, true));
 
             // Destruir todas las variables de sesión
             $_SESSION = array();
@@ -83,16 +84,13 @@ class AuthController {
             // Destruir la cookie de sesión si existe
             if (isset($_COOKIE[session_name()])) {
                 setcookie(session_name(), '', time() - 3600, '/');
-                error_log("Cookie de sesión eliminada");
             }
 
             // Destruir la sesión
             session_destroy();
-            error_log("Sesión destruida completamente");
 
-            // Redirigir al login
+            // Redirigir al login usando la constante BASE_URL
             header('Location: ' . BASE_URL . '/login');
-            error_log("Redirigiendo a login");
             exit();
         } catch (Exception $e) {
             error_log("Error en logout: " . $e->getMessage());
