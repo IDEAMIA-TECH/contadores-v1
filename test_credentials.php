@@ -1,4 +1,19 @@
 <?php
+// Definir constantes de base de datos antes de cualquier require
+define('DB_HOST', 'localhost');
+define('DB_NAME', 'ideamiadev_contadores');
+define('DB_USER', 'ideamiadev_contadores');
+define('DB_PASS', '?y#rPKn59xyretAN');
+define('APP_KEY', 'cNSwqrBEKHYf+qdpED41jKHZf0iIfuvF8K698Sgx3p4=');
+
+// Verificar rutas
+if (!file_exists(__DIR__ . '/vendor/autoload.php')) {
+    die("Error: No se encuentra el archivo autoload.php");
+}
+if (!file_exists(__DIR__ . '/app/config/database.php')) {
+    die("Error: No se encuentra el archivo de configuración de la base de datos");
+}
+
 require_once __DIR__ . '/vendor/autoload.php';
 require_once __DIR__ . '/app/config/database.php';
 
