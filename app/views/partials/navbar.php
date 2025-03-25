@@ -46,8 +46,9 @@ $route = str_starts_with($requestUri, BASE_URL)
                             <span class="text-sm text-gray-700">
                                 <?php echo htmlspecialchars($_SESSION['username']); ?>
                             </span>
-                            <a href="<?php echo BASE_URL; ?>/logout" 
-                               class="text-sm text-red-600 hover:text-red-800">
+                            <a href="<?php echo BASE_URL; ?>/auth/logout" 
+                               class="text-gray-300 hover:bg-gray-700 hover:text-white px-3 py-2 rounded-md text-sm font-medium"
+                               onclick="event.preventDefault(); document.getElementById('logout-form').submit();">
                                 Cerrar Sesión
                             </a>
                         </div>
@@ -56,4 +57,9 @@ $route = str_starts_with($requestUri, BASE_URL)
             </div>
         </div>
     </div>
-</nav> 
+</nav>
+
+<!-- Formulario oculto para el logout -->
+<form id="logout-form" action="<?php echo BASE_URL; ?>/auth/logout" method="POST" class="hidden">
+    <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($_SESSION['csrf_token']); ?>">
+</form> 
