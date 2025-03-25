@@ -115,15 +115,15 @@ try {
         throw new Exception('FIEL no válida.');
     }
 
-    // �� Crear servicio SAT con timeouts más largos
-    $webClient = new GuzzleWebClient([
+    // 📡 Crear servicio SAT con timeouts más largos
+    $guzzleClient = new \GuzzleHttp\Client([
         'timeout' => 300, // 5 minutos
         'connect_timeout' => 60,
         'http_errors' => false,
-        'verify' => true,
-        'retry' => 3, // Número de reintentos
-        'retry_delay' => 5 // Segundos entre reintentos
+        'verify' => true
     ]);
+    
+    $webClient = new GuzzleWebClient($guzzleClient);
     $requestBuilder = new FielRequestBuilder($fiel);
     $service = new Service($requestBuilder, $webClient);
 
