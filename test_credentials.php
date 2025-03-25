@@ -1,5 +1,18 @@
 <?php
+// Habilitar el reporte de errores para debugging
+error_reporting(E_ALL);
+ini_set('display_errors', 1);
+
+// Verificar que existan las rutas necesarias
+if (!file_exists(__DIR__ . '/vendor/autoload.php')) {
+    die("Error: No se encuentra el archivo autoload.php");
+}
+if (!file_exists(__DIR__ . '/app/config/database.php')) {
+    die("Error: No se encuentra el archivo de configuración de la base de datos");
+}
+
 require 'vendor/autoload.php';
+require_once __DIR__ . '/app/config/database.php';
 
 use PhpCfdi\SatWsDescargaMasiva\Service;
 use PhpCfdi\SatWsDescargaMasiva\WebClient\GuzzleWebClient;
@@ -13,10 +26,17 @@ use PhpCfdi\SatWsDescargaMasiva\Shared\DownloadType;
 
 // Si el formulario no ha sido enviado, mostrar el formulario
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-    // Obtener lista de clientes de la base de datos
     try {
-        require_once __DIR__ . '/app/config/database.php';
+        // Verificar que la clase Database existe
+        if (!class_exists('Database')) {
+            throw new Exception("La clase Database no está definida");
+        }
+
         $db = Database::getInstance()->getConnection();
+        
+        if (!$db) {
+            throw new Exception("No se pudo establecer la conexión a la base de datos");
+        }
         
         $stmt = $db->query("
             SELECT id, business_name, rfc 
@@ -26,15 +46,37 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
             AND status = 'active'
             ORDER BY business_name ASC
         ");
+
+        if (!$stmt) {
+            throw new Exception("Error al ejecutar la consulta");
+        }
+
         $clients = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        
+        if (empty($clients)) {
+            error_log("Advertencia: No se encontraron clientes con certificados configurados");
+        }
+
     } catch (PDOException $e) {
-        error_log("Error de conexión: " . $e->getMessage());
-        die("Error de conexión a la base de datos");
+        error_log("Error de base de datos: " . $e->getMessage());
+        die("Error de conexión a la base de datos: " . $e->getMessage());
+    } catch (Exception $e) {
+        error_log("Error general: " . $e->getMessage());
+        die("Error: " . $e->getMessage());
     }
+
+    // Verificar la existencia del directorio de uploads
+    if (!is_dir(__DIR__ . '/uploads')) {
+        error_log("El directorio uploads no existe");
+        @mkdir(__DIR__ . '/uploads', 0755, true);
+    }
+
+    // Resto del código del formulario HTML...
     ?>
     <!DOCTYPE html>
     <html>
     <head>
+        <meta charset="UTF-8">
         <title>Test Descarga SAT</title>
         <style>
             body { font-family: Arial; padding: 20px; }
@@ -42,10 +84,20 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
             label { display: block; margin-bottom: 5px; }
             select, input { padding: 5px; width: 300px; }
             button { padding: 10px 20px; background: #007bff; color: white; border: none; cursor: pointer; }
+            .error { color: red; padding: 10px; border: 1px solid red; margin-bottom: 15px; }
+            .info { color: blue; padding: 10px; border: 1px solid blue; margin-bottom: 15px; }
         </style>
     </head>
     <body>
         <h2>Test Descarga SAT</h2>
+        <?php if (empty($clients)): ?>
+            <div class="error">
+                No se encontraron clientes con certificados configurados.
+                Asegúrese de que los clientes tengan certificados y llaves configurados.
+            </div>
+        <?php endif; ?>
+        
+        <!-- Resto del formulario sin cambios -->
         <form method="POST">
             <div class="form-group">
                 <label>Cliente:</label>
@@ -88,7 +140,15 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 
 // Procesar el formulario
 try {
-    require_once __DIR__ . '/app/config/database.php';
+    // Validaciones adicionales
+    if (!isset($_POST['client_id']) || empty($_POST['client_id'])) {
+        throw new Exception("No se seleccionó ningún cliente");
+    }
+
+    if (!isset($_POST['fecha_inicio']) || !isset($_POST['fecha_fin'])) {
+        throw new Exception("Las fechas son requeridas");
+    }
+
     $db = Database::getInstance()->getConnection();
     
     $stmt = $db->prepare("
@@ -187,6 +247,7 @@ try {
     }
 
 } catch (Exception $e) {
-    echo "❌ Error: " . $e->getMessage() . "\n";
+    error_log("Error en el procesamiento del formulario: " . $e->getMessage());
+    die("Error: " . $e->getMessage());
 }
 ?>
