@@ -11,11 +11,108 @@ use PhpCfdi\SatWsDescargaMasiva\Services\Query\QueryParameters;
 use PhpCfdi\SatWsDescargaMasiva\Shared\RequestType;
 use PhpCfdi\SatWsDescargaMasiva\Shared\DownloadType;
 
+// Si el formulario no ha sido enviado, mostrar el formulario
+if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+    // Obtener lista de clientes de la base de datos
+    try {
+        require_once __DIR__ . '/app/config/database.php';
+        $db = Database::getInstance()->getConnection();
+        
+        $stmt = $db->query("
+            SELECT id, business_name, rfc 
+            FROM clients 
+            WHERE cer_path IS NOT NULL 
+            AND key_path IS NOT NULL 
+            AND status = 'active'
+            ORDER BY business_name ASC
+        ");
+        $clients = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    } catch (PDOException $e) {
+        error_log("Error de conexión: " . $e->getMessage());
+        die("Error de conexión a la base de datos");
+    }
+    ?>
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <title>Test Descarga SAT</title>
+        <style>
+            body { font-family: Arial; padding: 20px; }
+            .form-group { margin-bottom: 15px; }
+            label { display: block; margin-bottom: 5px; }
+            select, input { padding: 5px; width: 300px; }
+            button { padding: 10px 20px; background: #007bff; color: white; border: none; cursor: pointer; }
+        </style>
+    </head>
+    <body>
+        <h2>Test Descarga SAT</h2>
+        <form method="POST">
+            <div class="form-group">
+                <label>Cliente:</label>
+                <select name="client_id" required>
+                    <option value="">Seleccione un cliente</option>
+                    <?php foreach ($clients as $client): ?>
+                        <option value="<?= $client['id'] ?>"><?= htmlspecialchars($client['business_name']) ?> (<?= $client['rfc'] ?>)</option>
+                    <?php endforeach; ?>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Fecha Inicio:</label>
+                <input type="date" name="fecha_inicio" required>
+            </div>
+            <div class="form-group">
+                <label>Fecha Fin:</label>
+                <input type="date" name="fecha_fin" required>
+            </div>
+            <div class="form-group">
+                <label>Tipo de Documento:</label>
+                <select name="document_type" required>
+                    <option value="issued">Emitidos</option>
+                    <option value="received">Recibidos</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Tipo de Solicitud:</label>
+                <select name="request_type" required>
+                    <option value="metadata">Metadata</option>
+                    <option value="xml">XML</option>
+                </select>
+            </div>
+            <button type="submit">Iniciar Descarga</button>
+        </form>
+    </body>
+    </html>
+    <?php
+    exit;
+}
+
+// Procesar el formulario
 try {
-    // 🔐 Rutas de los archivos de la FIEL
-    $cerFile = __DIR__ . '/uploads/sat/sat_cer_67ddeea05318f.cer';
-    $keyFile = __DIR__ . '/uploads/sat/sat_key_67ddeea0531c5.key';
-    $passPhrase = 'Japc20078';
+    require_once __DIR__ . '/app/config/database.php';
+    $db = Database::getInstance()->getConnection();
+    
+    $stmt = $db->prepare("
+        SELECT cer_path, key_path, key_password 
+        FROM clients 
+        WHERE id = ? AND status = 'active'
+    ");
+    $stmt->execute([$_POST['client_id']]);
+    $client = $stmt->fetch(PDO::FETCH_ASSOC);
+
+    if (!$client) {
+        throw new Exception("Cliente no encontrado");
+    }
+
+    // Configurar rutas y contraseña
+    $cerFile = __DIR__ . '/uploads/' . $client['cer_path'];
+    $keyFile = __DIR__ . '/uploads/' . $client['key_path'];
+    $passPhrase = openssl_decrypt(
+        $client['key_password'],
+        'AES-256-CBC',
+        getenv('APP_KEY'),
+        0,
+        substr(getenv('APP_KEY'), 0, 16)
+    );
 
     // ✅ Cargar y validar la FIEL
     $credential = Credential::openFiles($cerFile, $keyFile, $passPhrase);
@@ -30,14 +127,17 @@ try {
     $requestBuilder = new FielRequestBuilder($fiel);
     $service = new Service($requestBuilder, $webClient);
 
-    // 📅 Rango de fechas: enero 2025
-    $period = DateTimePeriod::createFromValues('2025-01-01T00:00:00', '2025-01-31T23:59:59');
+    // Crear periodo con las fechas del formulario
+    $period = DateTimePeriod::createFromValues(
+        $_POST['fecha_inicio'] . 'T00:00:00',
+        $_POST['fecha_fin'] . 'T23:59:59'
+    );
 
-    // ✅ Crear los parámetros de la consulta
+    // Crear parámetros según selección del formulario
     $parameters = QueryParameters::create(
         $period,
-        DownloadType::issued(),           // CFDI recibidos
-        RequestType::xml()                  // Archivos XML completos
+        $_POST['document_type'] === 'issued' ? DownloadType::issued() : DownloadType::received(),
+        $_POST['request_type'] === 'metadata' ? RequestType::metadata() : RequestType::xml()
     );
 
     // 📨 Realizar la solicitud
