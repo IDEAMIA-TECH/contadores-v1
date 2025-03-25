@@ -1,3 +1,17 @@
+<?php
+// Agregar estos logs al inicio del archivo, antes del DOCTYPE
+error_log("=== Inicio de carga de login.php ===");
+error_log("Session status: " . session_status());
+error_log("BASE_URL: " . (defined('BASE_URL') ? BASE_URL : 'no definido'));
+error_log("Token disponible: " . (isset($token) ? 'sí' : 'no'));
+error_log("Variables disponibles: " . print_r(get_defined_vars(), true));
+
+// Asegurarnos que la sesión esté iniciada
+if (session_status() === PHP_SESSION_NONE) {
+    error_log("Iniciando sesión en login.php");
+    session_start();
+}
+?>
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -13,12 +27,16 @@
                 <h2 class="text-3xl font-bold text-gray-800">Iniciar Sesión</h2>
             </div>
 
+            <?php error_log("Verificando errores de sesión: " . (isset($_SESSION['error']) ? $_SESSION['error'] : 'no hay errores')); ?>
+
             <?php if (isset($_SESSION['error'])): ?>
                 <div class="alert-error">
                     <span class="block sm:inline"><?php echo htmlspecialchars($_SESSION['error']); ?></span>
                 </div>
                 <?php unset($_SESSION['error']); ?>
             <?php endif; ?>
+
+            <?php error_log("Iniciando renderizado del formulario"); ?>
 
             <form method="POST" action="<?php echo BASE_URL; ?>/auth/login" class="space-y-6" id="loginForm">
                 <?php 
@@ -59,5 +77,6 @@
             console.log('CSRF Token:', document.querySelector('input[name="csrf_token"]').value);
         });
     </script>
+    <?php error_log("=== Fin de carga de login.php ==="); ?>
 </body>
 </html> 
