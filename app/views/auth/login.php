@@ -20,7 +20,7 @@
                 <?php unset($_SESSION['error']); ?>
             <?php endif; ?>
 
-            <form method="POST" action="<?php echo BASE_URL; ?>/login" class="space-y-6" id="loginForm">
+            <form method="POST" action="<?php echo BASE_URL; ?>/auth/login" class="space-y-6" id="loginForm">
                 <?php 
                 error_log("=== Renderizando formulario de login ===");
                 error_log("Token CSRF en vista: " . ($token ?? 'no definido'));
