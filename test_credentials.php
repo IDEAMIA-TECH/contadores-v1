@@ -115,8 +115,15 @@ try {
         throw new Exception('FIEL no válida.');
     }
 
-    // 📡 Crear servicio SAT
-    $webClient = new GuzzleWebClient();
+    // �� Crear servicio SAT con timeouts más largos
+    $webClient = new GuzzleWebClient([
+        'timeout' => 300, // 5 minutos
+        'connect_timeout' => 60,
+        'http_errors' => false,
+        'verify' => true,
+        'retry' => 3, // Número de reintentos
+        'retry_delay' => 5 // Segundos entre reintentos
+    ]);
     $requestBuilder = new FielRequestBuilder($fiel);
     $service = new Service($requestBuilder, $webClient);
 
@@ -134,11 +141,39 @@ try {
     $requestId = $queryResult->getRequestId();
     echo "✅ Solicitud aceptada. ID: $requestId<br>";
 
-    // 🔁 Esperar a que se procese
+    // 🔁 Esperar a que se procese con reintentos
+    $maxAttempts = 30; // Máximo número de intentos
+    $attempt = 0;
+    $waitTime = 10; // Tiempo inicial de espera en segundos
+
     do {
-        sleep(10);
-        $verifyResult = $service->verify($requestId);
-        echo "⏳ Estado: " . $verifyResult->getStatusRequest()->getMessage() . "<br>";
+        try {
+            sleep($waitTime);
+            $verifyResult = $service->verify($requestId);
+            echo "⏳ Estado: " . $verifyResult->getStatusRequest()->getMessage() . "<br>";
+            
+            // Incrementar tiempo de espera gradualmente
+            $waitTime = min(30, $waitTime + 5);
+            $attempt++;
+            
+            // Si llevamos muchos intentos, informar al usuario
+            if ($attempt % 5 == 0) {
+                echo "⌛ Intentando... ($attempt/$maxAttempts)<br>";
+                ob_flush();
+                flush();
+            }
+            
+        } catch (Exception $e) {
+            echo "⚠️ Reintentando... (" . $e->getMessage() . ")<br>";
+            sleep(5); // Esperar antes de reintentar
+            continue;
+        }
+        
+        // Salir si se alcanza el máximo de intentos
+        if ($attempt >= $maxAttempts) {
+            throw new Exception("Se alcanzó el tiempo máximo de espera. Por favor, verifique más tarde con el ID: $requestId");
+        }
+        
     } while (!$verifyResult->getStatusRequest()->isFinished());
 
     // 📦 Descargar paquetes
