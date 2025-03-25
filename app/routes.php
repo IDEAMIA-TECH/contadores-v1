@@ -6,4 +6,4 @@ $router->addRoute('reports/export', 'ReportController', 'export');
 $router->addRoute('clients/download-sat', 'ClientController', 'downloadSat');
 
 // Agregar esta ruta a tu archivo de rutas
-$router->get('/logout', 'AuthController@logout'); 
+$router->addRoute('logout', 'AuthController', 'logout'); 
