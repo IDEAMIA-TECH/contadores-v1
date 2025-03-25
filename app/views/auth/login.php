@@ -78,16 +78,20 @@
 
                 <div>
                     <button type="submit" 
-                            class="group relative w-full flex justify-center py-3 px-4 border border-transparent 
-                                   text-base font-medium rounded-lg text-white bg-[#0047BA] hover:bg-[#003A9E]
+                            class="group relative w-full flex justify-center py-3 px-4 
+                                   bg-[#0047BA] hover:bg-[#003A9E] 
+                                   text-white text-base font-medium 
+                                   rounded-lg shadow-sm
+                                   border-0
                                    focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#0047BA]
-                                   transition duration-150 ease-in-out">
+                                   transition-all duration-200">
                         <span class="absolute left-0 inset-y-0 flex items-center pl-3">
-                            <svg class="h-5 w-5 text-[#003A9E] group-hover:text-[#002A7E]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1"/>
+                            <svg class="h-5 w-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                                      d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1"/>
                             </svg>
                         </span>
-                        Iniciar Sesión
+                        <span class="text-white">Iniciar Sesión</span>
                     </button>
                 </div>
 
