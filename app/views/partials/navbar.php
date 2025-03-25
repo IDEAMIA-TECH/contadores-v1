@@ -52,17 +52,18 @@ $route = str_starts_with($requestUri, BASE_URL)
                     <button type="button"
                             onclick="event.preventDefault(); document.getElementById('logout-form').submit();"
                             class="inline-flex items-center px-4 py-2
-                                   bg-[#0047BA] hover:bg-[#003A9E] 
-                                   text-white font-medium text-sm
-                                   rounded-md shadow-sm
-                                   border-0
+                                   bg-white hover:bg-gray-50
+                                   text-gray-900 font-medium text-sm
+                                   rounded-md 
+                                   border border-gray-300
+                                   shadow-sm
                                    transition-colors duration-200
                                    focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#0047BA]">
-                        <svg class="w-4 h-4 mr-2 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <svg class="w-4 h-4 mr-2 text-gray-900" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
                                   d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
                         </svg>
-                        <span class="text-white">Cerrar Sesión</span>
+                        Cerrar Sesión
                     </button>
                 </div>
             </div>
