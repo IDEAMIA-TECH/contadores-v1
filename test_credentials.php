@@ -11,30 +11,31 @@ if (!file_exists(__DIR__ . '/app/config/database.php')) {
     die("Error: No se encuentra el archivo de configuración de la base de datos");
 }
 
-// Cargar variables de entorno
-if (file_exists(__DIR__ . '/.env')) {
-    $env = parse_ini_file(__DIR__ . '/.env');
-    foreach ($env as $key => $value) {
-        putenv("$key=$value");
-        $_ENV[$key] = $value;
-        $_SERVER[$key] = $value;
-    }
-} else {
-    // Definir variables de entorno manualmente si no existe el archivo .env
-    $dbConfig = [
-        'DB_HOST' => 'localhost',
-        'DB_NAME' => 'ideamiadev_contadores',
-        'DB_USER' => 'ideamiadev_contadores',
-        'DB_PASS' => '?y#rPKn59xyretAN',
-        'APP_KEY' => 'cNSwqrBEKHYf+qdpED41jKHZf0iIfuvF8K698Sgx3p4='
-    ];
+// Definir las variables de entorno directamente
+define('DB_HOST', 'localhost');
+define('DB_NAME', 'ideamiadev_contadores');
+define('DB_USER', 'ideamiadev_contadores');
+define('DB_PASS', '?y#rPKn59xyretAN');
+define('APP_KEY', 'cNSwqrBEKHYf+qdpED41jKHZf0iIfuvF8K698Sgx3p4=');
 
-    foreach ($dbConfig as $key => $value) {
-        putenv("$key=$value");
-        $_ENV[$key] = $value;
-        $_SERVER[$key] = $value;
-    }
-}
+// Asegurar que las variables estén disponibles en todos los contextos
+putenv("DB_HOST=" . DB_HOST);
+putenv("DB_NAME=" . DB_NAME);
+putenv("DB_USER=" . DB_USER);
+putenv("DB_PASS=" . DB_PASS);
+putenv("APP_KEY=" . APP_KEY);
+
+$_ENV['DB_HOST'] = DB_HOST;
+$_ENV['DB_NAME'] = DB_NAME;
+$_ENV['DB_USER'] = DB_USER;
+$_ENV['DB_PASS'] = DB_PASS;
+$_ENV['APP_KEY'] = APP_KEY;
+
+$_SERVER['DB_HOST'] = DB_HOST;
+$_SERVER['DB_NAME'] = DB_NAME;
+$_SERVER['DB_USER'] = DB_USER;
+$_SERVER['DB_PASS'] = DB_PASS;
+$_SERVER['APP_KEY'] = APP_KEY;
 
 require 'vendor/autoload.php';
 require_once __DIR__ . '/app/config/database.php';
