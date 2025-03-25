@@ -3,6 +3,7 @@
 $router->addRoute('login', 'LoginController', 'index');
 $router->addRoute('login', 'LoginController', 'login', 'POST');
 $router->addRoute('logout', 'LoginController', 'logout');
+$router->addRoute('logout', 'LoginController', 'logout', 'POST');
 $router->addRoute('forgot-password', 'AuthController', 'showForgotPassword');
 $router->addRoute('reset-password', 'AuthController', 'showResetPassword');
 
