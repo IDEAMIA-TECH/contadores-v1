@@ -38,7 +38,7 @@ if (session_status() === PHP_SESSION_NONE) {
 
             <?php error_log("Iniciando renderizado del formulario"); ?>
 
-            <form method="POST" action="<?php echo BASE_URL; ?>/auth/login" class="space-y-6" id="loginForm">
+            <form method="POST" action="<?php echo BASE_URL; ?>/login" class="space-y-6" id="loginForm">
                 <?php 
                 error_log("=== Renderizando formulario de login ===");
                 error_log("Token CSRF en vista: " . ($token ?? 'no definido'));

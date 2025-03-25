@@ -32,7 +32,7 @@ $route = str_starts_with($requestUri, BASE_URL)
                 <?php if (isset($_SESSION['user_id'])): ?>
                     <div class="ml-4 flex items-center md:ml-6">
                         <span class="text-gray-300 mr-4"><?php echo htmlspecialchars($_SESSION['user_email'] ?? ''); ?></span>
-                        <form action="<?php echo BASE_URL; ?>/auth/logout" method="POST" class="inline">
+                        <form action="<?php echo BASE_URL; ?>/logout" method="POST" class="inline">
                             <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($_SESSION['csrf_token']); ?>">
                             <button type="submit" 
                                     class="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-md text-sm font-medium">
