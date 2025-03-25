@@ -31,7 +31,7 @@ try {
     $service = new Service($requestBuilder, $webClient);
 
     // 📅 Rango de fechas: enero 2025
-    $period = DateTimePeriod::createFromValues('2025-01-01T00:00:00', '2025-01-31T23:59:59');
+    $period = DateTimePeriod::createFromValues('2025-03-01T00:00:00', '2025-03-31T23:59:59');
 
     // ✅ Crear los parámetros de la consulta
     $parameters = QueryParameters::create(
