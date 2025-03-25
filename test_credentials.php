@@ -192,20 +192,51 @@ try {
     // Configurar rutas y contraseña
     $cerFile = __DIR__ . '/uploads/' . $client['cer_path'];
     $keyFile = __DIR__ . '/uploads/' . $client['key_path'];
-    $passPhrase = openssl_decrypt(
-        $client['key_password'],
-        'AES-256-CBC',
-        getenv('APP_KEY'),
-        0,
-        substr(getenv('APP_KEY'), 0, 16)
-    );
+    
+    try {
+        // Obtener la clave de encriptación
+        $encryptionKey = base64_decode(APP_KEY);
+        $iv = substr($encryptionKey, 0, 16);
+        
+        // Desencriptar la contraseña con manejo de errores
+        $passPhrase = openssl_decrypt(
+            $client['key_password'],
+            'AES-256-CBC',
+            $encryptionKey,
+            0,
+            $iv
+        );
 
-    // ✅ Cargar y validar la FIEL
-    $credential = Credential::openFiles($cerFile, $keyFile, $passPhrase);
-    $fiel = new Fiel($credential);
+        if ($passPhrase === false) {
+            error_log("Error al desencriptar la contraseña: " . openssl_error_string());
+            throw new Exception("Error al desencriptar la contraseña de la FIEL");
+        }
 
-    if (! $fiel->isValid()) {
-        throw new Exception('❌ La FIEL no es válida.');
+        // Verificar que los archivos existan y sean legibles
+        if (!file_exists($cerFile)) {
+            throw new Exception("No se encuentra el archivo del certificado: " . $client['cer_path']);
+        }
+        if (!file_exists($keyFile)) {
+            throw new Exception("No se encuentra el archivo de la llave privada: " . $client['key_path']);
+        }
+
+        // Log para debugging
+        error_log("Intentando abrir certificado: " . $cerFile);
+        error_log("Intentando abrir llave privada: " . $keyFile);
+        error_log("Longitud de la contraseña: " . strlen($passPhrase));
+
+        // ✅ Cargar y validar la FIEL
+        $credential = Credential::openFiles($cerFile, $keyFile, $passPhrase);
+        $fiel = new Fiel($credential);
+
+        if (!$fiel->isValid()) {
+            throw new Exception('❌ La FIEL no es válida.');
+        }
+
+    } catch (Exception $e) {
+        error_log("Error al procesar la FIEL: " . $e->getMessage());
+        error_log("OpenSSL error: " . openssl_error_string());
+        throw new Exception("Error al procesar la FIEL: " . $e->getMessage());
     }
 
     // 🌐 Crear el cliente del SAT
