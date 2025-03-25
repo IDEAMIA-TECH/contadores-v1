@@ -42,22 +42,26 @@ $route = str_starts_with($requestUri, BASE_URL)
             </div>
             
             <div class="flex items-center">
-                <div class="hidden sm:ml-6 sm:flex sm:items-center">
-                    <div class="ml-3 relative">
-                        <div class="flex items-center space-x-4">
-                            <span class="text-sm text-gray-700 font-medium">
-                                <?php echo htmlspecialchars($_SESSION['username']); ?>
-                            </span>
-                            <button type="button"
-                                onclick="event.preventDefault(); document.getElementById('logout-form').submit();"
-                                class="bg-[#0047BA] hover:bg-[#003A9E] text-white px-4 py-2 rounded-md text-sm font-medium transition-colors duration-200 flex items-center">
-                                <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-                                </svg>
-                                Cerrar Sesión
-                            </button>
-                        </div>
-                    </div>
+                <div class="flex items-center space-x-4">
+                    <!-- Nombre de usuario -->
+                    <span class="text-sm text-gray-700 font-medium hidden md:block">
+                        Bienvenido, <?php echo htmlspecialchars($_SESSION['username']); ?>
+                    </span>
+                    
+                    <!-- Botón de Cerrar Sesión -->
+                    <button type="button"
+                            onclick="event.preventDefault(); document.getElementById('logout-form').submit();"
+                            class="inline-flex items-center px-4 py-2 border border-transparent 
+                                   rounded-md shadow-sm text-sm font-medium text-white 
+                                   bg-[#0047BA] hover:bg-[#003A9E] 
+                                   focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#0047BA]
+                                   transition-all duration-200">
+                        <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                                  d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                        </svg>
+                        <span>Cerrar Sesión</span>
+                    </button>
                 </div>
             </div>
         </div>
@@ -65,6 +69,6 @@ $route = str_starts_with($requestUri, BASE_URL)
 </nav>
 
 <!-- Formulario oculto para el logout -->
-<form id="logout-form" action="<?php echo BASE_URL; ?>/auth/logout" method="POST" class="hidden">
+<form id="logout-form" action="<?php echo BASE_URL; ?>/auth/logout" method="POST" style="display: none;">
     <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($_SESSION['csrf_token']); ?>">
 </form> 
