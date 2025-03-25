@@ -1,44 +1,51 @@
 <?php
-// Habilitar el reporte de errores para debugging
-error_reporting(E_ALL);
-ini_set('display_errors', 1);
+// Configuración de base de datos
+$pdo = new PDO('mysql:host=localhost;dbname=ideamiadev_contadores;charset=utf8mb4', 'ideamiadev_contadores', '?y#rPKn59xyretAN');
+$pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 
-// Verificar que existan las rutas necesarias
-if (!file_exists(__DIR__ . '/vendor/autoload.php')) {
-    die("Error: No se encuentra el archivo autoload.php");
+// Mostrar formulario
+if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+    // Obtener lista de clientes
+    $stmt = $pdo->query("SELECT id, name FROM clients ORDER BY name");
+    $clientes = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    ?>
+
+    <form method="POST">
+        <label>Cliente:</label>
+        <select name="client_id" required>
+            <option value="">Selecciona un cliente</option>
+            <?php foreach ($clientes as $cliente): ?>
+                <option value="<?= $cliente['id'] ?>"><?= htmlspecialchars($cliente['name']) ?></option>
+            <?php endforeach; ?>
+        </select><br>
+
+        <label>Fecha Inicio:</label>
+        <input type="date" name="fecha_inicio" required><br>
+
+        <label>Fecha Fin:</label>
+        <input type="date" name="fecha_fin" required><br>
+
+        <label>Tipo de Documento:</label>
+        <select name="tipo_documento">
+            <option value="issued">Emitidos</option>
+            <option value="received">Recibidos</option>
+        </select><br>
+
+        <label>Tipo de Solicitud:</label>
+        <select name="tipo_solicitud">
+            <option value="xml">XML</option>
+            <option value="metadata">Metadata</option>
+        </select><br>
+
+        <button type="submit">Consultar CFDI</button>
+    </form>
+
+    <?php exit;
 }
-if (!file_exists(__DIR__ . '/app/config/database.php')) {
-    die("Error: No se encuentra el archivo de configuración de la base de datos");
-}
+?>
 
-// Definir las variables de entorno directamente
-define('DB_HOST', 'localhost');
-define('DB_NAME', 'ideamiadev_contadores');
-define('DB_USER', 'ideamiadev_contadores');
-define('DB_PASS', '?y#rPKn59xyretAN');
-define('APP_KEY', 'cNSwqrBEKHYf+qdpED41jKHZf0iIfuvF8K698Sgx3p4=');
-
-// Asegurar que las variables estén disponibles en todos los contextos
-putenv("DB_HOST=" . DB_HOST);
-putenv("DB_NAME=" . DB_NAME);
-putenv("DB_USER=" . DB_USER);
-putenv("DB_PASS=" . DB_PASS);
-putenv("APP_KEY=" . APP_KEY);
-
-$_ENV['DB_HOST'] = DB_HOST;
-$_ENV['DB_NAME'] = DB_NAME;
-$_ENV['DB_USER'] = DB_USER;
-$_ENV['DB_PASS'] = DB_PASS;
-$_ENV['APP_KEY'] = APP_KEY;
-
-$_SERVER['DB_HOST'] = DB_HOST;
-$_SERVER['DB_NAME'] = DB_NAME;
-$_SERVER['DB_USER'] = DB_USER;
-$_SERVER['DB_PASS'] = DB_PASS;
-$_SERVER['APP_KEY'] = APP_KEY;
-
+<?php
 require 'vendor/autoload.php';
-require_once __DIR__ . '/app/config/database.php';
 
 use PhpCfdi\SatWsDescargaMasiva\Service;
 use PhpCfdi\SatWsDescargaMasiva\WebClient\GuzzleWebClient;
@@ -50,261 +57,94 @@ use PhpCfdi\SatWsDescargaMasiva\Services\Query\QueryParameters;
 use PhpCfdi\SatWsDescargaMasiva\Shared\RequestType;
 use PhpCfdi\SatWsDescargaMasiva\Shared\DownloadType;
 
-// Si el formulario no ha sido enviado, mostrar el formulario
-if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-    try {
-        // Verificar que la clase Database existe
-        if (!class_exists('Database')) {
-            throw new Exception("La clase Database no está definida");
-        }
-
-        $db = Database::getInstance()->getConnection();
-        
-        if (!$db) {
-            throw new Exception("No se pudo establecer la conexión a la base de datos");
-        }
-        
-        $stmt = $db->query("
-            SELECT id, business_name, rfc 
-            FROM clients 
-            WHERE cer_path IS NOT NULL 
-            AND key_path IS NOT NULL 
-            AND status = 'active'
-            ORDER BY business_name ASC
-        ");
-
-        if (!$stmt) {
-            throw new Exception("Error al ejecutar la consulta");
-        }
-
-        $clients = $stmt->fetchAll(PDO::FETCH_ASSOC);
-        
-        if (empty($clients)) {
-            error_log("Advertencia: No se encontraron clientes con certificados configurados");
-        }
-
-    } catch (PDOException $e) {
-        error_log("Error de base de datos: " . $e->getMessage());
-        die("Error de conexión a la base de datos: " . $e->getMessage());
-    } catch (Exception $e) {
-        error_log("Error general: " . $e->getMessage());
-        die("Error: " . $e->getMessage());
-    }
-
-    // Verificar la existencia del directorio de uploads
-    if (!is_dir(__DIR__ . '/uploads')) {
-        error_log("El directorio uploads no existe");
-        @mkdir(__DIR__ . '/uploads', 0755, true);
-    }
-
-    // Resto del código del formulario HTML...
-    ?>
-    <!DOCTYPE html>
-    <html>
-    <head>
-        <meta charset="UTF-8">
-        <title>Test Descarga SAT</title>
-        <style>
-            body { font-family: Arial; padding: 20px; }
-            .form-group { margin-bottom: 15px; }
-            label { display: block; margin-bottom: 5px; }
-            select, input { padding: 5px; width: 300px; }
-            button { padding: 10px 20px; background: #007bff; color: white; border: none; cursor: pointer; }
-            .error { color: red; padding: 10px; border: 1px solid red; margin-bottom: 15px; }
-            .info { color: blue; padding: 10px; border: 1px solid blue; margin-bottom: 15px; }
-        </style>
-    </head>
-    <body>
-        <h2>Test Descarga SAT</h2>
-        <?php if (empty($clients)): ?>
-            <div class="error">
-                No se encontraron clientes con certificados configurados.
-                Asegúrese de que los clientes tengan certificados y llaves configurados.
-            </div>
-        <?php endif; ?>
-        
-        <!-- Resto del formulario sin cambios -->
-        <form method="POST">
-            <div class="form-group">
-                <label>Cliente:</label>
-                <select name="client_id" required>
-                    <option value="">Seleccione un cliente</option>
-                    <?php foreach ($clients as $client): ?>
-                        <option value="<?= $client['id'] ?>"><?= htmlspecialchars($client['business_name']) ?> (<?= $client['rfc'] ?>)</option>
-                    <?php endforeach; ?>
-                </select>
-            </div>
-            <div class="form-group">
-                <label>Fecha Inicio:</label>
-                <input type="date" name="fecha_inicio" required>
-            </div>
-            <div class="form-group">
-                <label>Fecha Fin:</label>
-                <input type="date" name="fecha_fin" required>
-            </div>
-            <div class="form-group">
-                <label>Tipo de Documento:</label>
-                <select name="document_type" required>
-                    <option value="issued">Emitidos</option>
-                    <option value="received">Recibidos</option>
-                </select>
-            </div>
-            <div class="form-group">
-                <label>Tipo de Solicitud:</label>
-                <select name="request_type" required>
-                    <option value="metadata">Metadata</option>
-                    <option value="xml">XML</option>
-                </select>
-            </div>
-            <button type="submit">Iniciar Descarga</button>
-        </form>
-    </body>
-    </html>
-    <?php
-    exit;
-}
-
-// Procesar el formulario
 try {
-    // Validaciones adicionales
-    if (!isset($_POST['client_id']) || empty($_POST['client_id'])) {
-        throw new Exception("No se seleccionó ningún cliente");
+    $clientId = (int) $_POST['client_id'];
+
+    // Obtener certificado del cliente
+    $stmt = $pdo->prepare("SELECT cer_path, key_path, key_password FROM clients WHERE id = ?");
+    $stmt->execute([$clientId]);
+    $cliente = $stmt->fetch(PDO::FETCH_ASSOC);
+
+    if (!$cliente) {
+        throw new Exception('Cliente no encontrado');
     }
 
-    if (!isset($_POST['fecha_inicio']) || !isset($_POST['fecha_fin'])) {
-        throw new Exception("Las fechas son requeridas");
+    // Rutas completas
+    $cerFile = __DIR__ . '/uploads/' . $cliente['cer_path'];
+    $keyFile = __DIR__ . '/uploads/' . $cliente['key_path'];
+    $passPhrase = openssl_decrypt(
+        $cliente['key_password'],
+        'AES-256-CBC',
+        getenv('APP_KEY'), // o pon tu llave manual si estás fuera de un framework
+        0,
+        substr(getenv('APP_KEY'), 0, 16)
+    );
+
+    if (!$passPhrase) {
+        throw new Exception("No se pudo desencriptar la contraseña del cliente.");
     }
 
-    $db = Database::getInstance()->getConnection();
-    
-    $stmt = $db->prepare("
-        SELECT cer_path, key_path, key_password 
-        FROM clients 
-        WHERE id = ? AND status = 'active'
-    ");
-    $stmt->execute([$_POST['client_id']]);
-    $client = $stmt->fetch(PDO::FETCH_ASSOC);
+    $credential = Credential::openFiles($cerFile, $keyFile, $passPhrase);
+    $fiel = new Fiel($credential);
 
-    if (!$client) {
-        throw new Exception("Cliente no encontrado");
+    if (! $fiel->isValid()) {
+        throw new Exception('La FIEL no es válida.');
     }
 
-    // Configurar rutas y contraseña
-    $cerFile = __DIR__ . '/uploads/' . $client['cer_path'];
-    $keyFile = __DIR__ . '/uploads/' . $client['key_path'];
-    
-    try {
-        // Obtener la clave de encriptación
-        $encryptionKey = base64_decode(APP_KEY);
-        $iv = substr($encryptionKey, 0, 16);
-        
-        // Desencriptar la contraseña con manejo de errores
-        $passPhrase = openssl_decrypt(
-            $client['key_password'],
-            'AES-256-CBC',
-            $encryptionKey,
-            0,
-            $iv
-        );
-
-        if ($passPhrase === false) {
-            error_log("Error al desencriptar la contraseña: " . openssl_error_string());
-            throw new Exception("Error al desencriptar la contraseña de la FIEL");
-        }
-
-        // Verificar que los archivos existan y sean legibles
-        if (!file_exists($cerFile)) {
-            throw new Exception("No se encuentra el archivo del certificado: " . $client['cer_path']);
-        }
-        if (!file_exists($keyFile)) {
-            throw new Exception("No se encuentra el archivo de la llave privada: " . $client['key_path']);
-        }
-
-        // Log para debugging
-        error_log("Intentando abrir certificado: " . $cerFile);
-        error_log("Intentando abrir llave privada: " . $keyFile);
-        error_log("Longitud de la contraseña: " . strlen($passPhrase));
-
-        // ✅ Cargar y validar la FIEL
-        $credential = Credential::openFiles($cerFile, $keyFile, $passPhrase);
-        $fiel = new Fiel($credential);
-
-        if (!$fiel->isValid()) {
-            throw new Exception('❌ La FIEL no es válida.');
-        }
-
-    } catch (Exception $e) {
-        error_log("Error al procesar la FIEL: " . $e->getMessage());
-        error_log("OpenSSL error: " . openssl_error_string());
-        throw new Exception("Error al procesar la FIEL: " . $e->getMessage());
-    }
-
-    // 🌐 Crear el cliente del SAT
     $webClient = new GuzzleWebClient();
     $requestBuilder = new FielRequestBuilder($fiel);
     $service = new Service($requestBuilder, $webClient);
 
-    // Crear periodo con las fechas del formulario
-    $period = DateTimePeriod::createFromValues(
-        $_POST['fecha_inicio'] . 'T00:00:00',
-        $_POST['fecha_fin'] . 'T23:59:59'
-    );
+    // Fechas del formulario
+    $fechaInicio = $_POST['fecha_inicio'] . 'T00:00:00';
+    $fechaFin = $_POST['fecha_fin'] . 'T23:59:59';
+    $period = DateTimePeriod::createFromValues($fechaInicio, $fechaFin);
 
-    // Crear parámetros según selección del formulario
-    $parameters = QueryParameters::create(
-        $period,
-        $_POST['document_type'] === 'issued' ? DownloadType::issued() : DownloadType::received(),
-        $_POST['request_type'] === 'metadata' ? RequestType::metadata() : RequestType::xml()
-    );
+    $downloadType = ($_POST['tipo_documento'] === 'issued') ? DownloadType::issued() : DownloadType::received();
+    $requestType = ($_POST['tipo_solicitud'] === 'metadata') ? RequestType::metadata() : RequestType::xml();
 
-    // 📨 Realizar la solicitud
+    $parameters = QueryParameters::create($period, $downloadType, $requestType);
     $queryResult = $service->query($parameters);
 
-    if (! $queryResult->getStatus()->isAccepted()) {
-        throw new Exception('❌ La solicitud fue rechazada por el SAT: ' . $queryResult->getStatus()->getMessage());
+    if (!$queryResult->getStatus()->isAccepted()) {
+        throw new Exception('La solicitud fue rechazada: ' . $queryResult->getStatus()->getMessage());
     }
 
     $requestId = $queryResult->getRequestId();
-    echo "✅ Solicitud aceptada. ID: $requestId\n";
+    echo "✅ Solicitud aceptada. ID: $requestId<br>";
 
-    // 🔄 Verificar el estado cada 10 segundos
     do {
         sleep(10);
         $verifyResult = $service->verify($requestId);
-        echo "⏳ Estado actual: " . $verifyResult->getStatusRequest()->getMessage() . "\n"; // ✅ CORREGIDO
-    } while (! $verifyResult->getStatusRequest()->isFinished());
+        echo "⏳ Estado: " . $verifyResult->getStatusRequest()->getMessage() . "<br>";
+    } while (!$verifyResult->getStatusRequest()->isFinished());
 
-    // 📦 Descargar los paquetes ZIP
-    $packageIds = $verifyResult->getPackagesIds();
-
-    if (empty($packageIds)) {
-        echo "⚠️ No se encontraron CFDI para este periodo.\n";
-    } else {
-        echo "📦 Se encontraron " . count($packageIds) . " paquete(s) para descargar.\n";
-
-        // 🗂 Crear carpeta para guardar los ZIP
-        $outputDir = __DIR__ . '/descargas_xml';
-        if (!is_dir($outputDir)) {
-            mkdir($outputDir, 0777, true);
-        }
-
-        foreach ($packageIds as $index => $packageId) {
-            $downloadResult = $service->download($packageId);
-            if (! $downloadResult->getStatus()->isAccepted()) {
-                echo "❌ Error al descargar paquete {$packageId}\n";
-                continue;
-            }
-
-            $outputFile = $outputDir . "/CFDI_{$index}.zip";
-            file_put_contents($outputFile, $downloadResult->getPackageContent());
-            echo "✅ Paquete {$index} descargado como {$outputFile}\n";
-        }
-
-        echo "🎉 Proceso de descarga completado.\n";
+    $packages = $verifyResult->getPackagesIds();
+    if (empty($packages)) {
+        echo "⚠️ No se encontraron CFDI.<br>";
+        exit;
     }
 
+    $outputDir = __DIR__ . '/descargas_xml';
+    if (!is_dir($outputDir)) {
+        mkdir($outputDir, 0777, true);
+    }
+
+    foreach ($packages as $i => $packageId) {
+        $download = $service->download($packageId);
+        if (!$download->getStatus()->isAccepted()) {
+            echo "❌ Error al descargar paquete {$packageId}<br>";
+            continue;
+        }
+
+        $filePath = $outputDir . "/cliente{$clientId}_cfdi_{$i}.zip";
+        file_put_contents($filePath, $download->getPackageContent());
+        echo "✅ Paquete {$i} guardado como {$filePath}<br>";
+    }
+
+    echo "🎉 Descarga finalizada.<br>";
+
 } catch (Exception $e) {
-    error_log("Error en el procesamiento del formulario: " . $e->getMessage());
-    die("Error: " . $e->getMessage());
+    echo "❌ Error: " . $e->getMessage();
 }
 ?>
