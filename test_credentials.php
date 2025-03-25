@@ -11,6 +11,31 @@ if (!file_exists(__DIR__ . '/app/config/database.php')) {
     die("Error: No se encuentra el archivo de configuración de la base de datos");
 }
 
+// Cargar variables de entorno
+if (file_exists(__DIR__ . '/.env')) {
+    $env = parse_ini_file(__DIR__ . '/.env');
+    foreach ($env as $key => $value) {
+        putenv("$key=$value");
+        $_ENV[$key] = $value;
+        $_SERVER[$key] = $value;
+    }
+} else {
+    // Definir variables de entorno manualmente si no existe el archivo .env
+    $dbConfig = [
+        'DB_HOST' => 'localhost',
+        'DB_NAME' => 'ideamiadev_contadores',
+        'DB_USER' => 'ideamiadev_contadores',
+        'DB_PASS' => '?y#rPKn59xyretAN',
+        'APP_KEY' => 'cNSwqrBEKHYf+qdpED41jKHZf0iIfuvF8K698Sgx3p4='
+    ];
+
+    foreach ($dbConfig as $key => $value) {
+        putenv("$key=$value");
+        $_ENV[$key] = $value;
+        $_SERVER[$key] = $value;
+    }
+}
+
 require 'vendor/autoload.php';
 require_once __DIR__ . '/app/config/database.php';
 
