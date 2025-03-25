@@ -67,10 +67,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
 }
 
 try {
+    // Función helper para logging
+    function logMessage($message) {
+        $timestamp = date('Y-m-d H:i:s');
+        echo "[$timestamp] $message<br>";
+        error_log("[$timestamp] $message");
+        ob_flush();
+        flush();
+    }
+
+    logMessage("🚀 Iniciando proceso de descarga...");
+    
     // 🧠 Obtener datos del formulario
     $clientId = $_POST['client_id'];
     $fechaInicio = $_POST['fecha_inicio'];
     $fechaFin = $_POST['fecha_fin'];
+    logMessage("📅 Periodo solicitado: $fechaInicio al $fechaFin");
+    
     $requestType = $_POST['request_type'] === 'metadata' ? RequestType::metadata() : RequestType::xml();
     $downloadType = $_POST['document_type'] === 'issued' ? DownloadType::issued() : DownloadType::received();
 
@@ -115,14 +128,20 @@ try {
         throw new Exception('FIEL no válida.');
     }
 
-    // 📡 Crear servicio SAT con timeouts más largos
+    // 📡 Crear servicio SAT con timeouts más largos y logging
     $guzzleClient = new \GuzzleHttp\Client([
-        'timeout' => 300, // 5 minutos
+        'timeout' => 300,
         'connect_timeout' => 60,
         'http_errors' => false,
-        'verify' => true
+        'verify' => true,
+        'debug' => true,
+        'on_stats' => function (\GuzzleHttp\TransferStats $stats) {
+            logMessage("🌐 Tiempo de respuesta: " . $stats->getTransferTime() . "s");
+            logMessage("📍 URL: " . $stats->getEffectiveUri());
+        }
     ]);
     
+    logMessage("🔄 Iniciando consulta al SAT...");
     $webClient = new GuzzleWebClient($guzzleClient);
     $requestBuilder = new FielRequestBuilder($fiel);
     $service = new Service($requestBuilder, $webClient);
@@ -130,80 +149,93 @@ try {
     $start = $fechaInicio . 'T00:00:00';
     $end = $fechaFin . 'T23:59:59';
     $period = DateTimePeriod::createFromValues($start, $end);
+    logMessage("⏰ Periodo configurado: $start - $end");
 
     $parameters = QueryParameters::create($period, $downloadType, $requestType);
-    $queryResult = $service->query($parameters);
+    logMessage("📝 Enviando solicitud de consulta...");
+    
+    try {
+        $queryResult = $service->query($parameters);
+        logMessage("✅ Respuesta recibida del SAT");
+    } catch (Exception $e) {
+        logMessage("❌ Error en consulta inicial: " . $e->getMessage());
+        throw $e;
+    }
 
     if (!$queryResult->getStatus()->isAccepted()) {
+        logMessage("⚠️ SAT rechazó la solicitud: " . $queryResult->getStatus()->getMessage());
         throw new Exception('SAT rechazó la solicitud: ' . $queryResult->getStatus()->getMessage());
     }
 
     $requestId = $queryResult->getRequestId();
-    echo "✅ Solicitud aceptada. ID: $requestId<br>";
+    logMessage("✅ Solicitud aceptada. ID: $requestId");
 
-    // 🔁 Esperar a que se procese con reintentos
-    $maxAttempts = 30; // Máximo número de intentos
+    // 🔁 Esperar a que se procese con reintentos y logging
+    $maxAttempts = 30;
     $attempt = 0;
-    $waitTime = 10; // Tiempo inicial de espera en segundos
+    $waitTime = 10;
 
     do {
         try {
+            logMessage("🔄 Intento de verificación #$attempt");
             sleep($waitTime);
-            $verifyResult = $service->verify($requestId);
-            echo "⏳ Estado: " . $verifyResult->getStatusRequest()->getMessage() . "<br>";
             
-            // Incrementar tiempo de espera gradualmente
+            $verifyResult = $service->verify($requestId);
+            $status = $verifyResult->getStatusRequest()->getMessage();
+            logMessage("⏳ Estado: $status");
+            
             $waitTime = min(30, $waitTime + 5);
             $attempt++;
             
-            // Si llevamos muchos intentos, informar al usuario
             if ($attempt % 5 == 0) {
-                echo "⌛ Intentando... ($attempt/$maxAttempts)<br>";
-                ob_flush();
-                flush();
+                logMessage("⌛ Intentando... ($attempt/$maxAttempts)");
             }
             
         } catch (Exception $e) {
-            echo "⚠️ Reintentando... (" . $e->getMessage() . ")<br>";
-            sleep(5); // Esperar antes de reintentar
+            logMessage("⚠️ Error en verificación: " . $e->getMessage());
+            sleep(5);
             continue;
         }
         
-        // Salir si se alcanza el máximo de intentos
         if ($attempt >= $maxAttempts) {
-            throw new Exception("Se alcanzó el tiempo máximo de espera. Por favor, verifique más tarde con el ID: $requestId");
+            logMessage("⛔ Máximo de intentos alcanzado");
+            throw new Exception("Se alcanzó el tiempo máximo de espera. ID: $requestId");
         }
         
     } while (!$verifyResult->getStatusRequest()->isFinished());
 
-    // 📦 Descargar paquetes
+    // 📦 Descargar paquetes con logging
     $packageIds = $verifyResult->getPackagesIds();
-    if (empty($packageIds)) {
-        echo "⚠️ No se encontraron CFDI.\n";
-    } else {
-        echo "📦 " . count($packageIds) . " paquete(s) encontrados.<br>";
+    logMessage("📊 Paquetes encontrados: " . count($packageIds));
 
+    if (empty($packageIds)) {
+        logMessage("⚠️ No se encontraron CFDI");
+    } else {
         $outputDir = __DIR__ . "/descargas_xml/cliente_{$clientId}";
         if (!is_dir($outputDir)) {
             mkdir($outputDir, 0777, true);
         }
 
         foreach ($packageIds as $index => $packageId) {
-            $downloadResult = $service->download($packageId);
-            if (!$downloadResult->getStatus()->isAccepted()) {
-                echo "❌ Error en paquete $packageId<br>";
-                continue;
+            logMessage("📥 Descargando paquete $packageId ($index de " . count($packageIds) . ")");
+            try {
+                $downloadResult = $service->download($packageId);
+                if (!$downloadResult->getStatus()->isAccepted()) {
+                    logMessage("❌ Error en paquete $packageId: " . $downloadResult->getStatus()->getMessage());
+                    continue;
+                }
+
+                $file = $outputDir . "/CFDI_{$index}.zip";
+                file_put_contents($file, $downloadResult->getPackageContent());
+                logMessage("✅ Descargado: CFDI_{$index}.zip");
+            } catch (Exception $e) {
+                logMessage("❌ Error descargando paquete $packageId: " . $e->getMessage());
             }
-
-            $file = $outputDir . "/CFDI_{$index}.zip";
-            file_put_contents($file, $downloadResult->getPackageContent());
-            echo "✅ Descargado: CFDI_{$index}.zip<br>";
         }
-
-        echo "🎉 Descarga completada.";
     }
 
 } catch (Exception $e) {
+    logMessage("❌ Error fatal: " . $e->getMessage());
     echo "❌ Error: " . $e->getMessage();
 }
 ?>
