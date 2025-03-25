@@ -268,15 +268,24 @@
 
             <!-- Acciones adicionales -->
             <div class="flex justify-end space-x-4 mt-8">
-                <!-- Botón para Portal SAT -->
-                <a href="<?php echo BASE_URL; ?>/clients/sat-portal/<?php echo $client['id']; ?>" 
-                   class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded inline-flex items-center">
+                <!-- Botón para Portal SAT deshabilitado -->
+                <button 
+                    disabled
+                    class="bg-gray-400 cursor-not-allowed text-white px-4 py-2 rounded inline-flex items-center group relative"
+                    onmouseover="document.getElementById('proximamente').classList.remove('hidden')"
+                    onmouseout="document.getElementById('proximamente').classList.add('hidden')"
+                >
                     <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
                               d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9"/>
                     </svg>
                     Descarga XML
-                </a>
+                    <div id="proximamente" class="hidden absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-1 bg-black text-white text-sm rounded whitespace-nowrap">
+                        Próximamente
+                        <div class="absolute bottom-0 left-1/2 transform -translate-x-1/2 translate-y-1/2 rotate-45 w-2 h-2 bg-black"></div>
+                    </div>
+                </button>
+                
                 <a href="<?php echo BASE_URL; ?>/clients/upload-xml?id=<?php echo $client['id']; ?>" 
                    class="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded">
                     Subir XML

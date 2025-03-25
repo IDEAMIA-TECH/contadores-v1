@@ -186,14 +186,18 @@
                     </div>
                 </div>
 
-                <!-- Agregar después de la sección de contacto y antes del botón de guardar -->
+                <!-- Credenciales SAT -->
                 <div class="mb-8">
-                    <h2 class="text-lg font-semibold text-gray-900 mb-4">Credenciales SAT</h2>
+                    <h2 class="text-lg font-semibold text-gray-900 mb-4">
+                        Credenciales SAT 
+                        <span class="text-sm font-normal text-gray-500">(Opcional)</span>
+                    </h2>
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <!-- Archivo .cer -->
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-2">
                                 Certificado (.cer)
+                                <span class="text-gray-500 font-normal">(Opcional)</span>
                             </label>
                             <div class="flex items-center">
                                 <?php if (!empty($client['cer_path'])): ?>
@@ -214,13 +218,14 @@
                                               file:bg-blue-50 file:text-blue-700
                                               hover:file:bg-blue-100">
                             </div>
-                            <p class="mt-1 text-sm text-gray-500">Seleccione el archivo .cer del SAT</p>
+                            <p class="mt-1 text-sm text-gray-500">Seleccione el archivo .cer del SAT (opcional)</p>
                         </div>
 
                         <!-- Archivo .key -->
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-2">
                                 Llave privada (.key)
+                                <span class="text-gray-500 font-normal">(Opcional)</span>
                             </label>
                             <div class="flex items-center">
                                 <?php if (!empty($client['key_path'])): ?>
@@ -241,19 +246,20 @@
                                               file:bg-blue-50 file:text-blue-700
                                               hover:file:bg-blue-100">
                             </div>
-                            <p class="mt-1 text-sm text-gray-500">Seleccione el archivo .key del SAT</p>
+                            <p class="mt-1 text-sm text-gray-500">Seleccione el archivo .key del SAT (opcional)</p>
                         </div>
 
                         <!-- Contraseña de la llave privada -->
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-2">
                                 Contraseña FIEL
+                                <span class="text-gray-500 font-normal">(Opcional)</span>
                             </label>
                             <input type="password" 
                                    name="key_password" 
                                    value="<?php echo htmlspecialchars($client['key_password'] ?? ''); ?>"
                                    class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500">
-                            <p class="mt-1 text-sm text-gray-500">Contraseña de la llave privada del SAT</p>
+                            <p class="mt-1 text-sm text-gray-500">Contraseña de la llave privada del SAT (opcional)</p>
                         </div>
                     </div>
                 </div>
