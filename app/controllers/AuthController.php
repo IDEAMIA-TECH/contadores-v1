@@ -61,42 +61,120 @@ class AuthController {
     }
     
     public function login() {
-        // Por implementar si se necesita
+        try {
+            error_log("=== Inicio de manejo de ruta login ===");
+            error_log("REQUEST_METHOD: " . $_SERVER['REQUEST_METHOD']);
+
+            // Si es GET, mostrar el formulario de login
+            if ($_SERVER['REQUEST_METHOD'] === 'GET') {
+                error_log("Mostrando formulario de login");
+                return $this->showLogin();
+            }
+
+            // A partir de aquí solo manejamos POST
+            error_log("=== Inicio de intento de login ===");
+            error_log("POST data: " . print_r($_POST, true));
+
+            // Verificar token CSRF
+            $csrfToken = $_POST['csrf_token'] ?? '';
+            error_log("CSRF Token recibido: " . $csrfToken);
+            error_log("CSRF Token en sesión: " . ($_SESSION['csrf_token'] ?? 'no existe'));
+
+            if (empty($csrfToken)) {
+                error_log("Token CSRF no recibido en POST");
+                $_SESSION['error'] = 'Error de seguridad: Token no recibido';
+                header('Location: ' . BASE_URL . '/login');
+                exit;
+            }
+            
+            if (!$this->security->validateCsrfToken($csrfToken)) {
+                error_log("Token CSRF inválido");
+                $_SESSION['error'] = 'Token de seguridad inválido';
+                header('Location: ' . BASE_URL . '/login');
+                exit;
+            }
+            
+            // Usar htmlspecialchars en lugar de FILTER_SANITIZE_STRING
+            $username = htmlspecialchars(trim($_POST['username'] ?? ''), ENT_QUOTES, 'UTF-8');
+            $password = $_POST['password'] ?? '';
+            
+            // Debug: Verificar los valores exactos
+            error_log("Username exacto: '" . $username . "'");
+            error_log("Password exacto (primeros 3 caracteres): '" . substr($password, 0, 3) . "'");
+            
+            if (empty($username) || empty($password)) {
+                error_log("Campos vacíos - Username: " . (empty($username) ? 'vacío' : 'presente') . 
+                         ", Password: " . (empty($password) ? 'vacío' : 'presente'));
+                $_SESSION['error'] = 'Por favor complete todos los campos';
+                header('Location: ' . BASE_URL . '/login');
+                exit;
+            }
+            
+            // Buscar usuario
+            error_log("Buscando usuario en la base de datos...");
+            $user = $this->user->findByUsername($username);
+            
+            // Debug: Verificar si se encontró el usuario
+            if ($user) {
+                error_log("Usuario encontrado - ID: " . $user['id']);
+                error_log("Hash almacenado: " . $user['password']);
+                error_log("Estado del usuario: " . $user['status']);
+            } else {
+                error_log("Usuario no encontrado en la base de datos");
+            }
+            
+            // Verificar credenciales
+            if (!$user || !$this->security->verifyPassword($password, $user['password'])) {
+                error_log("Fallo en la autenticación");
+                if (!$user) {
+                    error_log("Causa: Usuario no existe");
+                } else {
+                    error_log("Causa: Contraseña incorrecta");
+                }
+                $_SESSION['error'] = 'Credenciales inválidas';
+                header('Location: ' . BASE_URL . '/login');
+                exit;
+            }
+            
+            // Si llegamos aquí, la autenticación fue exitosa
+            error_log("Login exitoso - Usuario: " . $username);
+            
+            // Actualizar último login
+            $this->user->updateLastLogin($user['id']);
+            
+            // Crear sesión
+            $_SESSION['user_id'] = $user['id'];
+            $_SESSION['username'] = $user['username'];
+            $_SESSION['role'] = $user['role'];
+            
+            error_log("Sesión creada - ID: " . $_SESSION['user_id'] . 
+                     ", Role: " . $_SESSION['role']);
+            
+            // Redirigir según el rol
+            error_log("Redirigiendo según rol: " . $user['role']);
+            switch ($user['role']) {
+                case 'contador':
+                    header('Location: ' . BASE_URL . '/clients');
+                    break;
+                default:
+                    header('Location: ' . BASE_URL . '/dashboard');
+            }
+            
+        } catch (Exception $e) {
+            error_log("Error en login: " . $e->getMessage());
+            error_log("Stack trace: " . $e->getTraceAsString());
+            $_SESSION['error'] = 'Error al procesar el login';
+            header('Location: ' . BASE_URL . '/login');
+        }
+        
+        error_log("=== Fin de manejo de ruta login ===");
+        exit;
     }
     
     public function logout() {
-        try {
-            // Verificar el token CSRF si es necesario
-            if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-                if (!$this->security->validateCsrfToken($_POST['csrf_token'] ?? '')) {
-                    throw new Exception('Token de seguridad inválido');
-                }
-            }
-
-            // Iniciar sesión si no está iniciada
-            if (session_status() === PHP_SESSION_NONE) {
-                session_start();
-            }
-
-            // Destruir todas las variables de sesión
-            $_SESSION = array();
-
-            // Destruir la cookie de sesión si existe
-            if (isset($_COOKIE[session_name()])) {
-                setcookie(session_name(), '', time() - 3600, '/');
-            }
-
-            // Destruir la sesión
-            session_destroy();
-
-            // Redirigir al login usando la constante BASE_URL
-            header('Location: ' . BASE_URL . '/login');
-            exit();
-        } catch (Exception $e) {
-            error_log("Error en logout: " . $e->getMessage());
-            header('Location: ' . BASE_URL . '/login');
-            exit();
-        }
+        session_destroy();
+        header('Location: ' . BASE_URL . '/login');
+        exit;
     }
     
     public function showForgotPassword() {
