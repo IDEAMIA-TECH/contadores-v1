@@ -46,9 +46,23 @@
                 <input type="file" id="xml_files" name="xml_files[]" accept=".xml" multiple class="hidden">
 
                 <!-- Barra de progreso -->
-                <div class="relative pt-1 hidden mb-4" id="progress-container">
-                    <div class="overflow-hidden h-2 mb-4 text-xs flex rounded bg-gray-200">
-                        <div id="progress-bar" class="shadow-none flex flex-col text-center whitespace-nowrap text-white justify-center bg-blue-500 w-0 transition-all duration-300"></div>
+                <div id="progress-container" class="relative pt-1 hidden mb-4">
+                    <div class="flex mb-2 items-center justify-between">
+                        <div>
+                            <span class="text-xs font-semibold inline-block py-1 px-2 uppercase rounded-full text-blue-600 bg-blue-200">
+                                Progreso
+                            </span>
+                        </div>
+                        <div class="text-right">
+                            <span id="progress-percentage" class="text-xs font-semibold inline-block text-blue-600">
+                                0%
+                            </span>
+                        </div>
+                    </div>
+                    <div class="overflow-hidden h-2 mb-4 text-xs flex rounded bg-blue-200">
+                        <div id="progress-bar" 
+                             class="shadow-none flex flex-col text-center whitespace-nowrap text-white justify-center bg-blue-500 w-0 transition-all duration-300">
+                        </div>
                     </div>
                 </div>
 
@@ -87,8 +101,36 @@
         const fileList = document.getElementById('file-list');
         const submitBtn = document.getElementById('submit-btn');
         const form = document.getElementById('upload-form');
+        const progressContainer = document.getElementById('progress-container');
+        const progressBar = document.getElementById('progress-bar');
         const MAX_FILES = 500;
         let files = [];
+
+        // Agregar el HTML de la barra de progreso si no existe
+        if (!progressContainer) {
+            const progressHTML = `
+                <div id="progress-container" class="relative pt-1 hidden mb-4">
+                    <div class="flex mb-2 items-center justify-between">
+                        <div>
+                            <span class="text-xs font-semibold inline-block py-1 px-2 uppercase rounded-full text-blue-600 bg-blue-200">
+                                Progreso
+                            </span>
+                        </div>
+                        <div class="text-right">
+                            <span id="progress-percentage" class="text-xs font-semibold inline-block text-blue-600">
+                                0%
+                            </span>
+                        </div>
+                    </div>
+                    <div class="overflow-hidden h-2 mb-4 text-xs flex rounded bg-blue-200">
+                        <div id="progress-bar" 
+                             class="shadow-none flex flex-col text-center whitespace-nowrap text-white justify-center bg-blue-500 w-0 transition-all duration-300">
+                        </div>
+                    </div>
+                </div>
+            `;
+            form.insertAdjacentHTML('beforeend', progressHTML);
+        }
 
         // Prevenir comportamiento por defecto del drop
         ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
@@ -303,6 +345,14 @@
             formData.append('csrf_token', csrfToken);
             formData.append('client_id', clientId);
             
+            // Reiniciar la barra de progreso
+            const progressContainer = document.getElementById('progress-container');
+            const progressBar = document.getElementById('progress-bar');
+            progressContainer.classList.remove('hidden');
+            progressBar.style.width = '0%';
+            
+            let processedFiles = 0;
+            
             // Procesar cada archivo XML
             for (let file of files) {
                 const reader = new FileReader();
@@ -316,11 +366,14 @@
                         const xmlContent = e.target.result;
                         const ivas = processXmlIvas(xmlContent);
                         
-                        // Agregar los IVAS procesados al FormData
                         formData.append('ivas[]', JSON.stringify(ivas));
                         formData.append('xml_files[]', file);
                         
-                        // Mostrar información de IVAS en la interfaz
+                        // Actualizar progreso
+                        processedFiles++;
+                        updateProgress(processedFiles, files.length);
+                        
+                        // Mostrar información de IVAS
                         const ivasInfo = document.createElement('div');
                         ivasInfo.className = 'mt-4 p-4 bg-gray-50 rounded';
                         ivasInfo.innerHTML = `
@@ -356,7 +409,6 @@
 
             try {
                 submitBtn.disabled = true;
-                progressContainer.classList.remove('hidden');
 
                 const response = await fetch(form.action, {
                     method: 'POST',
@@ -384,11 +436,16 @@
             }
         });
 
-        // Agregar función para mostrar el progreso
+        // Función para actualizar la barra de progreso
         function updateProgress(processed, total) {
-            const progress = (processed / total) * 100;
+            const progressContainer = document.getElementById('progress-container');
             const progressBar = document.getElementById('progress-bar');
-            progressBar.style.width = `${progress}%`;
+            const progressPercentage = document.getElementById('progress-percentage');
+            const percentage = Math.round((processed / total) * 100);
+
+            progressContainer.classList.remove('hidden');
+            progressBar.style.width = `${percentage}%`;
+            progressPercentage.textContent = `${percentage}%`;
         }
 
         // Agregar validación de tamaño de archivo
