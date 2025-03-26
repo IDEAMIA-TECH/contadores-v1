@@ -11,117 +11,117 @@ class ClientXml {
     
     public function create($data) {
         try {
-            $db = Database::getInstance();
-            
             Logger::debug("Iniciando creación de registro XML", [
-                'uuid' => $data['uuid'],
-                'client_id' => $data['client_id']
+                'uuid' => $data['uuid'] ?? 'no-uuid',
+                'client_id' => $data['client_id'] ?? 'no-client'
             ]);
 
-            $sql = "INSERT INTO client_xmls (
-                client_id,
-                xml_path,
-                uuid,
-                serie,
-                folio,
-                fecha,
-                fecha_timbrado,
-                subtotal,
-                total,
-                tipo_comprobante,
-                forma_pago,
-                metodo_pago,
-                moneda,
-                lugar_expedicion,
-                emisor_rfc,
-                emisor_nombre,
-                emisor_regimen_fiscal,
-                receptor_rfc,
-                receptor_nombre,
+            // Verificar si el UUID ya existe para este cliente
+            $stmt = $this->db->prepare("
+                SELECT id FROM client_xml 
+                WHERE uuid = ? AND client_id = ?
+            ");
+            $stmt->execute([$data['uuid'], $data['client_id']]);
+            
+            if ($stmt->fetch()) {
+                Logger::info("XML duplicado, omitiendo", [
+                    'uuid' => $data['uuid'],
+                    'client_id' => $data['client_id']
+                ]);
+                return true; // Consideramos esto como éxito ya que el documento ya existe
+            }
+
+            // Preparar la consulta SQL
+            $sql = "INSERT INTO client_xml (
+                client_id, xml_path, uuid, serie, folio,
+                fecha, fecha_timbrado, subtotal, total,
+                tipo_comprobante, forma_pago, metodo_pago,
+                moneda, lugar_expedicion, emisor_rfc,
+                emisor_nombre, emisor_regimen_fiscal,
+                receptor_rfc, receptor_nombre,
                 receptor_regimen_fiscal,
                 receptor_domicilio_fiscal,
                 receptor_uso_cfdi,
                 total_impuestos_trasladados,
-                impuesto,
-                tasa_o_cuota,
-                tipo_factor,
-                created_at,
-                updated_at
+                impuesto, tasa_o_cuota, tipo_factor,
+                created_at
             ) VALUES (
-                :client_id,
-                :xml_path,
-                :uuid,
-                :serie,
-                :folio,
-                :fecha,
-                :fecha_timbrado,
-                :subtotal,
-                :total,
-                :tipo_comprobante,
-                :forma_pago,
-                :metodo_pago,
-                :moneda,
-                :lugar_expedicion,
-                :emisor_rfc,
-                :emisor_nombre,
-                :emisor_regimen_fiscal,
-                :receptor_rfc,
-                :receptor_nombre,
+                :client_id, :xml_path, :uuid, :serie, :folio,
+                :fecha, :fecha_timbrado, :subtotal, :total,
+                :tipo_comprobante, :forma_pago, :metodo_pago,
+                :moneda, :lugar_expedicion, :emisor_rfc,
+                :emisor_nombre, :emisor_regimen_fiscal,
+                :receptor_rfc, :receptor_nombre,
                 :receptor_regimen_fiscal,
                 :receptor_domicilio_fiscal,
                 :receptor_uso_cfdi,
                 :total_impuestos_trasladados,
-                :impuesto,
-                :tasa_o_cuota,
-                :tipo_factor,
-                NOW(),
+                :impuesto, :tasa_o_cuota, :tipo_factor,
                 NOW()
             )";
 
-            $stmt = $db->prepare($sql);
-            
-            // Asegurar que todos los valores numéricos sean del tipo correcto
-            $stmt->bindValue(':client_id', $data['client_id'], PDO::PARAM_INT);
-            $stmt->bindValue(':xml_path', $data['xml_path'], PDO::PARAM_STR);
-            $stmt->bindValue(':uuid', $data['uuid'], PDO::PARAM_STR);
-            $stmt->bindValue(':serie', $data['serie'], PDO::PARAM_STR);
-            $stmt->bindValue(':folio', $data['folio'], PDO::PARAM_STR);
-            $stmt->bindValue(':fecha', $data['fecha'], PDO::PARAM_STR);
-            $stmt->bindValue(':fecha_timbrado', $data['fecha_timbrado'], PDO::PARAM_STR);
-            $stmt->bindValue(':subtotal', $data['subtotal'], PDO::PARAM_STR);
-            $stmt->bindValue(':total', $data['total'], PDO::PARAM_STR);
-            $stmt->bindValue(':tipo_comprobante', $data['tipo_comprobante'], PDO::PARAM_STR);
-            $stmt->bindValue(':forma_pago', $data['forma_pago'], PDO::PARAM_STR);
-            $stmt->bindValue(':metodo_pago', $data['metodo_pago'], PDO::PARAM_STR);
-            $stmt->bindValue(':moneda', $data['moneda'], PDO::PARAM_STR);
-            $stmt->bindValue(':lugar_expedicion', $data['lugar_expedicion'], PDO::PARAM_STR);
-            $stmt->bindValue(':emisor_rfc', $data['emisor_rfc'], PDO::PARAM_STR);
-            $stmt->bindValue(':emisor_nombre', $data['emisor_nombre'], PDO::PARAM_STR);
-            $stmt->bindValue(':emisor_regimen_fiscal', $data['emisor_regimen_fiscal'], PDO::PARAM_STR);
-            $stmt->bindValue(':receptor_rfc', $data['receptor_rfc'], PDO::PARAM_STR);
-            $stmt->bindValue(':receptor_nombre', $data['receptor_nombre'], PDO::PARAM_STR);
-            $stmt->bindValue(':receptor_regimen_fiscal', $data['receptor_regimen_fiscal'], PDO::PARAM_STR);
-            $stmt->bindValue(':receptor_domicilio_fiscal', $data['receptor_domicilio_fiscal'], PDO::PARAM_STR);
-            $stmt->bindValue(':receptor_uso_cfdi', $data['receptor_uso_cfdi'], PDO::PARAM_STR);
-            $stmt->bindValue(':total_impuestos_trasladados', $data['total_impuestos_trasladados'], PDO::PARAM_STR);
-            $stmt->bindValue(':impuesto', $data['impuesto'], PDO::PARAM_STR);
-            $stmt->bindValue(':tasa_o_cuota', $data['tasa_o_cuota'], PDO::PARAM_STR);
-            $stmt->bindValue(':tipo_factor', $data['tipo_factor'], PDO::PARAM_STR);
-
-            Logger::debug("Ejecutando consulta SQL para insertar XML", [
-                'uuid' => $data['uuid'],
-                'client_id' => $data['client_id']
+            Logger::debug("Preparando consulta SQL para inserción", [
+                'sql' => $sql
             ]);
 
-            $stmt->execute();
-            return $db->lastInsertId();
+            $stmt = $this->db->prepare($sql);
 
-        } catch (PDOException $e) {
-            Logger::error("Error en ClientXml::create: " . $e->getMessage(), [
-                'data' => $data,
-                'error' => $e->getMessage()
+            // Asignar valores a los parámetros
+            $params = [
+                ':client_id' => $data['client_id'],
+                ':xml_path' => $data['xml_path'],
+                ':uuid' => $data['uuid'],
+                ':serie' => $data['serie'] ?? '',
+                ':folio' => $data['folio'] ?? '',
+                ':fecha' => $data['fecha'],
+                ':fecha_timbrado' => $data['fecha_timbrado'],
+                ':subtotal' => $data['subtotal'],
+                ':total' => $data['total'],
+                ':tipo_comprobante' => $data['tipo_comprobante'],
+                ':forma_pago' => $data['forma_pago'] ?? '',
+                ':metodo_pago' => $data['metodo_pago'] ?? '',
+                ':moneda' => $data['moneda'],
+                ':lugar_expedicion' => $data['lugar_expedicion'],
+                ':emisor_rfc' => $data['emisor_rfc'],
+                ':emisor_nombre' => $data['emisor_nombre'],
+                ':emisor_regimen_fiscal' => $data['emisor_regimen_fiscal'],
+                ':receptor_rfc' => $data['receptor_rfc'],
+                ':receptor_nombre' => $data['receptor_nombre'],
+                ':receptor_regimen_fiscal' => $data['receptor_regimen_fiscal'],
+                ':receptor_domicilio_fiscal' => $data['receptor_domicilio_fiscal'],
+                ':receptor_uso_cfdi' => $data['receptor_uso_cfdi'],
+                ':total_impuestos_trasladados' => $data['total_impuestos_trasladados'],
+                ':impuesto' => $data['impuesto'] ?? '',
+                ':tasa_o_cuota' => $data['tasa_o_cuota'] ?? 0,
+                ':tipo_factor' => $data['tipo_factor'] ?? ''
+            ];
+
+            Logger::debug("Ejecutando inserción con parámetros", [
+                'params' => $params
             ]);
-            throw new Exception("Error al guardar los datos del XML en la base de datos");
+
+            $result = $stmt->execute($params);
+
+            if ($result) {
+                Logger::info("XML guardado exitosamente", [
+                    'uuid' => $data['uuid'],
+                    'client_id' => $data['client_id']
+                ]);
+            } else {
+                Logger::error("Error al guardar XML", [
+                    'uuid' => $data['uuid'],
+                    'error' => $stmt->errorInfo()
+                ]);
+            }
+
+            return $result;
+
+        } catch (Exception $e) {
+            Logger::error("Error en create de ClientXml", [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            throw $e;
         }
     }
     

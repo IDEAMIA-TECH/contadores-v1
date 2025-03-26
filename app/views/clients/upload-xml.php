@@ -368,35 +368,49 @@
             formData.append('client_id', clientId);
 
             try {
+                submitBtn.disabled = true;
+                progressContainer.classList.remove('hidden');
+
+                // Procesar y agregar cada archivo
                 for (let file of files) {
                     const xmlContent = await readFileAsync(file);
                     const xmlData = processXmlIvas(xmlContent);
                     
-                    // Agregar el archivo XML
                     formData.append('xml_files[]', file);
-                    // Agregar los datos procesados del XML
-                    formData.append('xml_data[]', JSON.stringify(xmlData));
-                    
                     displayIvasInfo(file.name, xmlData);
                 }
-
-                submitBtn.disabled = true;
-                progressContainer.classList.remove('hidden');
 
                 const response = await fetch(form.action, {
                     method: 'POST',
                     body: formData,
-                    credentials: 'same-origin'
+                    credentials: 'same-origin',
+                    headers: {
+                        'Accept': 'application/json'
+                    }
                 });
 
-                if (!response.ok) {
-                    throw new Error(`HTTP error! status: ${response.status}`);
+                let result;
+                const contentType = response.headers.get('content-type');
+                if (contentType && contentType.includes('application/json')) {
+                    result = await response.json();
+                } else {
+                    // Si no es JSON, leer como texto y mostrar el error
+                    const text = await response.text();
+                    throw new Error(`Respuesta no válida del servidor: ${text}`);
                 }
 
-                const result = await response.json();
-                
+                if (!response.ok) {
+                    throw new Error(result.message || `Error HTTP: ${response.status}`);
+                }
+
                 if (result.success) {
-                    alert(`Se procesaron ${result.files_processed} archivos correctamente.`);
+                    if (result.errors && result.errors.length > 0) {
+                        // Mostrar advertencias si hay errores parciales
+                        alert(`Se procesaron ${result.files_processed} archivos, pero con algunos errores:\n\n${result.errors.join('\n')}`);
+                    } else {
+                        alert(`Se procesaron ${result.files_processed} archivos correctamente.`);
+                    }
+                    
                     if (result.redirect_url) {
                         window.location.href = result.redirect_url;
                     }
@@ -444,12 +458,12 @@
             return true;
         }
 
-        // Función auxiliar para leer archivos como Promise
+        // Función auxiliar para leer archivos
         function readFileAsync(file) {
             return new Promise((resolve, reject) => {
                 const reader = new FileReader();
-                reader.onload = (e) => resolve(e.target.result);
-                reader.onerror = (e) => reject(new Error(`Error leyendo archivo ${file.name}: ${reader.error}`));
+                reader.onload = () => resolve(reader.result);
+                reader.onerror = () => reject(new Error(`Error al leer el archivo ${file.name}`));
                 reader.readAsText(file);
             });
         }
@@ -516,6 +530,18 @@
                     tipoFactor: xmlData.tipo_factor
                 }
             });
+        }
+
+        // Agregar función para mostrar errores de manera más amigable
+        function showError(message, details = '') {
+            const errorDiv = document.createElement('div');
+            errorDiv.className = 'bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-4';
+            errorDiv.innerHTML = `
+                <strong class="font-bold">Error:</strong>
+                <span class="block sm:inline">${message}</span>
+                ${details ? `<div class="mt-2 text-sm">${details}</div>` : ''}
+            `;
+            fileList.insertBefore(errorDiv, fileList.firstChild);
         }
     });
     </script>

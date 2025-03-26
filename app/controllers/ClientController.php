@@ -207,134 +207,65 @@ class ClientController {
     
     public function uploadXml() {
         try {
-            // Verificar autenticación
-            if (!$this->security->isAuthenticated()) {
-                throw new Exception('No autorizado');
+            // Asegurarnos de que no haya salida antes de nuestra respuesta
+            ob_clean();
+            
+            // Establecer el tipo de contenido como JSON
+            header('Content-Type: application/json');
+
+            if (!isset($_FILES['xml_files'])) {
+                throw new Exception("No se recibieron archivos");
             }
 
-            // Si es GET, mostrar la vista
-            if ($_SERVER['REQUEST_METHOD'] === 'GET') {
-                $clientId = isset($_GET['id']) ? $_GET['id'] : null;
-                if (!$clientId) {
-                    throw new Exception('ID de cliente no proporcionado');
-                }
+            Logger::debug("Archivos recibidos", [
+                'files' => $_FILES['xml_files'],
+                'post_data' => $_POST
+            ]);
 
-                $client = $this->client->getClientById($clientId);
-                if (!$client) {
-                    throw new Exception('Cliente no encontrado');
-                }
+            $filesProcessed = 0;
+            $errors = [];
 
-                // Generar nuevo token CSRF si no existe
-                if (!isset($_SESSION['csrf_token'])) {
-                    $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
-                }
-
-                include APP_PATH . '/views/clients/upload-xml.php';
-                return;
-            }
-
-            // Si es POST, procesar la carga de archivos
-            if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-                // Debug de tokens
-                $receivedToken = isset($_POST['csrf_token']) ? $_POST['csrf_token'] : 'no token';
-                $sessionToken = isset($_SESSION['csrf_token']) ? $_SESSION['csrf_token'] : 'no token en sesión';
-                error_log("Token recibido: " . $receivedToken);
-                error_log("Token en sesión: " . $sessionToken);
-
-                // Validar token CSRF
-                if (!isset($_POST['csrf_token'])) {
-                    throw new Exception('Token CSRF no proporcionado');
-                }
-
-                if (!$this->security->validateCsrfToken($_POST['csrf_token'])) {
-                    error_log("Tokens no coinciden - Recibido: {$_POST['csrf_token']} vs Sesión: {$_SESSION['csrf_token']}");
-                    throw new Exception('Token de seguridad inválido');
-                }
-
-                // Aumentar límites de PHP
-                ini_set('max_execution_time', '300');
-                ini_set('max_input_time', '300');
-                ini_set('memory_limit', '512M');
-                ini_set('post_max_size', '500M');
-                ini_set('upload_max_filesize', '500M');
-                set_time_limit(300);
-
-                // Validar client_id
-                if (empty($_POST['client_id'])) {
-                    throw new Exception('ID de cliente no proporcionado');
-                }
-
-                // Validar archivos
-                if (empty($_FILES['xml_files'])) {
-                    throw new Exception('No se recibieron archivos');
-                }
-
-                $clientId = $_POST['client_id'];
-                $filesProcessed = 0;
-                $errors = [];
-                
-                // Procesar archivos en lotes para evitar sobrecarga de memoria
-                $batchSize = 50; // Procesar 50 archivos a la vez
-                $totalFiles = count($_FILES['xml_files']['name']);
-                
-                for ($i = 0; $i < $totalFiles; $i += $batchSize) {
-                    $batch = array_slice($_FILES['xml_files']['name'], $i, $batchSize);
-                    $batchTmp = array_slice($_FILES['xml_files']['tmp_name'], $i, $batchSize);
-                    $batchErrors = array_slice($_FILES['xml_files']['error'], $i, $batchSize);
+            foreach ($_FILES['xml_files']['tmp_name'] as $index => $tmpName) {
+                try {
+                    $fileName = $_FILES['xml_files']['name'][$index];
                     
-                    foreach ($batch as $index => $fileName) {
-                        if ($batchErrors[$index] === UPLOAD_ERR_OK) {
-                            try {
-                                $xmlContent = file_get_contents($batchTmp[$index]);
-                                
-                                // Procesar el XML
-                                $this->processXmlFile($xmlContent, $clientId, $fileName);
-                                $filesProcessed++;
-                                
-                                // Liberar memoria
-                                unset($xmlContent);
-                            } catch (Exception $e) {
-                                $errors[] = "Error en archivo {$fileName}: " . $e->getMessage();
-                            }
-                        } else {
-                            $errors[] = "Error al subir {$fileName}: " . $this->getUploadErrorMessage($batchErrors[$index]);
-                        }
+                    // Leer el contenido del archivo
+                    $xmlContent = file_get_contents($tmpName);
+                    
+                    // Procesar el XML
+                    $result = $this->processXmlFile($xmlContent, $_POST['client_id'], $fileName);
+                    
+                    if ($result) {
+                        $filesProcessed++;
                     }
-                    
-                    // Liberar memoria después de cada lote
-                    gc_collect_cycles();
+                } catch (Exception $e) {
+                    Logger::error("Error procesando archivo: " . $fileName, [
+                        'error' => $e->getMessage()
+                    ]);
+                    $errors[] = "Error en archivo $fileName: " . $e->getMessage();
                 }
+            }
 
-                // Preparar respuesta
-                $response = [
+            if ($filesProcessed > 0) {
+                echo json_encode([
                     'success' => true,
                     'files_processed' => $filesProcessed,
-                    'redirect_url' => BASE_URL . '/clients/view/' . $clientId
-                ];
-
-                if (!empty($errors)) {
-                    $response['errors'] = $errors;
-                }
-
-                header('Content-Type: application/json');
-                echo json_encode($response);
-                exit;
-            }
-
-        } catch (Exception $e) {
-            error_log("Error en uploadXml: " . $e->getMessage());
-            if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-                header('Content-Type: application/json');
-                echo json_encode([
-                    'success' => false,
-                    'message' => $e->getMessage()
+                    'errors' => $errors,
+                    'redirect_url' => BASE_URL . '/clients/view/' . $_POST['client_id']
                 ]);
             } else {
-                $_SESSION['error'] = $e->getMessage();
-                header('Location: ' . BASE_URL . '/clients');
+                throw new Exception("No se pudo procesar ningún archivo");
             }
-            exit;
+            
+        } catch (Exception $e) {
+            Logger::error("Error en uploadXml: " . $e->getMessage());
+            echo json_encode([
+                'success' => false,
+                'message' => $e->getMessage(),
+                'errors' => isset($errors) ? $errors : []
+            ]);
         }
+        exit;
     }
 
     private function getUploadErrorMessage($errorCode) {
