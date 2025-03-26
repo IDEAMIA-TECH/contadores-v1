@@ -352,63 +352,58 @@
             progressBar.style.width = '0%';
             
             let processedFiles = 0;
+            let processedIvas = [];
             
-            // Procesar cada archivo XML
+            // Primero procesar todos los archivos
             for (let file of files) {
-                const reader = new FileReader();
-                reader.onload = async function(e) {
-                    try {
-                        logXmlData(`Procesando archivo: ${file.name}`, {
-                            tamaño: file.size,
-                            tipo: file.type
-                        });
-
-                        const xmlContent = e.target.result;
-                        const ivas = processXmlIvas(xmlContent);
-                        
-                        formData.append('ivas[]', JSON.stringify(ivas));
-                        formData.append('xml_files[]', file);
-                        
-                        // Actualizar progreso
-                        processedFiles++;
-                        updateProgress(processedFiles, files.length);
-                        
-                        // Mostrar información de IVAS
-                        const ivasInfo = document.createElement('div');
-                        ivasInfo.className = 'mt-4 p-4 bg-gray-50 rounded';
-                        ivasInfo.innerHTML = `
-                            <h3 class="font-bold text-gray-700">IVAS en ${file.name}:</h3>
-                            <ul class="mt-2">
-                                ${Object.values(ivas).map(iva => `
-                                    <li class="text-sm text-gray-600">
-                                        Impuesto: ${iva.impuesto} - 
-                                        Tasa: ${(iva.tasaOCuota * 100).toFixed(2)}% - 
-                                        Base: $${iva.base.toFixed(2)} - 
-                                        Importe: $${iva.importe.toFixed(2)}
-                                    </li>
-                                `).join('')}
-                            </ul>
-                        `;
-                        fileList.appendChild(ivasInfo);
-                        
-                        logXmlData(`Archivo procesado exitosamente: ${file.name}`, {
-                            ivasEncontrados: Object.keys(ivas).length,
-                            resumenIvas: ivas
-                        });
-
-                    } catch (error) {
-                        logXmlData(`Error procesando archivo: ${file.name}`, {
-                            error: error.message,
-                            stack: error.stack
-                        });
-                        alert(`Error procesando el archivo ${file.name}: ${error.message}`);
-                    }
-                };
-                reader.readAsText(file);
+                try {
+                    const xmlContent = await readFileAsync(file);
+                    const ivas = processXmlIvas(xmlContent);
+                    
+                    // Guardar los IVAS procesados
+                    processedIvas.push({
+                        fileName: file.name,
+                        ivas: ivas
+                    });
+                    
+                    // Agregar el archivo al FormData
+                    formData.append('xml_files[]', file);
+                    
+                    // Actualizar progreso
+                    processedFiles++;
+                    updateProgress(processedFiles, files.length);
+                    
+                    // Mostrar información de IVAS
+                    displayIvasInfo(file.name, ivas);
+                    
+                    logXmlData(`Archivo procesado exitosamente: ${file.name}`, {
+                        ivasEncontrados: Object.keys(ivas).length,
+                        resumenIvas: ivas
+                    });
+                } catch (error) {
+                    logXmlData(`Error procesando archivo: ${file.name}`, {
+                        error: error.message,
+                        stack: error.stack
+                    });
+                    alert(`Error procesando el archivo ${file.name}: ${error.message}`);
+                }
             }
+            
+            // Agregar todos los IVAS procesados al FormData
+            formData.append('ivas', JSON.stringify(processedIvas));
 
             try {
                 submitBtn.disabled = true;
+                
+                logXmlData('Enviando datos al servidor', {
+                    numeroArchivos: files.length,
+                    datosFormulario: {
+                        csrf_token: csrfToken,
+                        client_id: clientId,
+                        archivos: files.map(f => ({nombre: f.name, tamaño: f.size})),
+                        ivasProcesados: processedIvas
+                    }
+                });
 
                 const response = await fetch(form.action, {
                     method: 'POST',
@@ -465,6 +460,36 @@
             }
             
             return true;
+        }
+
+        // Función auxiliar para leer archivos como Promise
+        function readFileAsync(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = (e) => resolve(e.target.result);
+                reader.onerror = (e) => reject(new Error(`Error leyendo archivo ${file.name}: ${reader.error}`));
+                reader.readAsText(file);
+            });
+        }
+
+        // Función auxiliar para mostrar información de IVAS
+        function displayIvasInfo(fileName, ivas) {
+            const ivasInfo = document.createElement('div');
+            ivasInfo.className = 'mt-4 p-4 bg-gray-50 rounded';
+            ivasInfo.innerHTML = `
+                <h3 class="font-bold text-gray-700">IVAS en ${fileName}:</h3>
+                <ul class="mt-2">
+                    ${Object.values(ivas).map(iva => `
+                        <li class="text-sm text-gray-600">
+                            Impuesto: ${iva.impuesto} - 
+                            Tasa: ${(iva.tasaOCuota * 100).toFixed(2)}% - 
+                            Base: $${iva.base.toFixed(2)} - 
+                            Importe: $${iva.importe.toFixed(2)}
+                        </li>
+                    `).join('')}
+                </ul>
+            `;
+            fileList.appendChild(ivasInfo);
         }
     });
     </script>
