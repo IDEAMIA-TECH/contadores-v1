@@ -234,7 +234,7 @@
                 '\n', message, '\n', data);
         }
 
-        // Modificar la función processXmlIvas para incluir logs
+        // Modificar la función processXmlIvas para manejar el desglose de IVAS
         function processXmlIvas(xmlString) {
             try {
                 logXmlData('Procesando nuevo XML', xmlString.substring(0, 150) + '...');
@@ -242,40 +242,50 @@
                 const parser = new DOMParser();
                 const xmlDoc = parser.parseFromString(xmlString, "text/xml");
                 
-                // Log datos generales del comprobante
+                // Extraer datos del comprobante
                 const comprobante = xmlDoc.getElementsByTagName('cfdi:Comprobante')[0];
-                logXmlData('Datos del Comprobante', {
+                const datosComprobante = {
+                    serie: comprobante.getAttribute('Serie') || '',
+                    folio: comprobante.getAttribute('Folio') || '',
                     fecha: comprobante.getAttribute('Fecha'),
-                    total: comprobante.getAttribute('Total'),
-                    subtotal: comprobante.getAttribute('SubTotal'),
+                    total: parseFloat(comprobante.getAttribute('Total')),
+                    subtotal: parseFloat(comprobante.getAttribute('SubTotal')),
                     tipoComprobante: comprobante.getAttribute('TipoDeComprobante')
-                });
+                };
 
-                // Log datos del emisor y receptor
+                // Extraer datos del emisor
                 const emisor = xmlDoc.getElementsByTagName('cfdi:Emisor')[0];
+                const datosEmisor = {
+                    rfc: emisor.getAttribute('Rfc'),
+                    nombre: emisor.getAttribute('Nombre'),
+                    regimenFiscal: emisor.getAttribute('RegimenFiscal')
+                };
+
+                // Extraer datos del receptor
                 const receptor = xmlDoc.getElementsByTagName('cfdi:Receptor')[0];
-                logXmlData('Datos de Emisor/Receptor', {
-                    emisorRfc: emisor.getAttribute('Rfc'),
-                    emisorNombre: emisor.getAttribute('Nombre'),
-                    receptorRfc: receptor.getAttribute('Rfc'),
-                    receptorNombre: receptor.getAttribute('Nombre')
-                });
+                const datosReceptor = {
+                    rfc: receptor.getAttribute('Rfc'),
+                    nombre: receptor.getAttribute('Nombre'),
+                    regimenFiscal: receptor.getAttribute('RegimenFiscalReceptor'),
+                    domicilioFiscal: receptor.getAttribute('DomicilioFiscalReceptor'),
+                    usoCFDI: receptor.getAttribute('UsoCFDI')
+                };
 
-                const ivas = {};
+                // Procesar impuestos
+                const impuestos = {
+                    iva_16_base: 0,
+                    iva_16_impuesto: 0,
+                    iva_8_base: 0,
+                    iva_8_impuesto: 0,
+                    iva_0_base: 0,
+                    iva_0_impuesto: 0,
+                    desglose: []
+                };
+
+                let impuestosTotal = 0;
+
                 const conceptos = xmlDoc.getElementsByTagName('cfdi:Concepto');
-                
-                // Log número de conceptos encontrados
-                logXmlData('Número de conceptos encontrados', conceptos.length);
-
                 Array.from(conceptos).forEach((concepto, index) => {
-                    const conceptoData = {
-                        descripcion: concepto.getAttribute('Descripcion'),
-                        importe: concepto.getAttribute('Importe'),
-                        valorUnitario: concepto.getAttribute('ValorUnitario')
-                    };
-                    
-                    logXmlData(`Procesando concepto ${index + 1}`, conceptoData);
-
                     const traslados = concepto.getElementsByTagName('cfdi:Traslado');
                     Array.from(traslados).forEach(traslado => {
                         const impuesto = traslado.getAttribute('Impuesto');
@@ -284,37 +294,53 @@
                         const base = parseFloat(traslado.getAttribute('Base'));
                         const importe = parseFloat(traslado.getAttribute('Importe'));
                         
-                        const tasaKey = `${impuesto}_${tasaOCuota}`;
-                        
-                        // Log datos del traslado
-                        logXmlData(`Traslado encontrado en concepto ${index + 1}`, {
-                            impuesto,
-                            tipoFactor,
-                            tasaOCuota,
-                            base,
-                            importe,
-                            tasaKey
-                        });
+                        impuestosTotal += importe;
 
-                        if (!ivas[tasaKey]) {
-                            ivas[tasaKey] = {
-                                impuesto,
-                                tipoFactor,
-                                tasaOCuota,
-                                base: 0,
-                                importe: 0
-                            };
+                        // Acumular en el desglose correspondiente
+                        if (impuesto === '002') { // IVA
+                            if (tasaOCuota === 0.16) {
+                                impuestos.iva_16_base += base;
+                                impuestos.iva_16_impuesto += importe;
+                            } else if (tasaOCuota === 0.08) {
+                                impuestos.iva_8_base += base;
+                                impuestos.iva_8_impuesto += importe;
+                            } else if (tasaOCuota === 0) {
+                                impuestos.iva_0_base += base;
+                                impuestos.iva_0_impuesto += importe;
+                            }
                         }
-                        
-                        ivas[tasaKey].base += base;
-                        ivas[tasaKey].importe += importe;
+
+                        // Guardar el desglose detallado
+                        impuestos.desglose.push({
+                            concepto_index: index,
+                            impuesto,
+                            tipo_factor: tipoFactor,
+                            tasa_o_cuota: tasaOCuota,
+                            base,
+                            importe
+                        });
                     });
                 });
 
-                // Log resumen final de IVAS
-                logXmlData('Resumen final de IVAS', ivas);
+                // Extraer UUID del TimbreFiscalDigital
+                const tfd = xmlDoc.getElementsByTagName('tfd:TimbreFiscalDigital')[0];
+                const uuid = tfd ? tfd.getAttribute('UUID') : '';
+
+                // Crear objeto con todos los datos
+                const xmlData = {
+                    comprobante: datosComprobante,
+                    emisor: datosEmisor,
+                    receptor: datosReceptor,
+                    impuestos: {
+                        total: impuestosTotal,
+                        desglose: impuestos
+                    },
+                    uuid: uuid
+                };
+
+                logXmlData('Datos extraídos del XML', xmlData);
                 
-                return ivas;
+                return xmlData;
             } catch (error) {
                 logXmlData('ERROR procesando XML', {
                     message: error.message,
@@ -390,7 +416,17 @@
             }
             
             // Agregar todos los IVAS procesados al FormData
-            formData.append('ivas', JSON.stringify(processedIvas));
+            formData.append('xml_data', JSON.stringify({
+                xmlFiles: processedIvas.map(item => ({
+                    fileName: item.fileName,
+                    data: item.ivas
+                }))
+            }));
+
+            // Asegurarnos de que los archivos XML se envíen correctamente
+            files.forEach(file => {
+                formData.append('xml_files[]', file);
+            });
 
             try {
                 submitBtn.disabled = true;
