@@ -384,12 +384,12 @@
             for (let file of files) {
                 try {
                     const xmlContent = await readFileAsync(file);
-                    const ivas = processXmlIvas(xmlContent);
+                    const xmlData = processXmlIvas(xmlContent);
                     
-                    // Guardar los IVAS procesados
+                    // Guardar los datos procesados
                     processedIvas.push({
                         fileName: file.name,
-                        ivas: ivas
+                        data: xmlData
                     });
                     
                     // Agregar el archivo al FormData
@@ -399,12 +399,12 @@
                     processedFiles++;
                     updateProgress(processedFiles, files.length);
                     
-                    // Mostrar información de IVAS
-                    displayIvasInfo(file.name, ivas);
+                    // Mostrar información del XML
+                    displayIvasInfo(file.name, xmlData);
                     
                     logXmlData(`Archivo procesado exitosamente: ${file.name}`, {
-                        ivasEncontrados: Object.keys(ivas).length,
-                        resumenIvas: ivas
+                        uuid: xmlData.uuid,
+                        impuestos: xmlData.impuestos
                     });
                 } catch (error) {
                     logXmlData(`Error procesando archivo: ${file.name}`, {
@@ -419,7 +419,7 @@
             formData.append('xml_data', JSON.stringify({
                 xmlFiles: processedIvas.map(item => ({
                     fileName: item.fileName,
-                    data: item.ivas
+                    data: item.data
                 }))
             }));
 
@@ -508,23 +508,89 @@
             });
         }
 
-        // Función auxiliar para mostrar información de IVAS
-        function displayIvasInfo(fileName, ivas) {
+        // Modificar la función displayIvasInfo para manejar correctamente la estructura de datos
+        function displayIvasInfo(fileName, xmlData) {
             const ivasInfo = document.createElement('div');
             ivasInfo.className = 'mt-4 p-4 bg-gray-50 rounded';
-            ivasInfo.innerHTML = `
-                <h3 class="font-bold text-gray-700">IVAS en ${fileName}:</h3>
-                <ul class="mt-2">
-                    ${Object.values(ivas).map(iva => `
-                        <li class="text-sm text-gray-600">
-                            Impuesto: ${iva.impuesto} - 
-                            Tasa: ${(iva.tasaOCuota * 100).toFixed(2)}% - 
-                            Base: $${iva.base.toFixed(2)} - 
-                            Importe: $${iva.importe.toFixed(2)}
-                        </li>
-                    `).join('')}
-                </ul>
+            
+            // Extraer el desglose de impuestos
+            const impuestos = xmlData.impuestos.desglose;
+            
+            let ivasHtml = `
+                <h3 class="font-bold text-gray-700">Información del XML: ${fileName}</h3>
+                <div class="mt-2 space-y-2">
+                    <div class="text-sm text-gray-600">
+                        <strong>UUID:</strong> ${xmlData.uuid}<br>
+                        <strong>Emisor:</strong> ${xmlData.emisor.nombre} (${xmlData.emisor.rfc})<br>
+                        <strong>Receptor:</strong> ${xmlData.receptor.nombre} (${xmlData.receptor.rfc})<br>
+                        <strong>Total:</strong> $${xmlData.comprobante.total.toFixed(2)}
+                    </div>
+                    
+                    <div class="mt-3">
+                        <h4 class="font-semibold text-gray-700">Desglose de IVAS:</h4>
+                        <ul class="mt-1 space-y-1">
             `;
+
+            // Agregar IVA 16% si existe
+            if (impuestos.iva_16_base > 0) {
+                ivasHtml += `
+                    <li class="text-sm text-gray-600">
+                        <strong>IVA 16%:</strong>
+                        Base: $${impuestos.iva_16_base.toFixed(2)} - 
+                        Impuesto: $${impuestos.iva_16_impuesto.toFixed(2)}
+                    </li>
+                `;
+            }
+
+            // Agregar IVA 8% si existe
+            if (impuestos.iva_8_base > 0) {
+                ivasHtml += `
+                    <li class="text-sm text-gray-600">
+                        <strong>IVA 8%:</strong>
+                        Base: $${impuestos.iva_8_base.toFixed(2)} - 
+                        Impuesto: $${impuestos.iva_8_impuesto.toFixed(2)}
+                    </li>
+                `;
+            }
+
+            // Agregar IVA 0% si existe
+            if (impuestos.iva_0_base > 0) {
+                ivasHtml += `
+                    <li class="text-sm text-gray-600">
+                        <strong>IVA 0%:</strong>
+                        Base: $${impuestos.iva_0_base.toFixed(2)} - 
+                        Impuesto: $${impuestos.iva_0_impuesto.toFixed(2)}
+                    </li>
+                `;
+            }
+
+            // Agregar desglose detallado
+            if (impuestos.desglose && impuestos.desglose.length > 0) {
+                ivasHtml += `
+                    <li class="mt-2">
+                        <strong class="text-sm text-gray-700">Desglose por concepto:</strong>
+                        <ul class="ml-4 mt-1">
+                            ${impuestos.desglose.map(item => `
+                                <li class="text-xs text-gray-600">
+                                    Concepto ${item.concepto_index + 1}: 
+                                    ${item.impuesto === '002' ? 'IVA' : 'Otro'} 
+                                    ${(item.tasa_o_cuota * 100).toFixed(2)}% - 
+                                    Base: $${item.base.toFixed(2)} - 
+                                    Impuesto: $${item.importe.toFixed(2)}
+                                </li>
+                            `).join('')}
+                        </ul>
+                    </li>
+                `;
+            }
+
+            ivasHtml += `
+                        </ul>
+                    </div>
+                </div>
+            `;
+
+            ivasInfo.innerHTML = ivasHtml;
             fileList.appendChild(ivasInfo);
         }
     });
