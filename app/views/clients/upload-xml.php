@@ -298,6 +298,12 @@
                 // Obtener UUID
                 const uuid = tfd ? tfd.getAttribute('UUID') : '';
 
+                // Asegurarnos de que los valores numéricos sean números válidos
+                const safeParseFloat = (value) => {
+                    const parsed = parseFloat(value);
+                    return isNaN(parsed) ? 0 : parsed;
+                };
+
                 // Crear objeto con la estructura exacta que espera el servidor
                 const xmlData = {
                     client_id: document.getElementById('client_id').value,
@@ -307,8 +313,8 @@
                     folio: datosComprobante.folio,
                     fecha: datosComprobante.fecha,
                     fecha_timbrado: datosComprobante.fecha_timbrado,
-                    subtotal: datosComprobante.subtotal,
-                    total: datosComprobante.total,
+                    subtotal: safeParseFloat(datosComprobante.subtotal),
+                    total: safeParseFloat(datosComprobante.total),
                     tipo_comprobante: datosComprobante.tipo_comprobante,
                     forma_pago: datosComprobante.forma_pago,
                     metodo_pago: datosComprobante.metodo_pago,
@@ -322,9 +328,9 @@
                     receptor_regimen_fiscal: datosReceptor.regimen_fiscal,
                     receptor_domicilio_fiscal: datosReceptor.domicilio_fiscal,
                     receptor_uso_cfdi: datosReceptor.uso_cfdi,
-                    total_impuestos_trasladados: totalImpuestosTrasladados,
+                    total_impuestos_trasladados: safeParseFloat(totalImpuestosTrasladados),
                     impuesto: impuestoGeneral,
-                    tasa_o_cuota: tasaGeneral,
+                    tasa_o_cuota: safeParseFloat(tasaGeneral),
                     tipo_factor: tipoFactorGeneral
                 };
 
@@ -448,78 +454,38 @@
             });
         }
 
-        // Modificar la función displayIvasInfo para manejar correctamente la estructura de datos
+        // Modificar la función displayIvasInfo para usar la estructura correcta de datos
         function displayIvasInfo(fileName, xmlData) {
             const ivasInfo = document.createElement('div');
             ivasInfo.className = 'mt-4 p-4 bg-gray-50 rounded';
-            
-            // Extraer el desglose de impuestos
-            const impuestos = xmlData.impuestos.desglose;
             
             let ivasHtml = `
                 <h3 class="font-bold text-gray-700">Información del XML: ${fileName}</h3>
                 <div class="mt-2 space-y-2">
                     <div class="text-sm text-gray-600">
                         <strong>UUID:</strong> ${xmlData.uuid}<br>
-                        <strong>Emisor:</strong> ${xmlData.emisor.nombre} (${xmlData.emisor.rfc})<br>
-                        <strong>Receptor:</strong> ${xmlData.receptor.nombre} (${xmlData.receptor.rfc})<br>
-                        <strong>Total:</strong> $${xmlData.comprobante.total.toFixed(2)}
+                        <strong>Serie-Folio:</strong> ${xmlData.serie}-${xmlData.folio}<br>
+                        <strong>Emisor:</strong> ${xmlData.emisor_nombre} (${xmlData.emisor_rfc})<br>
+                        <strong>Receptor:</strong> ${xmlData.receptor_nombre} (${xmlData.receptor_rfc})<br>
+                        <strong>Fecha:</strong> ${xmlData.fecha}<br>
+                        <strong>Total:</strong> $${xmlData.total.toFixed(2)}
                     </div>
                     
                     <div class="mt-3">
-                        <h4 class="font-semibold text-gray-700">Desglose de IVAS:</h4>
+                        <h4 class="font-semibold text-gray-700">Información de Impuestos:</h4>
                         <ul class="mt-1 space-y-1">
+                            <li class="text-sm text-gray-600">
+                                <strong>Total Impuestos Trasladados:</strong> $${xmlData.total_impuestos_trasladados.toFixed(2)}
+                            </li>
             `;
 
-            // Agregar IVA 16% si existe
-            if (impuestos.iva_16_base > 0) {
+            // Agregar información del impuesto si existe
+            if (xmlData.impuesto) {
                 ivasHtml += `
                     <li class="text-sm text-gray-600">
-                        <strong>IVA 16%:</strong>
-                        Base: $${impuestos.iva_16_base.toFixed(2)} - 
-                        Impuesto: $${impuestos.iva_16_impuesto.toFixed(2)}
-                    </li>
-                `;
-            }
-
-            // Agregar IVA 8% si existe
-            if (impuestos.iva_8_base > 0) {
-                ivasHtml += `
-                    <li class="text-sm text-gray-600">
-                        <strong>IVA 8%:</strong>
-                        Base: $${impuestos.iva_8_base.toFixed(2)} - 
-                        Impuesto: $${impuestos.iva_8_impuesto.toFixed(2)}
-                    </li>
-                `;
-            }
-
-            // Agregar IVA 0% si existe
-            if (impuestos.iva_0_base > 0) {
-                ivasHtml += `
-                    <li class="text-sm text-gray-600">
-                        <strong>IVA 0%:</strong>
-                        Base: $${impuestos.iva_0_base.toFixed(2)} - 
-                        Impuesto: $${impuestos.iva_0_impuesto.toFixed(2)}
-                    </li>
-                `;
-            }
-
-            // Agregar desglose detallado
-            if (impuestos.desglose && impuestos.desglose.length > 0) {
-                ivasHtml += `
-                    <li class="mt-2">
-                        <strong class="text-sm text-gray-700">Desglose por concepto:</strong>
-                        <ul class="ml-4 mt-1">
-                            ${impuestos.desglose.map(item => `
-                                <li class="text-xs text-gray-600">
-                                    Concepto ${item.concepto_index + 1}: 
-                                    ${item.impuesto === '002' ? 'IVA' : 'Otro'} 
-                                    ${(item.tasa_o_cuota * 100).toFixed(2)}% - 
-                                    Base: $${item.base.toFixed(2)} - 
-                                    Impuesto: $${item.importe.toFixed(2)}
-                                </li>
-                            `).join('')}
-                        </ul>
+                        <strong>Impuesto:</strong> ${xmlData.impuesto === '002' ? 'IVA' : xmlData.impuesto}
+                        <strong>Tasa:</strong> ${(xmlData.tasa_o_cuota * 100).toFixed(2)}%
+                        <strong>Tipo Factor:</strong> ${xmlData.tipo_factor}
                     </li>
                 `;
             }
@@ -527,11 +493,29 @@
             ivasHtml += `
                         </ul>
                     </div>
+                    <div class="mt-2 text-xs text-gray-500">
+                        <strong>Método de Pago:</strong> ${xmlData.metodo_pago || 'No especificado'}<br>
+                        <strong>Forma de Pago:</strong> ${xmlData.forma_pago || 'No especificada'}<br>
+                        <strong>Moneda:</strong> ${xmlData.moneda}<br>
+                        <strong>Tipo de Comprobante:</strong> ${xmlData.tipo_comprobante}
+                    </div>
                 </div>
             `;
 
             ivasInfo.innerHTML = ivasHtml;
             fileList.appendChild(ivasInfo);
+
+            // Log para debugging
+            logXmlData(`Mostrando información del XML: ${fileName}`, {
+                uuid: xmlData.uuid,
+                total: xmlData.total,
+                impuestos: {
+                    total: xmlData.total_impuestos_trasladados,
+                    impuesto: xmlData.impuesto,
+                    tasa: xmlData.tasa_o_cuota,
+                    tipoFactor: xmlData.tipo_factor
+                }
+            });
         }
     });
     </script>
