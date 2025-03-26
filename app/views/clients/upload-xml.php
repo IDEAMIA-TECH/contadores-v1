@@ -148,41 +148,6 @@
                 return;
             }
 
-            // Procesar cada archivo XML
-            xmlFiles.forEach(file => {
-                const reader = new FileReader();
-                reader.onload = function(e) {
-                    const xmlContent = e.target.result;
-                    const parser = new DOMParser();
-                    const xmlDoc = parser.parseFromString(xmlContent, "text/xml");
-                    
-                    // Obtener la sección de impuestos
-                    const impuestosNode = xmlDoc.querySelector('cfdi\\:Impuestos');
-                    if (impuestosNode) {
-                        const impuestosData = {
-                            totalImpuestosTrasladados: impuestosNode.getAttribute('TotalImpuestosTrasladados'),
-                            traslados: []
-                        };
-
-                        // Obtener todos los traslados
-                        const trasladosNodes = xmlDoc.querySelectorAll('cfdi\\:Traslado');
-                        trasladosNodes.forEach(traslado => {
-                            impuestosData.traslados.push({
-                                impuesto: traslado.getAttribute('Impuesto'),
-                                tipoFactor: traslado.getAttribute('TipoFactor'),
-                                tasaOCuota: traslado.getAttribute('TasaOCuota'),
-                                importe: traslado.getAttribute('Importe'),
-                                base: traslado.getAttribute('Base')
-                            });
-                        });
-
-                        // Mostrar en consola para debugging
-                        console.log('Datos de impuestos del archivo ' + file.name + ':', impuestosData);
-                    }
-                };
-                reader.readAsText(file);
-            });
-
             // Agregar nuevos archivos
             files = [...files, ...xmlFiles];
             updateFileList();
@@ -221,7 +186,46 @@
             }
         });
 
-        // Manejar envío del formulario
+        // Agregar función para procesar los IVAS del XML
+        function processXmlIvas($xmlString) {
+            $xml = new SimpleXMLElement($xmlString);
+            $ns = $xml->getNamespaces(true);
+            $xml->registerXPathNamespace('cfdi', 'http://www.sat.gob.mx/cfd/4');
+            
+            $ivas = [];
+            
+            // Procesar impuestos por concepto
+            $conceptos = $xml->xpath('//cfdi:Concepto');
+            foreach ($conceptos as $concepto) {
+                $traslados = $concepto->xpath('.//cfdi:Traslado');
+                foreach ($traslados as $traslado) {
+                    $impuesto = (string)$traslado['Impuesto'];
+                    $tipoFactor = (string)$traslado['TipoFactor'];
+                    $tasaOCuota = (float)$traslado['TasaOCuota'];
+                    $base = (float)$traslado['Base'];
+                    $importe = (float)$traslado['Importe'];
+                    
+                    $tasaKey = "{$impuesto}_{$tasaOCuota}";
+                    
+                    if (!isset($ivas[$tasaKey])) {
+                        $ivas[$tasaKey] = [
+                            'impuesto' => $impuesto,
+                            'tipoFactor' => $tipoFactor,
+                            'tasaOCuota' => $tasaOCuota,
+                            'base' => 0,
+                            'importe' => 0
+                        ];
+                    }
+                    
+                    $ivas[$tasaKey]['base'] += $base;
+                    $ivas[$tasaKey]['importe'] += $importe;
+                }
+            }
+            
+            return $ivas;
+        }
+
+        // Modificar el manejador del formulario para procesar los IVAS
         form.addEventListener('submit', async function(e) {
             e.preventDefault();
             
@@ -231,23 +235,49 @@
             }
 
             const formData = new FormData();
-            
-            // Obtener el token CSRF y client_id
             const csrfToken = document.getElementById('csrf_token').value;
             const clientId = document.getElementById('client_id').value;
             
-            // Agregar los datos al FormData
             formData.append('csrf_token', csrfToken);
             formData.append('client_id', clientId);
             
-            // Agregar los archivos
-            files.forEach(file => {
-                formData.append('xml_files[]', file);
-            });
-
-            const submitBtn = document.getElementById('submit-btn');
-            const progressContainer = document.getElementById('progress-container');
-            const progressBar = document.getElementById('progress-bar');
+            // Procesar cada archivo XML
+            for (let file of files) {
+                const reader = new FileReader();
+                reader.onload = async function(e) {
+                    try {
+                        const xmlContent = e.target.result;
+                        const ivas = processXmlIvas(xmlContent);
+                        
+                        // Agregar los IVAS procesados al FormData
+                        formData.append('ivas[]', JSON.stringify(ivas));
+                        formData.append('xml_files[]', file);
+                        
+                        // Mostrar información de IVAS en la interfaz
+                        const ivasInfo = document.createElement('div');
+                        ivasInfo.className = 'mt-4 p-4 bg-gray-50 rounded';
+                        ivasInfo.innerHTML = `
+                            <h3 class="font-bold text-gray-700">IVAS en ${file.name}:</h3>
+                            <ul class="mt-2">
+                                ${Object.values(ivas).map(iva => `
+                                    <li class="text-sm text-gray-600">
+                                        Impuesto: ${iva.impuesto} - 
+                                        Tasa: ${(iva.tasaOCuota * 100).toFixed(2)}% - 
+                                        Base: $${iva.base.toFixed(2)} - 
+                                        Importe: $${iva.importe.toFixed(2)}
+                                    </li>
+                                `).join('')}
+                            </ul>
+                        `;
+                        fileList.appendChild(ivasInfo);
+                        
+                    } catch (error) {
+                        console.error('Error procesando XML:', error);
+                        alert(`Error procesando el archivo ${file.name}: ${error.message}`);
+                    }
+                };
+                reader.readAsText(file);
+            }
 
             try {
                 submitBtn.disabled = true;
@@ -303,23 +333,6 @@
             }
             
             return true;
-        }
-
-        // Agregar función para formatear los datos de impuestos
-        function formatImpuestosData(impuestosData) {
-            if (!impuestosData.traslados.length) return 'No hay impuestos';
-            
-            return `
-                Total Impuestos Trasladados: ${impuestosData.totalImpuestosTrasladados}
-                Desglose de Traslados:
-                ${impuestosData.traslados.map(traslado => `
-                    - Impuesto: ${traslado.impuesto}
-                    - Tipo Factor: ${traslado.tipoFactor}
-                    - Tasa o Cuota: ${traslado.tasaOCuota}
-                    - Importe: ${traslado.importe}
-                    - Base: ${traslado.base}
-                `).join('\n')}
-            `;
         }
     });
     </script>
