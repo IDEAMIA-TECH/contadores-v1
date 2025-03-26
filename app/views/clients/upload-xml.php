@@ -186,49 +186,111 @@
             }
         });
 
-        // Agregar función para procesar los IVAS del XML
-        function processXmlIvas($xmlString) {
-            $xml = new SimpleXMLElement($xmlString);
-            $ns = $xml->getNamespaces(true);
-            $xml->registerXPathNamespace('cfdi', 'http://www.sat.gob.mx/cfd/4');
-            
-            $ivas = [];
-            
-            // Procesar impuestos por concepto
-            $conceptos = $xml->xpath('//cfdi:Concepto');
-            foreach ($conceptos as $concepto) {
-                $traslados = $concepto->xpath('.//cfdi:Traslado');
-                foreach ($traslados as $traslado) {
-                    $impuesto = (string)$traslado['Impuesto'];
-                    $tipoFactor = (string)$traslado['TipoFactor'];
-                    $tasaOCuota = (float)$traslado['TasaOCuota'];
-                    $base = (float)$traslado['Base'];
-                    $importe = (float)$traslado['Importe'];
-                    
-                    $tasaKey = "{$impuesto}_{$tasaOCuota}";
-                    
-                    if (!isset($ivas[$tasaKey])) {
-                        $ivas[$tasaKey] = [
-                            'impuesto' => $impuesto,
-                            'tipoFactor' => $tipoFactor,
-                            'tasaOCuota' => $tasaOCuota,
-                            'base' => 0,
-                            'importe' => 0
-                        ];
-                    }
-                    
-                    $ivas[$tasaKey]['base'] += $base;
-                    $ivas[$tasaKey]['importe'] += $importe;
-                }
-            }
-            
-            return $ivas;
+        // Agregar función de logging
+        function logXmlData(message, data) {
+            console.log('%c XML Data Log ', 'background: #0047BA; color: white; padding: 2px 5px; border-radius: 3px;', 
+                '\n', message, '\n', data);
         }
 
-        // Modificar el manejador del formulario para procesar los IVAS
+        // Modificar la función processXmlIvas para incluir logs
+        function processXmlIvas(xmlString) {
+            try {
+                logXmlData('Procesando nuevo XML', xmlString.substring(0, 150) + '...');
+                
+                const parser = new DOMParser();
+                const xmlDoc = parser.parseFromString(xmlString, "text/xml");
+                
+                // Log datos generales del comprobante
+                const comprobante = xmlDoc.getElementsByTagName('cfdi:Comprobante')[0];
+                logXmlData('Datos del Comprobante', {
+                    fecha: comprobante.getAttribute('Fecha'),
+                    total: comprobante.getAttribute('Total'),
+                    subtotal: comprobante.getAttribute('SubTotal'),
+                    tipoComprobante: comprobante.getAttribute('TipoDeComprobante')
+                });
+
+                // Log datos del emisor y receptor
+                const emisor = xmlDoc.getElementsByTagName('cfdi:Emisor')[0];
+                const receptor = xmlDoc.getElementsByTagName('cfdi:Receptor')[0];
+                logXmlData('Datos de Emisor/Receptor', {
+                    emisorRfc: emisor.getAttribute('Rfc'),
+                    emisorNombre: emisor.getAttribute('Nombre'),
+                    receptorRfc: receptor.getAttribute('Rfc'),
+                    receptorNombre: receptor.getAttribute('Nombre')
+                });
+
+                const ivas = {};
+                const conceptos = xmlDoc.getElementsByTagName('cfdi:Concepto');
+                
+                // Log número de conceptos encontrados
+                logXmlData('Número de conceptos encontrados', conceptos.length);
+
+                Array.from(conceptos).forEach((concepto, index) => {
+                    const conceptoData = {
+                        descripcion: concepto.getAttribute('Descripcion'),
+                        importe: concepto.getAttribute('Importe'),
+                        valorUnitario: concepto.getAttribute('ValorUnitario')
+                    };
+                    
+                    logXmlData(`Procesando concepto ${index + 1}`, conceptoData);
+
+                    const traslados = concepto.getElementsByTagName('cfdi:Traslado');
+                    Array.from(traslados).forEach(traslado => {
+                        const impuesto = traslado.getAttribute('Impuesto');
+                        const tipoFactor = traslado.getAttribute('TipoFactor');
+                        const tasaOCuota = parseFloat(traslado.getAttribute('TasaOCuota'));
+                        const base = parseFloat(traslado.getAttribute('Base'));
+                        const importe = parseFloat(traslado.getAttribute('Importe'));
+                        
+                        const tasaKey = `${impuesto}_${tasaOCuota}`;
+                        
+                        // Log datos del traslado
+                        logXmlData(`Traslado encontrado en concepto ${index + 1}`, {
+                            impuesto,
+                            tipoFactor,
+                            tasaOCuota,
+                            base,
+                            importe,
+                            tasaKey
+                        });
+
+                        if (!ivas[tasaKey]) {
+                            ivas[tasaKey] = {
+                                impuesto,
+                                tipoFactor,
+                                tasaOCuota,
+                                base: 0,
+                                importe: 0
+                            };
+                        }
+                        
+                        ivas[tasaKey].base += base;
+                        ivas[tasaKey].importe += importe;
+                    });
+                });
+
+                // Log resumen final de IVAS
+                logXmlData('Resumen final de IVAS', ivas);
+                
+                return ivas;
+            } catch (error) {
+                logXmlData('ERROR procesando XML', {
+                    message: error.message,
+                    stack: error.stack
+                });
+                throw error;
+            }
+        }
+
+        // Modificar el manejador del formulario para incluir logs adicionales
         form.addEventListener('submit', async function(e) {
             e.preventDefault();
             
+            logXmlData('Iniciando proceso de subida', {
+                numeroArchivos: files.length,
+                nombresArchivos: files.map(f => f.name)
+            });
+
             if (files.length === 0) {
                 alert('Por favor, seleccione al menos un archivo XML');
                 return;
@@ -246,6 +308,11 @@
                 const reader = new FileReader();
                 reader.onload = async function(e) {
                     try {
+                        logXmlData(`Procesando archivo: ${file.name}`, {
+                            tamaño: file.size,
+                            tipo: file.type
+                        });
+
                         const xmlContent = e.target.result;
                         const ivas = processXmlIvas(xmlContent);
                         
@@ -271,8 +338,16 @@
                         `;
                         fileList.appendChild(ivasInfo);
                         
+                        logXmlData(`Archivo procesado exitosamente: ${file.name}`, {
+                            ivasEncontrados: Object.keys(ivas).length,
+                            resumenIvas: ivas
+                        });
+
                     } catch (error) {
-                        console.error('Error procesando XML:', error);
+                        logXmlData(`Error procesando archivo: ${file.name}`, {
+                            error: error.message,
+                            stack: error.stack
+                        });
                         alert(`Error procesando el archivo ${file.name}: ${error.message}`);
                     }
                 };
