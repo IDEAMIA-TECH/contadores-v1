@@ -207,62 +207,70 @@ class ClientController {
     
     public function uploadXml() {
         try {
-            // Asegurarnos de que no haya salida antes de nuestra respuesta
-            ob_clean();
-            
-            // Establecer el tipo de contenido como JSON
             header('Content-Type: application/json');
+            
+            Logger::debug("Iniciando uploadXml", [
+                'files' => $_FILES,
+                'post' => $_POST
+            ]);
 
-            if (!isset($_FILES['xml_files'])) {
+            if (!isset($_FILES['xml_files']) || empty($_FILES['xml_files']['name'][0])) {
                 throw new Exception("No se recibieron archivos");
             }
 
-            Logger::debug("Archivos recibidos", [
-                'files' => $_FILES['xml_files'],
-                'post_data' => $_POST
-            ]);
+            if (!isset($_POST['client_id'])) {
+                throw new Exception("No se especificó el ID del cliente");
+            }
 
+            $clientId = $_POST['client_id'];
             $filesProcessed = 0;
             $errors = [];
 
             foreach ($_FILES['xml_files']['tmp_name'] as $index => $tmpName) {
                 try {
+                    if (!is_uploaded_file($tmpName)) {
+                        throw new Exception("Archivo no válido");
+                    }
+
                     $fileName = $_FILES['xml_files']['name'][$index];
                     
-                    // Leer el contenido del archivo
+                    Logger::debug("Procesando archivo", [
+                        'nombre' => $fileName,
+                        'tmp_name' => $tmpName
+                    ]);
+
                     $xmlContent = file_get_contents($tmpName);
-                    
-                    // Procesar el XML
-                    $result = $this->processXmlFile($xmlContent, $_POST['client_id'], $fileName);
-                    
-                    if ($result) {
+                    if ($this->processXmlFile($xmlContent, $clientId, $fileName)) {
                         $filesProcessed++;
                     }
                 } catch (Exception $e) {
-                    Logger::error("Error procesando archivo: " . $fileName, [
+                    $errors[] = "Error en archivo $fileName: " . $e->getMessage();
+                    Logger::error("Error procesando archivo", [
+                        'file' => $fileName,
                         'error' => $e->getMessage()
                     ]);
-                    $errors[] = "Error en archivo $fileName: " . $e->getMessage();
                 }
             }
 
-            if ($filesProcessed > 0) {
-                echo json_encode([
-                    'success' => true,
-                    'files_processed' => $filesProcessed,
-                    'errors' => $errors,
-                    'redirect_url' => BASE_URL . '/clients/view/' . $_POST['client_id']
-                ]);
-            } else {
-                throw new Exception("No se pudo procesar ningún archivo");
-            }
-            
+            echo json_encode([
+                'success' => $filesProcessed > 0,
+                'message' => $filesProcessed > 0 
+                    ? "Se procesaron $filesProcessed archivos correctamente" 
+                    : "No se pudo procesar ningún archivo",
+                'files_processed' => $filesProcessed,
+                'errors' => $errors,
+                'redirect_url' => $filesProcessed > 0 ? BASE_URL . "/clients/view/$clientId" : null
+            ]);
+
         } catch (Exception $e) {
-            Logger::error("Error en uploadXml: " . $e->getMessage());
+            Logger::error("Error en uploadXml", [
+                'error' => $e->getMessage()
+            ]);
+            
             echo json_encode([
                 'success' => false,
                 'message' => $e->getMessage(),
-                'errors' => isset($errors) ? $errors : []
+                'errors' => []
             ]);
         }
         exit;

@@ -40,42 +40,33 @@
                 <div id="file-list" class="mt-4 text-left max-h-60 overflow-y-auto"></div>
             </div>
 
-            <form id="upload-form" action="<?php echo BASE_URL; ?>/clients/upload-xml" method="POST" enctype="multipart/form-data">
-                <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($_SESSION['csrf_token']); ?>" id="csrf_token">
-                <input type="hidden" name="client_id" value="<?php echo htmlspecialchars($client['id']); ?>" id="client_id">
-                <input type="file" id="xml_files" name="xml_files[]" accept=".xml" multiple class="hidden">
+            <form id="uploadForm" action="<?= BASE_URL ?>/clients/upload-xml" method="POST" enctype="multipart/form-data">
+                <input type="hidden" name="csrf_token" id="csrf_token" value="<?= Security::getCSRFToken() ?>">
+                <input type="hidden" name="client_id" id="client_id" value="<?= $clientId ?>">
+                
+                <div class="mb-4">
+                    <label class="block text-gray-700 text-sm font-bold mb-2" for="xml_files">
+                        Seleccionar archivos XML
+                    </label>
+                    <input type="file" 
+                           name="xml_files[]" 
+                           id="xml_files" 
+                           accept=".xml"
+                           multiple
+                           class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline">
+                </div>
 
-                <!-- Barra de progreso -->
-                <div id="progress-container" class="relative pt-1 hidden mb-4">
-                    <div class="flex mb-2 items-center justify-between">
-                        <div>
-                            <span class="text-xs font-semibold inline-block py-1 px-2 uppercase rounded-full text-blue-600 bg-blue-200">
-                                Progreso
-                            </span>
-                        </div>
-                        <div class="text-right">
-                            <span id="progress-percentage" class="text-xs font-semibold inline-block text-blue-600">
-                                0%
-                            </span>
-                        </div>
-                    </div>
-                    <div class="overflow-hidden h-2 mb-4 text-xs flex rounded bg-blue-200">
-                        <div id="progress-bar" 
-                             class="shadow-none flex flex-col text-center whitespace-nowrap text-white justify-center bg-blue-500 w-0 transition-all duration-300">
-                        </div>
+                <div id="progressContainer" class="hidden mb-4">
+                    <div class="w-full bg-gray-200 rounded-full h-2.5 dark:bg-gray-700">
+                        <div id="progressBar" class="bg-blue-600 h-2.5 rounded-full" style="width: 0%"></div>
                     </div>
                 </div>
 
-                <div class="flex justify-end space-x-4">
-                    <button type="submit" id="submit-btn" disabled
-                            class="bg-blue-500 hover:bg-blue-600 text-white px-6 py-2 rounded-md disabled:opacity-50 disabled:cursor-not-allowed">
-                        Subir XMLs
-                    </button>
-                    <a href="<?php echo BASE_URL; ?>/clients/view/<?php echo $client['id']; ?>" 
-                       class="bg-gray-500 hover:bg-gray-600 text-white px-6 py-2 rounded-md">
-                        Cancelar
-                    </a>
-                </div>
+                <button type="submit" 
+                        id="submitBtn"
+                        class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline">
+                    Subir archivos
+                </button>
             </form>
         </div>
     </div>
@@ -99,33 +90,19 @@
         const dropArea = document.getElementById('drop-area');
         const fileInput = document.getElementById('xml_files');
         const fileList = document.getElementById('file-list');
-        const submitBtn = document.getElementById('submit-btn');
-        const form = document.getElementById('upload-form');
-        const progressContainer = document.getElementById('progress-container');
-        const progressBar = document.getElementById('progress-bar');
+        const submitBtn = document.getElementById('submitBtn');
+        const form = document.getElementById('uploadForm');
+        const progressContainer = document.getElementById('progressContainer');
+        const progressBar = document.getElementById('progressBar');
         const MAX_FILES = 500;
         let files = [];
 
         // Agregar el HTML de la barra de progreso si no existe
         if (!progressContainer) {
             const progressHTML = `
-                <div id="progress-container" class="relative pt-1 hidden mb-4">
-                    <div class="flex mb-2 items-center justify-between">
-                        <div>
-                            <span class="text-xs font-semibold inline-block py-1 px-2 uppercase rounded-full text-blue-600 bg-blue-200">
-                                Progreso
-                            </span>
-                        </div>
-                        <div class="text-right">
-                            <span id="progress-percentage" class="text-xs font-semibold inline-block text-blue-600">
-                                0%
-                            </span>
-                        </div>
-                    </div>
-                    <div class="overflow-hidden h-2 mb-4 text-xs flex rounded bg-blue-200">
-                        <div id="progress-bar" 
-                             class="shadow-none flex flex-col text-center whitespace-nowrap text-white justify-center bg-blue-500 w-0 transition-all duration-300">
-                        </div>
+                <div id="progressContainer" class="hidden mb-4">
+                    <div class="w-full bg-gray-200 rounded-full h-2.5 dark:bg-gray-700">
+                        <div id="progressBar" class="bg-blue-600 h-2.5 rounded-full" style="width: 0%"></div>
                     </div>
                 </div>
             `;
@@ -350,73 +327,55 @@
         form.addEventListener('submit', async function(e) {
             e.preventDefault();
             
-            logXmlData('Iniciando proceso de subida', {
-                numeroArchivos: files.length,
-                nombresArchivos: files.map(f => f.name)
-            });
-
-            if (files.length === 0) {
-                alert('Por favor, seleccione al menos un archivo XML');
-                return;
-            }
-
-            const formData = new FormData();
-            const csrfToken = document.getElementById('csrf_token').value;
-            const clientId = document.getElementById('client_id').value;
-            
-            formData.append('csrf_token', csrfToken);
-            formData.append('client_id', clientId);
-
             try {
+                const files = document.querySelector('input[type="file"]').files;
+                
+                logXmlData('Iniciando proceso de subida', {
+                    numeroArchivos: files.length,
+                    nombresArchivos: Array.from(files).map(f => f.name)
+                });
+
+                if (files.length === 0) {
+                    alert('Por favor, seleccione al menos un archivo XML');
+                    return;
+                }
+
                 submitBtn.disabled = true;
                 progressContainer.classList.remove('hidden');
 
-                // Procesar y agregar cada archivo
-                for (let file of files) {
-                    const xmlContent = await readFileAsync(file);
-                    const xmlData = processXmlIvas(xmlContent);
-                    
-                    formData.append('xml_files[]', file);
-                    displayIvasInfo(file.name, xmlData);
-                }
+                const formData = new FormData();
+                const csrfToken = document.getElementById('csrf_token').value;
+                const clientId = document.getElementById('client_id').value;
+                
+                formData.append('csrf_token', csrfToken);
+                formData.append('client_id', clientId);
+
+                // Agregar cada archivo al FormData
+                Array.from(files).forEach((file, index) => {
+                    formData.append(`xml_files[]`, file);
+                    logXmlData(`Agregando archivo ${index + 1}`, {
+                        nombre: file.name,
+                        tamaño: file.size
+                    });
+                });
 
                 const response = await fetch(form.action, {
                     method: 'POST',
                     body: formData,
-                    credentials: 'same-origin',
-                    headers: {
-                        'Accept': 'application/json'
-                    }
+                    credentials: 'same-origin'
                 });
 
-                let result;
-                const contentType = response.headers.get('content-type');
-                if (contentType && contentType.includes('application/json')) {
-                    result = await response.json();
-                } else {
-                    // Si no es JSON, leer como texto y mostrar el error
-                    const text = await response.text();
-                    throw new Error(`Respuesta no válida del servidor: ${text}`);
-                }
-
-                if (!response.ok) {
-                    throw new Error(result.message || `Error HTTP: ${response.status}`);
-                }
-
+                const result = await response.json();
+                
                 if (result.success) {
-                    if (result.errors && result.errors.length > 0) {
-                        // Mostrar advertencias si hay errores parciales
-                        alert(`Se procesaron ${result.files_processed} archivos, pero con algunos errores:\n\n${result.errors.join('\n')}`);
-                    } else {
-                        alert(`Se procesaron ${result.files_processed} archivos correctamente.`);
-                    }
-                    
+                    alert('Archivos procesados correctamente');
                     if (result.redirect_url) {
                         window.location.href = result.redirect_url;
                     }
                 } else {
                     throw new Error(result.message || 'Error al procesar los archivos');
                 }
+
             } catch (error) {
                 console.error('Error:', error);
                 alert('Error al subir los archivos: ' + error.message);
@@ -427,16 +386,10 @@
             }
         });
 
-        // Función para actualizar la barra de progreso
-        function updateProgress(processed, total) {
-            const progressContainer = document.getElementById('progress-container');
-            const progressBar = document.getElementById('progress-bar');
-            const progressPercentage = document.getElementById('progress-percentage');
-            const percentage = Math.round((processed / total) * 100);
-
-            progressContainer.classList.remove('hidden');
-            progressBar.style.width = `${percentage}%`;
-            progressPercentage.textContent = `${percentage}%`;
+        // Función para mostrar el progreso
+        function updateProgress(percent) {
+            progressBar.style.width = `${percent}%`;
+            progressBar.textContent = `${Math.round(percent)}%`;
         }
 
         // Agregar validación de tamaño de archivo
