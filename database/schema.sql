@@ -256,26 +256,48 @@ CREATE TABLE `client_xmls` (
 --
 -- Dumping data for table `client_xmls`
 --
---------------
+
+-- No data to dump for client_xmls
+
+-- --------------------------------------------------------
 
 --
 -- Table structure for table `facturas`
 --
 
+DROP TABLE IF EXISTS `ivas_factura`;
+DROP TABLE IF EXISTS `facturas`;
+
 CREATE TABLE `facturas` (
-  `id` int(11) NOT NULL,
+  `id` int(11) NOT NULL AUTO_INCREMENT,
   `client_id` int(11) NOT NULL,
-  `file_name` varchar(255) NOT NULL,
   `uuid` varchar(36) NOT NULL,
   `fecha` datetime NOT NULL,
-  `emisor_rfc` varchar(13) NOT NULL,
-  `emisor_nombre` varchar(255) NOT NULL,
-  `receptor_rfc` varchar(13) NOT NULL,
-  `receptor_nombre` varchar(255) NOT NULL,
   `total` decimal(12,2) NOT NULL,
-  `tipo` enum('emitidas','recibidas') NOT NULL,
-  `created_at` timestamp NOT NULL DEFAULT current_timestamp()
-) ENGINE=InnoDB DEFAULT CHARSET=latin1 COLLATE=latin1_swedish_ci;
+  `total_iva` decimal(12,2) DEFAULT NULL,
+  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `unique_uuid` (`uuid`),
+  KEY `client_id` (`client_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `ivas_factura`
+--
+
+CREATE TABLE `ivas_factura` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `factura_id` int(11) NOT NULL,
+  `base` decimal(12,2) NOT NULL,
+  `tasa` decimal(5,4) NOT NULL,
+  `importe` decimal(12,2) NOT NULL,
+  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `factura_id` (`factura_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- --------------------------------------------------------
 
@@ -432,14 +454,6 @@ ALTER TABLE `client_xmls`
   ADD KEY `fecha` (`fecha`);
 
 --
--- Indexes for table `facturas`
---
-ALTER TABLE `facturas`
-  ADD PRIMARY KEY (`id`),
-  ADD UNIQUE KEY `uuid` (`uuid`),
-  ADD KEY `client_id` (`client_id`);
-
---
 -- Indexes for table `sat_download_requests`
 --
 ALTER TABLE `sat_download_requests`
@@ -515,12 +529,6 @@ ALTER TABLE `client_xmls`
   MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=110;
 
 --
--- AUTO_INCREMENT for table `facturas`
---
-ALTER TABLE `facturas`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
-
---
 -- AUTO_INCREMENT for table `sat_download_requests`
 --
 ALTER TABLE `sat_download_requests`
@@ -537,6 +545,18 @@ ALTER TABLE `users`
 --
 ALTER TABLE `users_test`
   MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=2;
+
+--
+-- AUTO_INCREMENT for table `facturas`
+--
+ALTER TABLE `facturas`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+
+--
+-- AUTO_INCREMENT for table `ivas_factura`
+--
+ALTER TABLE `ivas_factura`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
 
 --
 -- Constraints for dumped tables
@@ -593,16 +613,22 @@ ALTER TABLE `client_xmls`
   ADD CONSTRAINT `client_xmls_ibfk_1` FOREIGN KEY (`client_id`) REFERENCES `clients` (`id`) ON DELETE CASCADE ON UPDATE CASCADE;
 
 --
+-- Constraints for table `sat_download_requests`
+--
+ALTER TABLE `sat_download_requests`
+  ADD CONSTRAINT `sat_download_requests_ibfk_1` FOREIGN KEY (`client_id`) REFERENCES `clients` (`id`);
+
+--
 -- Constraints for table `facturas`
 --
 ALTER TABLE `facturas`
   ADD CONSTRAINT `facturas_ibfk_1` FOREIGN KEY (`client_id`) REFERENCES `clients` (`id`) ON DELETE CASCADE;
 
 --
--- Constraints for table `sat_download_requests`
+-- Constraints for table `ivas_factura`
 --
-ALTER TABLE `sat_download_requests`
-  ADD CONSTRAINT `sat_download_requests_ibfk_1` FOREIGN KEY (`client_id`) REFERENCES `clients` (`id`);
+ALTER TABLE `ivas_factura`
+  ADD CONSTRAINT `ivas_factura_ibfk_1` FOREIGN KEY (`factura_id`) REFERENCES `facturas` (`id`) ON DELETE CASCADE;
 COMMIT;
 
 /*!40101 SET CHARACTER_SET_CLIENT=@OLD_CHARACTER_SET_CLIENT */;

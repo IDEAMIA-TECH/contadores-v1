@@ -207,73 +207,134 @@ class ClientController {
     
     public function uploadXml() {
         try {
-            header('Content-Type: application/json');
-            
-            Logger::debug("Iniciando uploadXml", [
-                'files' => $_FILES,
-                'post' => $_POST
-            ]);
-
-            if (!isset($_FILES['xml_files']) || empty($_FILES['xml_files']['name'][0])) {
-                throw new Exception("No se recibieron archivos");
+            // Verificar autenticación
+            if (!$this->security->isAuthenticated()) {
+                throw new Exception('No autorizado');
             }
 
-            if (!isset($_POST['client_id'])) {
-                throw new Exception("No se especificó el ID del cliente");
-            }
-
-            $clientId = $_POST['client_id'];
-            $filesProcessed = 0;
-            $errors = [];
-
-            foreach ($_FILES['xml_files']['tmp_name'] as $index => $tmpName) {
-                try {
-                    if (!is_uploaded_file($tmpName)) {
-                        throw new Exception("Archivo no válido");
-                    }
-
-                    $fileName = $_FILES['xml_files']['name'][$index];
-                    
-                    Logger::debug("Procesando archivo", [
-                        'nombre' => $fileName,
-                        'tmp_name' => $tmpName
-                    ]);
-
-                    $xmlContent = file_get_contents($tmpName);
-                    if ($this->processXmlFile($xmlContent, $clientId, $fileName)) {
-                        $filesProcessed++;
-                    }
-                } catch (Exception $e) {
-                    $errors[] = "Error en archivo $fileName: " . $e->getMessage();
-                    Logger::error("Error procesando archivo", [
-                        'file' => $fileName,
-                        'error' => $e->getMessage()
-                    ]);
+            // Si es GET, mostrar la vista
+            if ($_SERVER['REQUEST_METHOD'] === 'GET') {
+                $clientId = isset($_GET['id']) ? $_GET['id'] : null;
+                if (!$clientId) {
+                    throw new Exception('ID de cliente no proporcionado');
                 }
+
+                $client = $this->client->getClientById($clientId);
+                if (!$client) {
+                    throw new Exception('Cliente no encontrado');
+                }
+
+                // Generar nuevo token CSRF si no existe
+                if (!isset($_SESSION['csrf_token'])) {
+                    $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
+                }
+
+                include APP_PATH . '/views/clients/upload-xml.php';
+                return;
             }
 
-            echo json_encode([
-                'success' => $filesProcessed > 0,
-                'message' => $filesProcessed > 0 
-                    ? "Se procesaron $filesProcessed archivos correctamente" 
-                    : "No se pudo procesar ningún archivo",
-                'files_processed' => $filesProcessed,
-                'errors' => $errors,
-                'redirect_url' => $filesProcessed > 0 ? BASE_URL . "/clients/view/$clientId" : null
-            ]);
+            // Si es POST, procesar la carga de archivos
+            if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+                // Debug de tokens
+                $receivedToken = isset($_POST['csrf_token']) ? $_POST['csrf_token'] : 'no token';
+                $sessionToken = isset($_SESSION['csrf_token']) ? $_SESSION['csrf_token'] : 'no token en sesión';
+                error_log("Token recibido: " . $receivedToken);
+                error_log("Token en sesión: " . $sessionToken);
+
+                // Validar token CSRF
+                if (!isset($_POST['csrf_token'])) {
+                    throw new Exception('Token CSRF no proporcionado');
+                }
+
+                if (!$this->security->validateCsrfToken($_POST['csrf_token'])) {
+                    error_log("Tokens no coinciden - Recibido: {$_POST['csrf_token']} vs Sesión: {$_SESSION['csrf_token']}");
+                    throw new Exception('Token de seguridad inválido');
+                }
+
+                // Aumentar límites de PHP
+                ini_set('max_execution_time', '300');
+                ini_set('max_input_time', '300');
+                ini_set('memory_limit', '512M');
+                ini_set('post_max_size', '500M');
+                ini_set('upload_max_filesize', '500M');
+                set_time_limit(300);
+
+                // Validar client_id
+                if (empty($_POST['client_id'])) {
+                    throw new Exception('ID de cliente no proporcionado');
+                }
+
+                // Validar archivos
+                if (empty($_FILES['xml_files'])) {
+                    throw new Exception('No se recibieron archivos');
+                }
+
+                $clientId = $_POST['client_id'];
+                $filesProcessed = 0;
+                $errors = [];
+                
+                // Procesar archivos en lotes para evitar sobrecarga de memoria
+                $batchSize = 50; // Procesar 50 archivos a la vez
+                $totalFiles = count($_FILES['xml_files']['name']);
+                
+                for ($i = 0; $i < $totalFiles; $i += $batchSize) {
+                    $batch = array_slice($_FILES['xml_files']['name'], $i, $batchSize);
+                    $batchTmp = array_slice($_FILES['xml_files']['tmp_name'], $i, $batchSize);
+                    $batchErrors = array_slice($_FILES['xml_files']['error'], $i, $batchSize);
+                    
+                    foreach ($batch as $index => $fileName) {
+                        if ($batchErrors[$index] === UPLOAD_ERR_OK) {
+                            try {
+                                $xmlContent = file_get_contents($batchTmp[$index]);
+                                
+                                // Procesar el XML
+                                $this->processXmlContent($xmlContent, $clientId);
+                                $filesProcessed++;
+                                
+                                // Liberar memoria
+                                unset($xmlContent);
+                            } catch (Exception $e) {
+                                $errors[] = "Error en archivo {$fileName}: " . $e->getMessage();
+                            }
+                        } else {
+                            $errors[] = "Error al subir {$fileName}: " . $this->getUploadErrorMessage($batchErrors[$index]);
+                        }
+                    }
+                    
+                    // Liberar memoria después de cada lote
+                    gc_collect_cycles();
+                }
+
+                // Preparar respuesta
+                $response = [
+                    'success' => true,
+                    'files_processed' => $filesProcessed,
+                    'redirect_url' => BASE_URL . '/clients/view/' . $clientId
+                ];
+
+                if (!empty($errors)) {
+                    $response['errors'] = $errors;
+                }
+
+                header('Content-Type: application/json');
+                echo json_encode($response);
+                exit;
+            }
 
         } catch (Exception $e) {
-            Logger::error("Error en uploadXml", [
-                'error' => $e->getMessage()
-            ]);
-            
-            echo json_encode([
-                'success' => false,
-                'message' => $e->getMessage(),
-                'errors' => []
-            ]);
+            error_log("Error en uploadXml: " . $e->getMessage());
+            if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+                header('Content-Type: application/json');
+                echo json_encode([
+                    'success' => false,
+                    'message' => $e->getMessage()
+                ]);
+            } else {
+                $_SESSION['error'] = $e->getMessage();
+                header('Location: ' . BASE_URL . '/clients');
+            }
+            exit;
         }
-        exit;
     }
 
     private function getUploadErrorMessage($errorCode) {
@@ -943,42 +1004,87 @@ class ClientController {
         exit;
     }
 
-    private function processXmlFile($xmlContent, $clientId, $fileName) {
+    public function processXmlContent($xmlContent, $clientId) {
         try {
-            // Crear directorio para XMLs si no existe
-            $uploadDir = ROOT_PATH . '/uploads/xml/' . $clientId . '/';
-            if (!is_dir($uploadDir)) {
-                mkdir($uploadDir, 0755, true);
-            }
-
-            // Generar nombre único para el archivo
-            $uniqueFileName = uniqid('xml_') . '_' . preg_replace('/[^a-zA-Z0-9.]/', '_', $fileName);
-            $filePath = $uploadDir . $uniqueFileName;
-
-            // Guardar el archivo XML
-            if (file_put_contents($filePath, $xmlContent) === false) {
-                throw new Exception("Error al guardar el archivo {$fileName}");
-            }
-
-            // Parsear el XML
-            $xmlParser = new CfdiXmlParser();
-            $xmlData = $xmlParser->parse($xmlContent);
-
-            // Guardar en la base de datos
-            $clientXml = new ClientXml($this->db);
-            $xmlData['client_id'] = $clientId;
-            $xmlData['xml_path'] = 'xml/' . $clientId . '/' . $uniqueFileName;
+            $xml = new SimpleXMLElement($xmlContent);
+            $xml->registerXPathNamespace('cfdi', 'http://www.sat.gob.mx/cfd/4');
             
-            if (!$clientXml->create($xmlData)) {
-                throw new Exception("Error al guardar los datos del XML {$fileName} en la base de datos");
+            // Obtener información general de la factura
+            $total = (float)$xml->attributes()['Total'];
+            $fecha = (string)$xml->attributes()['Fecha'];
+            $uuid = $this->getUUID($xml);
+
+            // Extraer todos los IVAs
+            $traslados = $xml->xpath('//cfdi:Traslado');
+            $ivas = [];
+
+            foreach ($traslados as $traslado) {
+                if ((string)$traslado->attributes()['Impuesto'] === '002') { // 002 es el código del IVA
+                    $ivas[] = [
+                        'base' => (float)$traslado->attributes()['Base'],
+                        'tasa' => (float)$traslado->attributes()['TasaOCuota'],
+                        'importe' => (float)$traslado->attributes()['Importe']
+                    ];
+                }
             }
 
-            return true;
+            // Iniciar transacción
+            $db = Database::getInstance()->getConnection();
+            $db->beginTransaction();
+
+            try {
+                // Insertar factura
+                $stmtFactura = $db->prepare("
+                    INSERT INTO facturas (client_id, uuid, fecha, total) 
+                    VALUES (?, ?, ?, ?)
+                ");
+                $stmtFactura->execute([$clientId, $uuid, $fecha, $total]);
+                $facturaId = $db->lastInsertId();
+
+                // Insertar cada IVA por separado
+                $stmtIva = $db->prepare("
+                    INSERT INTO ivas_factura (factura_id, base, tasa, importe) 
+                    VALUES (?, ?, ?, ?)
+                ");
+
+                foreach ($ivas as $iva) {
+                    $stmtIva->execute([
+                        $facturaId,
+                        $iva['base'],
+                        $iva['tasa'],
+                        $iva['importe']
+                    ]);
+                }
+
+                // Guardar también el total de IVA para consultas rápidas
+                $totalIva = array_sum(array_column($ivas, 'importe'));
+                $stmtTotalIva = $db->prepare("
+                    UPDATE facturas 
+                    SET total_iva = ? 
+                    WHERE id = ?
+                ");
+                $stmtTotalIva->execute([$totalIva, $facturaId]);
+
+                $db->commit();
+                return true;
+
+            } catch (Exception $e) {
+                $db->rollBack();
+                error_log("Error procesando XML: " . $e->getMessage());
+                throw new Exception("Error al procesar el XML: " . $e->getMessage());
+            }
 
         } catch (Exception $e) {
-            error_log("Error procesando XML {$fileName}: " . $e->getMessage());
-            throw new Exception("Error al procesar {$fileName}: " . $e->getMessage());
+            error_log("Error al parsear XML: " . $e->getMessage());
+            throw new Exception("Error al leer el XML: " . $e->getMessage());
         }
+    }
+
+    // Función auxiliar para obtener el UUID
+    private function getUUID($xml) {
+        $xml->registerXPathNamespace('tfd', 'http://www.sat.gob.mx/TimbreFiscalDigital');
+        $timbre = $xml->xpath('//tfd:TimbreFiscalDigital')[0];
+        return (string)$timbre->attributes()['UUID'];
     }
 
     public function downloadPackages($requestId) {
@@ -1040,7 +1146,5 @@ class ClientController {
             ];
         }
     }
-
-
 
 } 
