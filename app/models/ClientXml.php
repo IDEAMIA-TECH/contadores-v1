@@ -1,4 +1,7 @@
 <?php
+
+require_once __DIR__ . '/../utils/Logger.php';
+
 class ClientXml {
     private $db;
     
@@ -8,6 +11,13 @@ class ClientXml {
     
     public function create($data) {
         try {
+            $db = Database::getInstance();
+            
+            Logger::debug("Iniciando creación de registro XML", [
+                'uuid' => $data['uuid'],
+                'client_id' => $data['client_id']
+            ]);
+
             $sql = "INSERT INTO client_xmls (
                 client_id,
                 xml_path,
@@ -68,7 +78,7 @@ class ClientXml {
                 NOW()
             )";
 
-            $stmt = $this->db->prepare($sql);
+            $stmt = $db->prepare($sql);
             
             // Asegurar que todos los valores numéricos sean del tipo correcto
             $stmt->bindValue(':client_id', $data['client_id'], PDO::PARAM_INT);
@@ -104,7 +114,7 @@ class ClientXml {
             ]);
 
             $stmt->execute();
-            return $this->db->lastInsertId();
+            return $db->lastInsertId();
 
         } catch (PDOException $e) {
             Logger::error("Error en ClientXml::create: " . $e->getMessage(), [

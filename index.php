@@ -12,6 +12,7 @@ define('ROOT_PATH', __DIR__);
 require_once __DIR__ . '/app/config/config.php';
 require_once __DIR__ . '/app/config/database.php';
 require_once __DIR__ . '/app/middleware/Security.php';
+require_once 'app/utils/Logger.php';
 
 // Mostrar todos los errores en desarrollo
 error_reporting(E_ALL);
@@ -140,4 +141,6 @@ try {
     }
 } finally {
     ob_end_flush();
-} 
+}
+
+Logger::init(); 
