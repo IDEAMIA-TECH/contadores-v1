@@ -148,6 +148,41 @@
                 return;
             }
 
+            // Procesar cada archivo XML
+            xmlFiles.forEach(file => {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    const xmlContent = e.target.result;
+                    const parser = new DOMParser();
+                    const xmlDoc = parser.parseFromString(xmlContent, "text/xml");
+                    
+                    // Obtener la sección de impuestos
+                    const impuestosNode = xmlDoc.querySelector('cfdi\\:Impuestos');
+                    if (impuestosNode) {
+                        const impuestosData = {
+                            totalImpuestosTrasladados: impuestosNode.getAttribute('TotalImpuestosTrasladados'),
+                            traslados: []
+                        };
+
+                        // Obtener todos los traslados
+                        const trasladosNodes = xmlDoc.querySelectorAll('cfdi\\:Traslado');
+                        trasladosNodes.forEach(traslado => {
+                            impuestosData.traslados.push({
+                                impuesto: traslado.getAttribute('Impuesto'),
+                                tipoFactor: traslado.getAttribute('TipoFactor'),
+                                tasaOCuota: traslado.getAttribute('TasaOCuota'),
+                                importe: traslado.getAttribute('Importe'),
+                                base: traslado.getAttribute('Base')
+                            });
+                        });
+
+                        // Mostrar en consola para debugging
+                        console.log('Datos de impuestos del archivo ' + file.name + ':', impuestosData);
+                    }
+                };
+                reader.readAsText(file);
+            });
+
             // Agregar nuevos archivos
             files = [...files, ...xmlFiles];
             updateFileList();
@@ -268,6 +303,23 @@
             }
             
             return true;
+        }
+
+        // Agregar función para formatear los datos de impuestos
+        function formatImpuestosData(impuestosData) {
+            if (!impuestosData.traslados.length) return 'No hay impuestos';
+            
+            return `
+                Total Impuestos Trasladados: ${impuestosData.totalImpuestosTrasladados}
+                Desglose de Traslados:
+                ${impuestosData.traslados.map(traslado => `
+                    - Impuesto: ${traslado.impuesto}
+                    - Tipo Factor: ${traslado.tipoFactor}
+                    - Tasa o Cuota: ${traslado.tasaOCuota}
+                    - Importe: ${traslado.importe}
+                    - Base: ${traslado.base}
+                `).join('\n')}
+            `;
         }
     });
     </script>
