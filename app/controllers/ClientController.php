@@ -1008,69 +1008,109 @@ class ClientController {
         try {
             $xml = new SimpleXMLElement($xmlContent);
             $xml->registerXPathNamespace('cfdi', 'http://www.sat.gob.mx/cfd/4');
-            
-            // Obtener información general de la factura
-            $total = (float)$xml->attributes()['Total'];
+            $xml->registerXPathNamespace('tfd', 'http://www.sat.gob.mx/TimbreFiscalDigital');
+
+            // Obtener el TimbreFiscalDigital para el UUID
+            $tfd = $xml->xpath('//tfd:TimbreFiscalDigital')[0];
+            $uuid = (string)$tfd->attributes()['UUID'];
+            $fechaTimbrado = (string)$tfd->attributes()['FechaTimbrado'];
+
+            // Datos básicos del CFDI
             $fecha = (string)$xml->attributes()['Fecha'];
-            $uuid = $this->getUUID($xml);
+            $serie = (string)$xml->attributes()['Serie'];
+            $folio = (string)$xml->attributes()['Folio'];
+            $subtotal = (float)$xml->attributes()['SubTotal'];
+            $total = (float)$xml->attributes()['Total'];
+            $tipoComprobante = (string)$xml->attributes()['TipoDeComprobante'];
+            $formaPago = (string)$xml->attributes()['FormaPago'];
+            $metodoPago = (string)$xml->attributes()['MetodoPago'];
+            $moneda = (string)$xml->attributes()['Moneda'];
+            $lugarExpedicion = (string)$xml->attributes()['LugarExpedicion'];
 
-            // Extraer todos los IVAs
-            $traslados = $xml->xpath('//cfdi:Traslado');
-            $ivas = [];
+            // Datos del emisor
+            $emisor = $xml->xpath('//cfdi:Emisor')[0];
+            $emisorRfc = (string)$emisor->attributes()['Rfc'];
+            $emisorNombre = (string)$emisor->attributes()['Nombre'];
+            $emisorRegimenFiscal = (string)$emisor->attributes()['RegimenFiscal'];
 
-            foreach ($traslados as $traslado) {
-                if ((string)$traslado->attributes()['Impuesto'] === '002') { // 002 es el código del IVA
-                    $ivas[] = [
-                        'base' => (float)$traslado->attributes()['Base'],
-                        'tasa' => (float)$traslado->attributes()['TasaOCuota'],
-                        'importe' => (float)$traslado->attributes()['Importe']
-                    ];
-                }
-            }
+            // Datos del receptor
+            $receptor = $xml->xpath('//cfdi:Receptor')[0];
+            $receptorRfc = (string)$receptor->attributes()['Rfc'];
+            $receptorNombre = (string)$receptor->attributes()['Nombre'];
+            $receptorRegimenFiscal = (string)$receptor->attributes()['RegimenFiscal'];
+            $receptorDomicilioFiscal = (string)$receptor->attributes()['DomicilioFiscalReceptor'];
+            $receptorUsoCfdi = (string)$receptor->attributes()['UsoCFDI'];
 
-            // Iniciar transacción
             $db = Database::getInstance()->getConnection();
             $db->beginTransaction();
 
             try {
-                // Insertar factura
+                // 1. Insertar en client_xmls
+                $stmtXml = $db->prepare("
+                    INSERT INTO client_xmls (
+                        client_id, xml_path, uuid, serie, folio, fecha, fecha_timbrado,
+                        subtotal, total, tipo_comprobante, forma_pago, metodo_pago,
+                        moneda, lugar_expedicion, emisor_rfc, emisor_nombre,
+                        emisor_regimen_fiscal, receptor_rfc, receptor_nombre,
+                        receptor_regimen_fiscal, receptor_domicilio_fiscal,
+                        receptor_uso_cfdi, created_at, updated_at
+                    ) VALUES (
+                        ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
+                        NOW(), NOW()
+                    )
+                ");
+
+                $stmtXml->execute([
+                    $clientId, $xmlPath, $uuid, $serie, $folio, $fecha, $fechaTimbrado,
+                    $subtotal, $total, $tipoComprobante, $formaPago, $metodoPago,
+                    $moneda, $lugarExpedicion, $emisorRfc, $emisorNombre,
+                    $emisorRegimenFiscal, $receptorRfc, $receptorNombre,
+                    $receptorRegimenFiscal, $receptorDomicilioFiscal, $receptorUsoCfdi
+                ]);
+
+                // 2. Insertar en facturas
                 $stmtFactura = $db->prepare("
-                    INSERT INTO facturas (client_id, uuid, fecha, total) 
-                    VALUES (?, ?, ?, ?)
-                ");
-                $stmtFactura->execute([$clientId, $uuid, $fecha, $total]);
-                $facturaId = $db->lastInsertId();
-
-                // Insertar cada IVA por separado
-                $stmtIva = $db->prepare("
-                    INSERT INTO ivas_factura (factura_id, base, tasa, importe) 
-                    VALUES (?, ?, ?, ?)
+                    INSERT INTO facturas (
+                        client_id, uuid, fecha, total, total_iva, created_at, updated_at
+                    ) VALUES (?, ?, ?, ?, ?, NOW(), NOW())
                 ");
 
-                foreach ($ivas as $iva) {
-                    $stmtIva->execute([
-                        $facturaId,
-                        $iva['base'],
-                        $iva['tasa'],
-                        $iva['importe']
-                    ]);
+                // Calcular total_iva
+                $totalIva = 0;
+                $traslados = $xml->xpath('//cfdi:Traslado');
+                foreach ($traslados as $traslado) {
+                    if ((string)$traslado->attributes()['Impuesto'] === '002') { // 002 es IVA
+                        $totalIva += (float)$traslado->attributes()['Importe'];
+                    }
                 }
 
-                // Guardar también el total de IVA para consultas rápidas
-                $totalIva = array_sum(array_column($ivas, 'importe'));
-                $stmtTotalIva = $db->prepare("
-                    UPDATE facturas 
-                    SET total_iva = ? 
-                    WHERE id = ?
+                $stmtFactura->execute([$clientId, $uuid, $fecha, $total, $totalIva]);
+                $facturaId = $db->lastInsertId();
+
+                // 3. Insertar en ivas_factura
+                $stmtIva = $db->prepare("
+                    INSERT INTO ivas_factura (
+                        factura_id, base, tasa, importe, created_at
+                    ) VALUES (?, ?, ?, ?, NOW())
                 ");
-                $stmtTotalIva->execute([$totalIva, $facturaId]);
+
+                foreach ($traslados as $traslado) {
+                    if ((string)$traslado->attributes()['Impuesto'] === '002') {
+                        $stmtIva->execute([
+                            $facturaId,
+                            (float)$traslado->attributes()['Base'],
+                            (float)$traslado->attributes()['TasaOCuota'],
+                            (float)$traslado->attributes()['Importe']
+                        ]);
+                    }
+                }
 
                 $db->commit();
                 return true;
 
             } catch (Exception $e) {
                 $db->rollBack();
-                error_log("Error procesando XML: " . $e->getMessage());
+                error_log("Error procesando XML {$uuid}: " . $e->getMessage());
                 throw new Exception("Error al procesar el XML: " . $e->getMessage());
             }
 

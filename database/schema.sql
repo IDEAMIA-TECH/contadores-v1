@@ -245,10 +245,6 @@ CREATE TABLE `client_xmls` (
   `receptor_regimen_fiscal` varchar(10) NOT NULL,
   `receptor_domicilio_fiscal` varchar(10) NOT NULL,
   `receptor_uso_cfdi` varchar(10) NOT NULL,
-  `total_impuestos_trasladados` decimal(12,2) NOT NULL DEFAULT 0.00,
-  `impuesto` varchar(10) DEFAULT NULL,
-  `tasa_o_cuota` decimal(8,6) DEFAULT NULL,
-  `tipo_factor` varchar(10) DEFAULT NULL,
   `created_at` datetime NOT NULL,
   `updated_at` datetime NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
