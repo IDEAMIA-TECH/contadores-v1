@@ -1,61 +1,76 @@
 <?php
 
 class XMLController {
+    private $db;
+    private $logFile;
+
     public function __construct() {
-        // Crear directorio de logs si no existe
+        // Inicializar la conexión a la base de datos
+        $this->db = Database::getInstance()->getConnection();
+        
+        // Configurar el directorio y archivo de logs
         $logDir = __DIR__ . '/../../logs';
+        $this->logFile = $logDir . '/xml_process.log';
+
+        // Crear directorio de logs si no existe y establecer permisos
         if (!file_exists($logDir)) {
-            mkdir($logDir, 0777, true);
+            if (!mkdir($logDir, 0777, true)) {
+                throw new Exception("No se pudo crear el directorio de logs");
+            }
+            chmod($logDir, 0777);
+        }
+
+        // Crear archivo de log si no existe y establecer permisos
+        if (!file_exists($this->logFile)) {
+            touch($this->logFile);
+            chmod($this->logFile, 0666);
+        }
+
+        // Verificar si se puede escribir en el archivo
+        if (!is_writable($this->logFile)) {
+            throw new Exception("No se puede escribir en el archivo de log");
+        }
+    }
+
+    private function log($message) {
+        $timestamp = date('Y-m-d H:i:s');
+        $logMessage = "[$timestamp] $message" . PHP_EOL;
+        
+        // Intentar escribir en el archivo y verificar si fue exitoso
+        if (file_put_contents($this->logFile, $logMessage, FILE_APPEND) === false) {
+            error_log("Error escribiendo en el archivo de log: " . $this->logFile);
         }
     }
 
     public function processXMLImpuestos($xml, $facturaId) {
         try {
-            // Definir archivo de log
-            $logFile = __DIR__ . '/../logs/xml_process.log';
-            
-            // Función helper para logging
-            $logMessage = function($message) use ($logFile) {
-                $timestamp = date('Y-m-d H:i:s');
-                file_put_contents($logFile, "[$timestamp] $message" . PHP_EOL, FILE_APPEND);
-            };
-
-            $logMessage("=== INICIO PROCESAMIENTO DE IMPUESTOS ===");
-            $logMessage("Factura ID: " . $facturaId);
+            $this->log("=== INICIO PROCESAMIENTO DE IMPUESTOS ===");
+            $this->log("Factura ID: " . $facturaId);
             
             // Eliminar registros existentes
             $deleteQuery = "DELETE FROM ivas_factura WHERE factura_id = ?";
             $stmt = $this->db->prepare($deleteQuery);
             $stmt->execute([$facturaId]);
             
-            // Primero, obtener el nodo Impuestos principal
+            // Obtener el nodo Impuestos principal
             $impuestos = $xml->xpath('//cfdi:Impuestos')[0] ?? null;
             
             if ($impuestos) {
-                // Log del TotalImpuestosTrasladados
+                $this->log("XML completo siendo procesado:");
+                $this->log($impuestos->asXML());
+                
                 $totalTrasladados = $impuestos->attributes()['TotalImpuestosTrasladados'] ?? 'No especificado';
-                $logMessage("TotalImpuestosTrasladados encontrado: " . $totalTrasladados);
+                $this->log("TotalImpuestosTrasladados: " . $totalTrasladados);
                 
-                // Log del XML completo de la sección de Impuestos
-                $logMessage("=== SECCION COMPLETA DE IMPUESTOS ===");
-                $logMessage($impuestos->asXML());
-                
-                // Obtener los traslados
+                // Obtener solo los traslados dentro de la sección de Impuestos
                 $traslados = $impuestos->xpath('./cfdi:Traslados/cfdi:Traslado');
-                $logMessage("Número de traslados encontrados: " . count($traslados));
+                $this->log("Número de traslados encontrados: " . count($traslados));
                 
                 foreach ($traslados as $index => $traslado) {
-                    $logMessage("=== PROCESANDO TRASLADO #" . ($index + 1) . " ===");
-                    $logMessage("XML del traslado:");
-                    $logMessage($traslado->asXML());
+                    $this->log("\n=== TRASLADO #" . ($index + 1) . " ===");
+                    $this->log($traslado->asXML());
                     
                     $attributes = $traslado->attributes();
-                    
-                    // Log de todos los atributos disponibles
-                    $logMessage("Atributos encontrados:");
-                    foreach ($attributes as $name => $value) {
-                        $logMessage("  $name => $value");
-                    }
                     
                     if (isset($attributes['Base']) && 
                         isset($attributes['Importe']) && 
@@ -65,57 +80,31 @@ class XMLController {
                         $importe = (float)$attributes['Importe'];
                         $tasaOCuota = (float)$attributes['TasaOCuota'];
                         
-                        $logMessage("Valores procesados:");
-                        $logMessage("  Base: $base");
-                        $logMessage("  Importe: $importe");
-                        $logMessage("  TasaOCuota: $tasaOCuota");
+                        $this->log("Valores encontrados:");
+                        $this->log("  Base: $base");
+                        $this->log("  Importe: $importe");
+                        $this->log("  TasaOCuota: $tasaOCuota");
                         
-                        // Verificar duplicados
-                        $checkQuery = "SELECT id FROM ivas_factura 
-                                     WHERE factura_id = ? 
-                                     AND base = ? 
-                                     AND tasa = ? 
-                                     AND importe = ?";
+                        // Insertar en la base de datos
+                        $query = "INSERT INTO ivas_factura (factura_id, base, importe, tasa) 
+                                VALUES (?, ?, ?, ?)";
                         
-                        $checkStmt = $this->db->prepare($checkQuery);
-                        $checkStmt->execute([$facturaId, $base, $tasaOCuota, $importe]);
+                        $stmt = $this->db->prepare($query);
+                        $stmt->execute([$facturaId, $base, $importe, $tasaOCuota]);
                         
-                        if (!$checkStmt->fetch()) {
-                            $query = "INSERT INTO ivas_factura (
-                                factura_id, 
-                                base, 
-                                importe, 
-                                tasa
-                            ) VALUES (?, ?, ?, ?)";
-                            
-                            $stmt = $this->db->prepare($query);
-                            $stmt->execute([
-                                $facturaId,
-                                $base,
-                                $importe,
-                                $tasaOCuota
-                            ]);
-                            
-                            $logMessage("✓ Registro insertado correctamente");
-                        } else {
-                            $logMessage("⚠ Registro duplicado encontrado, saltando inserción");
-                        }
-                    } else {
-                        $logMessage("⚠ Faltan atributos requeridos en este traslado");
+                        $this->log("✓ Registro insertado correctamente");
                     }
-                    
-                    $logMessage("=== FIN TRASLADO #" . ($index + 1) . " ===");
                 }
             } else {
-                $logMessage("❌ No se encontró la sección de Impuestos en el XML");
+                $this->log("❌ No se encontró la sección de Impuestos en el XML");
             }
             
-            $logMessage("=== FIN PROCESAMIENTO DE IMPUESTOS ===");
+            $this->log("=== FIN PROCESAMIENTO DE IMPUESTOS ===\n");
             return true;
             
         } catch (Exception $e) {
-            $logMessage("❌ ERROR: " . $e->getMessage());
-            $logMessage("Stack trace: " . $e->getTraceAsString());
+            $this->log("❌ ERROR: " . $e->getMessage());
+            $this->log("Stack trace: " . $e->getTraceAsString());
             throw new Exception("Error al procesar los impuestos del XML");
         }
     }
