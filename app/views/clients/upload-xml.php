@@ -82,11 +82,14 @@
 
     <script>
     document.addEventListener('DOMContentLoaded', function() {
+        // Definir todas las referencias DOM al inicio
         const dropArea = document.getElementById('drop-area');
         const fileInput = document.getElementById('xml_files');
         const fileList = document.getElementById('file-list');
         const submitBtn = document.getElementById('submit-btn');
         const form = document.getElementById('upload-form');
+        const progressContainer = document.getElementById('progress-container');
+        const progressBar = document.getElementById('progress-bar');
         const MAX_FILES = 500;
         let files = [];
 
@@ -263,7 +266,7 @@
             }
         });
 
-        // Modificar el envío del formulario para incluir la validación adicional
+        // Modificar el envío del formulario
         form.addEventListener('submit', async function(e) {
             e.preventDefault();
             
@@ -279,16 +282,16 @@
             formData.append('csrf_token', csrfToken);
             formData.append('client_id', clientId);
             
-            // Procesar cada archivo y extraer los datos de impuestos
             try {
+                submitBtn.disabled = true;
+                if (progressContainer) progressContainer.classList.remove('hidden');
+                
+                // Procesar cada archivo y extraer los datos de impuestos
                 for (const file of files) {
                     const xmlData = await validateXMLStructure(file);
                     formData.append('xml_files[]', file);
                     formData.append(`traslados_${file.name}`, JSON.stringify(xmlData.traslados));
                 }
-
-                submitBtn.disabled = true;
-                progressContainer.classList.remove('hidden');
 
                 const response = await fetch(form.action, {
                     method: 'POST',
@@ -311,16 +314,19 @@
                 alert('Error al procesar los archivos: ' + error.message);
             } finally {
                 submitBtn.disabled = false;
-                progressContainer.classList.add('hidden');
-                progressBar.style.width = '0%';
+                if (progressContainer) {
+                    progressContainer.classList.add('hidden');
+                    if (progressBar) progressBar.style.width = '0%';
+                }
             }
         });
 
-        // Agregar función para mostrar el progreso
+        // Función para actualizar la barra de progreso
         function updateProgress(processed, total) {
-            const progress = (processed / total) * 100;
-            const progressBar = document.getElementById('progress-bar');
-            progressBar.style.width = `${progress}%`;
+            if (progressBar) {
+                const progress = (processed / total) * 100;
+                progressBar.style.width = `${progress}%`;
+            }
         }
 
         // Agregar validación de tamaño de archivo
