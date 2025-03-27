@@ -89,39 +89,6 @@
                     <h2 class="text-xl font-semibold text-gray-800 mb-4">Resumen de Impuestos</h2>
                     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
                         <?php
-                        // Consulta para obtener el resumen de IVAs usando las nuevas tablas
-                        $query = "
-                            SELECT 
-                                CASE 
-                                    WHEN i.tasa = 0.16 THEN '16'
-                                    WHEN i.tasa = 0.08 THEN '8'
-                                    WHEN i.tasa = 0 THEN '0'
-                                    ELSE 'Otros'
-                                END as tasa_grupo,
-                                SUM(i.base) as base_total,
-                                SUM(i.importe) as iva_total
-                            FROM facturas f
-                            JOIN ivas_factura i ON f.id = i.factura_id
-                            WHERE f.client_id = :client_id
-                            AND f.fecha BETWEEN :start_date AND :end_date
-                            GROUP BY 
-                                CASE 
-                                    WHEN i.tasa = 0.16 THEN '16'
-                                    WHEN i.tasa = 0.08 THEN '8'
-                                    WHEN i.tasa = 0 THEN '0'
-                                    ELSE 'Otros'
-                                END
-                        ";
-
-                        $stmt = $db->prepare($query);
-                        $stmt->execute([
-                            ':client_id' => $filters['client_id'] ?? null,
-                            ':start_date' => $filters['start_date'] . ' 00:00:00',
-                            ':end_date' => $filters['end_date'] . ' 23:59:59'
-                        ]);
-                        $ivaResumen = $stmt->fetchAll(PDO::FETCH_ASSOC);
-
-                        // Definir los tipos de IVA y sus clases CSS
                         $tiposIVA = [
                             '16' => ['label' => 'IVA 16%', 'class' => 'bg-blue-100'],
                             '8' => ['label' => 'IVA 8%', 'class' => 'bg-green-100'],

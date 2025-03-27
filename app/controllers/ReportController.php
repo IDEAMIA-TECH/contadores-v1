@@ -26,8 +26,9 @@ class ReportController {
             // Obtener lista de clientes para el dropdown
             $clients = $this->client->getAllClients();
             
-            // Inicializar reportData como array vacío
+            // Inicializar reportData y resumen como arrays vacíos
             $reportData = [];
+            $ivaResumen = [];
             
             // Solo procesar el reporte si se envió el formulario
             if (isset($_GET['search'])) {
@@ -51,11 +52,25 @@ class ReportController {
                 
                 // Obtener datos para el reporte
                 $reportData = $this->report->generateReport($filters);
+                
+                // Obtener el resumen de IVAs
+                $ivaResumen = $this->report->getIvaResumen($filters);
             }
             
             // Generar token CSRF para el formulario
             $token = $this->security->generateCsrfToken();
             
+            // Pasar todas las variables necesarias a la vista
+            $viewData = [
+                'clients' => $clients,
+                'reportData' => $reportData,
+                'ivaResumen' => $ivaResumen,
+                'filters' => $filters ?? [],
+                'token' => $token
+            ];
+            
+            // Incluir la vista con los datos
+            extract($viewData);
             include __DIR__ . '/../views/reports/index.php';
             
         } catch (Exception $e) {

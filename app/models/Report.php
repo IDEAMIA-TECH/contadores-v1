@@ -195,4 +195,53 @@ class Report {
         // Implementar la generación de PDF aquí
         throw new Exception('Generación de PDF no implementada aún');
     }
+
+    public function getIvaResumen($filters) {
+        try {
+            $query = "
+                SELECT 
+                    CASE 
+                        WHEN i.tasa = 0.16 THEN '16'
+                        WHEN i.tasa = 0.08 THEN '8'
+                        WHEN i.tasa = 0 THEN '0'
+                        ELSE 'Otros'
+                    END as tasa_grupo,
+                    SUM(i.base) as base_total,
+                    SUM(i.importe) as iva_total
+                FROM facturas f
+                JOIN ivas_factura i ON f.id = i.factura_id
+                JOIN client_xmls cx ON f.uuid = cx.uuid
+                WHERE 1=1
+            ";
+
+            $params = [];
+
+            if (!empty($filters['client_id'])) {
+                $query .= " AND cx.client_id = ?";
+                $params[] = $filters['client_id'];
+            }
+
+            if (!empty($filters['start_date']) && !empty($filters['end_date'])) {
+                $query .= " AND DATE(cx.fecha) BETWEEN ? AND ?";
+                $params[] = $filters['start_date'];
+                $params[] = $filters['end_date'];
+            }
+
+            $query .= " GROUP BY 
+                CASE 
+                    WHEN i.tasa = 0.16 THEN '16'
+                    WHEN i.tasa = 0.08 THEN '8'
+                    WHEN i.tasa = 0 THEN '0'
+                    ELSE 'Otros'
+                END";
+
+            $stmt = $this->db->prepare($query);
+            $stmt->execute($params);
+            return $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        } catch (PDOException $e) {
+            error_log("Error en getIvaResumen: " . $e->getMessage());
+            throw new Exception("Error al obtener el resumen de IVAs");
+        }
+    }
 } 
