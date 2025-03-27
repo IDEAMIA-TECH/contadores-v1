@@ -140,35 +140,68 @@
                 reader.onload = function(e) {
                     const xmlContent = e.target.result;
                     
+                    console.log('=== Procesando archivo:', file.name, '===');
+                    
                     // Buscar la posición del tag de cierre de Conceptos
                     const conceptosEndPos = xmlContent.indexOf('</cfdi:Conceptos>');
                     if (conceptosEndPos === -1) {
+                        console.error('No se encontró el tag </cfdi:Conceptos>');
                         reject('No se encontró la sección de Conceptos en el XML');
                         return;
                     }
+                    
+                    // Extraer todo el contenido después de </cfdi:Conceptos>
+                    const contentAfterConceptos = xmlContent.substring(conceptosEndPos);
+                    console.log('Contenido después de </cfdi:Conceptos>:', contentAfterConceptos);
 
                     // Buscar la sección de Impuestos después de Conceptos
-                    const impuestosStartPos = xmlContent.indexOf('<cfdi:Impuestos', conceptosEndPos);
-                    const impuestosEndPos = xmlContent.indexOf('</cfdi:Impuestos>', impuestosStartPos);
+                    const impuestosStartPos = contentAfterConceptos.indexOf('<cfdi:Impuestos');
+                    const impuestosEndPos = contentAfterConceptos.indexOf('</cfdi:Impuestos>');
                     
                     if (impuestosStartPos === -1 || impuestosEndPos === -1) {
+                        console.error('No se encontró la sección de Impuestos completa');
                         reject('No se encontró la sección de Impuestos después de Conceptos');
                         return;
                     }
 
                     // Extraer la sección de Impuestos
-                    const impuestosSection = xmlContent.substring(impuestosStartPos, impuestosEndPos + '</cfdi:Impuestos>'.length);
+                    const impuestosSection = contentAfterConceptos.substring(
+                        impuestosStartPos, 
+                        impuestosEndPos + '</cfdi:Impuestos>'.length
+                    );
+                    
+                    console.log('=== Sección de Impuestos encontrada ===');
+                    console.log(impuestosSection);
                     
                     // Verificar si contiene la información necesaria
                     if (!impuestosSection.includes('TotalImpuestosTrasladados') || 
                         !impuestosSection.includes('<cfdi:Traslados>')) {
+                        console.error('Faltan elementos requeridos en la sección de Impuestos');
                         reject('La sección de Impuestos no contiene la información requerida');
                         return;
                     }
 
+                    // Extraer información específica
+                    const totalMatch = impuestosSection.match(/TotalImpuestosTrasladados="([^"]+)"/);
+                    const trasladosMatch = impuestosSection.match(/<cfdi:Traslado[^>]+>/g);
+
+                    console.log('=== Detalles encontrados ===');
+                    console.log('Total Impuestos Trasladados:', totalMatch ? totalMatch[1] : 'No encontrado');
+                    console.log('Traslados encontrados:', trasladosMatch || 'Ninguno');
+
+                    if (trasladosMatch) {
+                        trasladosMatch.forEach((traslado, index) => {
+                            console.log(`Traslado #${index + 1}:`, traslado);
+                        });
+                    }
+
+                    console.log('=== Fin del procesamiento ===');
                     resolve(true);
                 };
-                reader.onerror = () => reject('Error al leer el archivo XML');
+                reader.onerror = () => {
+                    console.error('Error al leer el archivo XML');
+                    reject('Error al leer el archivo XML');
+                };
                 reader.readAsText(file);
             });
         }
