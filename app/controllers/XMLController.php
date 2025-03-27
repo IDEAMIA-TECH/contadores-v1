@@ -1,10 +1,27 @@
 <?php
 
 class XMLController {
+    public function __construct() {
+        // Crear directorio de logs si no existe
+        $logDir = __DIR__ . '/../../logs';
+        if (!file_exists($logDir)) {
+            mkdir($logDir, 0777, true);
+        }
+    }
+
     public function processXMLImpuestos($xml, $facturaId) {
         try {
-            error_log("=== INICIO PROCESAMIENTO DE IMPUESTOS ===");
-            error_log("Factura ID: " . $facturaId);
+            // Definir archivo de log
+            $logFile = __DIR__ . '/../../logs/xml_process.log';
+            
+            // Función helper para logging
+            $logMessage = function($message) use ($logFile) {
+                $timestamp = date('Y-m-d H:i:s');
+                file_put_contents($logFile, "[$timestamp] $message" . PHP_EOL, FILE_APPEND);
+            };
+
+            $logMessage("=== INICIO PROCESAMIENTO DE IMPUESTOS ===");
+            $logMessage("Factura ID: " . $facturaId);
             
             // Eliminar registros existentes
             $deleteQuery = "DELETE FROM ivas_factura WHERE factura_id = ?";
@@ -17,27 +34,27 @@ class XMLController {
             if ($impuestos) {
                 // Log del TotalImpuestosTrasladados
                 $totalTrasladados = $impuestos->attributes()['TotalImpuestosTrasladados'] ?? 'No especificado';
-                error_log("TotalImpuestosTrasladados encontrado: " . $totalTrasladados);
+                $logMessage("TotalImpuestosTrasladados encontrado: " . $totalTrasladados);
                 
                 // Log del XML completo de la sección de Impuestos
-                error_log("=== SECCION COMPLETA DE IMPUESTOS ===");
-                error_log($impuestos->asXML());
+                $logMessage("=== SECCION COMPLETA DE IMPUESTOS ===");
+                $logMessage($impuestos->asXML());
                 
                 // Obtener los traslados
                 $traslados = $impuestos->xpath('./cfdi:Traslados/cfdi:Traslado');
-                error_log("Número de traslados encontrados: " . count($traslados));
+                $logMessage("Número de traslados encontrados: " . count($traslados));
                 
                 foreach ($traslados as $index => $traslado) {
-                    error_log("=== PROCESANDO TRASLADO #" . ($index + 1) . " ===");
-                    error_log("XML del traslado:");
-                    error_log($traslado->asXML());
+                    $logMessage("=== PROCESANDO TRASLADO #" . ($index + 1) . " ===");
+                    $logMessage("XML del traslado:");
+                    $logMessage($traslado->asXML());
                     
                     $attributes = $traslado->attributes();
                     
                     // Log de todos los atributos disponibles
-                    error_log("Atributos encontrados:");
+                    $logMessage("Atributos encontrados:");
                     foreach ($attributes as $name => $value) {
-                        error_log("  $name => $value");
+                        $logMessage("  $name => $value");
                     }
                     
                     if (isset($attributes['Base']) && 
@@ -48,10 +65,10 @@ class XMLController {
                         $importe = (float)$attributes['Importe'];
                         $tasaOCuota = (float)$attributes['TasaOCuota'];
                         
-                        error_log("Valores procesados:");
-                        error_log("  Base: $base");
-                        error_log("  Importe: $importe");
-                        error_log("  TasaOCuota: $tasaOCuota");
+                        $logMessage("Valores procesados:");
+                        $logMessage("  Base: $base");
+                        $logMessage("  Importe: $importe");
+                        $logMessage("  TasaOCuota: $tasaOCuota");
                         
                         // Verificar duplicados
                         $checkQuery = "SELECT id FROM ivas_factura 
@@ -79,26 +96,26 @@ class XMLController {
                                 $tasaOCuota
                             ]);
                             
-                            error_log("✓ Registro insertado correctamente");
+                            $logMessage("✓ Registro insertado correctamente");
                         } else {
-                            error_log("⚠ Registro duplicado encontrado, saltando inserción");
+                            $logMessage("⚠ Registro duplicado encontrado, saltando inserción");
                         }
                     } else {
-                        error_log("⚠ Faltan atributos requeridos en este traslado");
+                        $logMessage("⚠ Faltan atributos requeridos en este traslado");
                     }
                     
-                    error_log("=== FIN TRASLADO #" . ($index + 1) . " ===");
+                    $logMessage("=== FIN TRASLADO #" . ($index + 1) . " ===");
                 }
             } else {
-                error_log("❌ No se encontró la sección de Impuestos en el XML");
+                $logMessage("❌ No se encontró la sección de Impuestos en el XML");
             }
             
-            error_log("=== FIN PROCESAMIENTO DE IMPUESTOS ===");
+            $logMessage("=== FIN PROCESAMIENTO DE IMPUESTOS ===");
             return true;
             
         } catch (Exception $e) {
-            error_log("❌ ERROR: " . $e->getMessage());
-            error_log("Stack trace: " . $e->getTraceAsString());
+            $logMessage("❌ ERROR: " . $e->getMessage());
+            $logMessage("Stack trace: " . $e->getTraceAsString());
             throw new Exception("Error al procesar los impuestos del XML");
         }
     }
