@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: localhost:3306
--- Generation Time: Mar 26, 2025 at 01:30 PM
+-- Generation Time: Mar 26, 2025 at 11:49 PM
 -- Server version: 10.5.28-MariaDB
 -- PHP Version: 8.3.19
 
@@ -253,7 +253,8 @@ CREATE TABLE `client_xmls` (
 -- Dumping data for table `client_xmls`
 --
 
--- No data to dump for client_xmls
+INSERT INTO `client_xmls` (`id`, `client_id`, `xml_path`, `uuid`, `serie`, `folio`, `fecha`, `fecha_timbrado`, `subtotal`, `total`, `tipo_comprobante`, `forma_pago`, `metodo_pago`, `moneda`, `lugar_expedicion`, `emisor_rfc`, `emisor_nombre`, `emisor_regimen_fiscal`, `receptor_rfc`, `receptor_nombre`, `receptor_regimen_fiscal`, `receptor_domicilio_fiscal`, `receptor_uso_cfdi`, `created_at`, `updated_at`) VALUES
+(111, 2, 'xml/xml_67e4e17d2a09a_E4A44D69_75CB_450A_901E_E63AC5D4DB2A_0000000000XX0.xml', 'E4A44D69-75CB-450A-901E-E63AC5D4DB2A', 'C', '25102545', '2025-02-05 14:27:47', '2025-02-05 14:28:17', 145.24, 167.00, 'I', '28', 'PUE', 'MXN', '45160', 'CCF121101KQ4', 'COMERCIAL CITY FRESKO', '601', 'SESK690922EEA', 'KATINA SEPULVEDA STAMATIO', '', '44670', 'G03', '2025-03-26 23:26:21', '2025-03-26 23:26:21');
 
 -- --------------------------------------------------------
 
@@ -261,22 +262,23 @@ CREATE TABLE `client_xmls` (
 -- Table structure for table `facturas`
 --
 
-DROP TABLE IF EXISTS `ivas_factura`;
-DROP TABLE IF EXISTS `facturas`;
-
 CREATE TABLE `facturas` (
-  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `id` int(11) NOT NULL,
   `client_id` int(11) NOT NULL,
   `uuid` varchar(36) NOT NULL,
   `fecha` datetime NOT NULL,
   `total` decimal(12,2) NOT NULL,
   `total_iva` decimal(12,2) DEFAULT NULL,
-  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  `updated_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  PRIMARY KEY (`id`),
-  UNIQUE KEY `unique_uuid` (`uuid`),
-  KEY `client_id` (`client_id`)
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+--
+-- Dumping data for table `facturas`
+--
+
+INSERT INTO `facturas` (`id`, `client_id`, `uuid`, `fecha`, `total`, `total_iva`, `created_at`, `updated_at`) VALUES
+(3, 2, 'E4A44D69-75CB-450A-901E-E63AC5D4DB2A', '2025-02-05 14:27:47', 167.00, 40.56, '2025-03-27 05:26:21', '2025-03-27 05:26:21');
 
 -- --------------------------------------------------------
 
@@ -285,15 +287,24 @@ CREATE TABLE `facturas` (
 --
 
 CREATE TABLE `ivas_factura` (
-  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `id` int(11) NOT NULL,
   `factura_id` int(11) NOT NULL,
   `base` decimal(12,2) NOT NULL,
   `tasa` decimal(5,4) NOT NULL,
   `importe` decimal(12,2) NOT NULL,
-  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  PRIMARY KEY (`id`),
-  KEY `factura_id` (`factura_id`)
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+--
+-- Dumping data for table `ivas_factura`
+--
+
+INSERT INTO `ivas_factura` (`id`, `factura_id`, `base`, `tasa`, `importe`, `created_at`) VALUES
+(6, 3, 67.24, 0.1600, 10.76, '2025-03-27 05:26:21'),
+(7, 3, 20.00, 0.0000, 0.00, '2025-03-27 05:26:21'),
+(8, 3, 59.48, 0.1600, 9.52, '2025-03-27 05:26:21'),
+(9, 3, 20.00, 0.0000, 0.00, '2025-03-27 05:26:21'),
+(10, 3, 126.72, 0.1600, 20.28, '2025-03-27 05:26:21');
 
 -- --------------------------------------------------------
 
@@ -350,7 +361,7 @@ CREATE TABLE `users` (
 --
 
 INSERT INTO `users` (`id`, `username`, `password`, `email`, `role`, `status`, `last_login`, `reset_token`, `reset_token_expiry`, `created_at`, `updated_at`) VALUES
-(1, 'admin', '$argon2id$v=19$m=65536,t=4,p=1$OHRNRW54Q0hBcmEwN2g1NQ$moPfQt8jLa9oju3eZx58pDJnVxmc+9lVJOQ6VzkrvQ4', 'jorge@ideamia.com.mx', 'admin', 'active', '2025-03-26 13:07:51', NULL, NULL, '2025-03-19 09:14:17', '2025-03-26 13:07:51'),
+(1, 'admin', '$argon2id$v=19$m=65536,t=4,p=1$OHRNRW54Q0hBcmEwN2g1NQ$moPfQt8jLa9oju3eZx58pDJnVxmc+9lVJOQ6VzkrvQ4', 'jorge@ideamia.com.mx', 'admin', 'active', '2025-03-26 23:22:37', NULL, NULL, '2025-03-19 09:14:17', '2025-03-26 23:22:37'),
 (2, 'contador_test', '$argon2id$v=19$m=65536,t=4,p=1$UHhlVFM3WDhwQldNMndldg$y+cYwtbwCFpqjW801GosAcCsZNL98BG33HUwwKgg0Gs', 'contador@test.com', 'contador', 'active', NULL, NULL, NULL, '2025-03-19 09:14:17', '2025-03-19 10:06:39');
 
 -- --------------------------------------------------------
@@ -450,6 +461,21 @@ ALTER TABLE `client_xmls`
   ADD KEY `fecha` (`fecha`);
 
 --
+-- Indexes for table `facturas`
+--
+ALTER TABLE `facturas`
+  ADD PRIMARY KEY (`id`),
+  ADD UNIQUE KEY `unique_uuid` (`uuid`),
+  ADD KEY `client_id` (`client_id`);
+
+--
+-- Indexes for table `ivas_factura`
+--
+ALTER TABLE `ivas_factura`
+  ADD PRIMARY KEY (`id`),
+  ADD KEY `factura_id` (`factura_id`);
+
+--
 -- Indexes for table `sat_download_requests`
 --
 ALTER TABLE `sat_download_requests`
@@ -522,7 +548,19 @@ ALTER TABLE `client_documents`
 -- AUTO_INCREMENT for table `client_xmls`
 --
 ALTER TABLE `client_xmls`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=110;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=112;
+
+--
+-- AUTO_INCREMENT for table `facturas`
+--
+ALTER TABLE `facturas`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=4;
+
+--
+-- AUTO_INCREMENT for table `ivas_factura`
+--
+ALTER TABLE `ivas_factura`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=11;
 
 --
 -- AUTO_INCREMENT for table `sat_download_requests`
@@ -541,18 +579,6 @@ ALTER TABLE `users`
 --
 ALTER TABLE `users_test`
   MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=2;
-
---
--- AUTO_INCREMENT for table `facturas`
---
-ALTER TABLE `facturas`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
-
---
--- AUTO_INCREMENT for table `ivas_factura`
---
-ALTER TABLE `ivas_factura`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
 
 --
 -- Constraints for dumped tables
@@ -609,12 +635,6 @@ ALTER TABLE `client_xmls`
   ADD CONSTRAINT `client_xmls_ibfk_1` FOREIGN KEY (`client_id`) REFERENCES `clients` (`id`) ON DELETE CASCADE ON UPDATE CASCADE;
 
 --
--- Constraints for table `sat_download_requests`
---
-ALTER TABLE `sat_download_requests`
-  ADD CONSTRAINT `sat_download_requests_ibfk_1` FOREIGN KEY (`client_id`) REFERENCES `clients` (`id`);
-
---
 -- Constraints for table `facturas`
 --
 ALTER TABLE `facturas`
@@ -625,6 +645,12 @@ ALTER TABLE `facturas`
 --
 ALTER TABLE `ivas_factura`
   ADD CONSTRAINT `ivas_factura_ibfk_1` FOREIGN KEY (`factura_id`) REFERENCES `facturas` (`id`) ON DELETE CASCADE;
+
+--
+-- Constraints for table `sat_download_requests`
+--
+ALTER TABLE `sat_download_requests`
+  ADD CONSTRAINT `sat_download_requests_ibfk_1` FOREIGN KEY (`client_id`) REFERENCES `clients` (`id`);
 COMMIT;
 
 /*!40101 SET CHARACTER_SET_CLIENT=@OLD_CHARACTER_SET_CLIENT */;

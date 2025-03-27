@@ -89,59 +89,62 @@
                     <h2 class="text-xl font-semibold text-gray-800 mb-4">Resumen de Impuestos</h2>
                     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
                         <?php
-                        // Inicializar el resumen de IVA con totales en 0
-                        $resumenIVA = [
-                            '16' => ['tasa' => '16%', 'total' => 0, 'base' => 0, 'label' => 'IVA 16%', 'class' => 'bg-blue-100'],
-                            '8' => ['tasa' => '8%', 'total' => 0, 'base' => 0, 'label' => 'IVA 8%', 'class' => 'bg-green-100'],
-                            '0' => ['tasa' => '0%', 'total' => 0, 'base' => 0, 'label' => 'IVA 0%', 'class' => 'bg-yellow-100'],
-                            'Exento' => ['tasa' => 'Exento', 'total' => 0, 'base' => 0, 'label' => 'IVA Exento', 'class' => 'bg-purple-100'],
-                            'Otros' => ['tasa' => 'Otros', 'total' => 0, 'base' => 0, 'label' => 'Otros', 'class' => 'bg-gray-100']
+                        // Consulta para obtener el resumen de IVAs usando las nuevas tablas
+                        $query = "
+                            SELECT 
+                                CASE 
+                                    WHEN i.tasa = 0.16 THEN '16'
+                                    WHEN i.tasa = 0.08 THEN '8'
+                                    WHEN i.tasa = 0 THEN '0'
+                                    ELSE 'Otros'
+                                END as tasa_grupo,
+                                SUM(i.base) as base_total,
+                                SUM(i.importe) as iva_total
+                            FROM facturas f
+                            JOIN ivas_factura i ON f.id = i.factura_id
+                            WHERE f.client_id = :client_id
+                            AND f.fecha BETWEEN :start_date AND :end_date
+                            GROUP BY 
+                                CASE 
+                                    WHEN i.tasa = 0.16 THEN '16'
+                                    WHEN i.tasa = 0.08 THEN '8'
+                                    WHEN i.tasa = 0 THEN '0'
+                                    ELSE 'Otros'
+                                END
+                        ";
+
+                        $stmt = $db->prepare($query);
+                        $stmt->execute([
+                            ':client_id' => $filters['client_id'] ?? null,
+                            ':start_date' => $filters['start_date'] . ' 00:00:00',
+                            ':end_date' => $filters['end_date'] . ' 23:59:59'
+                        ]);
+                        $ivaResumen = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+                        // Definir los tipos de IVA y sus clases CSS
+                        $tiposIVA = [
+                            '16' => ['label' => 'IVA 16%', 'class' => 'bg-blue-100'],
+                            '8' => ['label' => 'IVA 8%', 'class' => 'bg-green-100'],
+                            '0' => ['label' => 'IVA 0%', 'class' => 'bg-yellow-100'],
+                            'Otros' => ['label' => 'Otros', 'class' => 'bg-gray-100']
                         ];
 
-                        // Calcular totales por tipo de IVA
-                        foreach ($reportData as $row) {
-                            $tasa = $row['tasa_o_cuota'];
-                            $tasaPorcentaje = (string)round($tasa * 100);
-                            $subtotal = (float)$row['subtotal'];
-                            
-                            error_log("Procesando registro - Tasa: $tasa, TasaPorcentaje: $tasaPorcentaje, Subtotal: $subtotal, TipoFactor: {$row['tipo_factor']}");
-                            
-                            if ($row['tipo_factor'] === 'Exento') {
-                                $resumenIVA['Exento']['total'] += 0; // Exento no genera IVA
-                                $resumenIVA['Exento']['base'] += $subtotal;
-                            } elseif (isset($resumenIVA[$tasaPorcentaje])) {
-                                // Calcular el IVA basado en el subtotal y la tasa
-                                $ivaCalculado = $subtotal * ($tasa); // tasa ya viene en decimal (0.16)
-                                $resumenIVA[$tasaPorcentaje]['total'] += $ivaCalculado;
-                                $resumenIVA[$tasaPorcentaje]['base'] += $subtotal;
-                                
-                                error_log("IVA Calculado para tasa $tasaPorcentaje%: Base: $subtotal, IVA: $ivaCalculado");
-                            } else {
-                                $resumenIVA['Otros']['total'] += ($subtotal * $tasa);
-                                $resumenIVA['Otros']['base'] += $subtotal;
-                            }
-                        }
-
-                        // Mostrar cada tipo de IVA con información detallada
-                        foreach ($resumenIVA as $key => $info): 
-                            if ($info['total'] > 0 || $info['base'] > 0): 
+                        foreach ($ivaResumen as $iva): 
+                            $tipo = $tiposIVA[$iva['tasa_grupo']];
                         ?>
-                            <div class="<?php echo htmlspecialchars($info['class']); ?> p-4 rounded-lg">
-                                <h3 class="font-semibold text-gray-700"><?php echo htmlspecialchars($info['label']); ?></h3>
+                            <div class="<?php echo $tipo['class']; ?> p-4 rounded-lg">
+                                <h3 class="font-semibold text-gray-700"><?php echo $tipo['label']; ?></h3>
                                 <div class="mt-2">
-                                    <p class="text-sm text-gray-600">Base: $<?php echo number_format($info['base'], 2); ?></p>
+                                    <p class="text-sm text-gray-600">Base: $<?php echo number_format($iva['base_total'], 2); ?></p>
                                     <p class="text-2xl font-bold text-gray-900">
-                                        IVA: $<?php echo number_format($info['total'], 2); ?>
+                                        IVA: $<?php echo number_format($iva['iva_total'], 2); ?>
                                     </p>
                                     <p class="text-sm text-gray-600">
-                                        Total: $<?php echo number_format($info['base'] + $info['total'], 2); ?>
+                                        Total: $<?php echo number_format($iva['base_total'] + $iva['iva_total'], 2); ?>
                                     </p>
                                 </div>
                             </div>
-                        <?php 
-                            endif;
-                        endforeach; 
-                        ?>
+                        <?php endforeach; ?>
                     </div>
                 </div>
 
@@ -151,72 +154,97 @@
                         <thead class="bg-gray-50">
                             <tr>
                                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Fecha</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">UUID</th>
                                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Emisor</th>
                                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">RFC Emisor</th>
                                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Receptor</th>
                                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">RFC Receptor</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">UUID</th>
                                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Subtotal</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">IVA</th>
                                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tasa o Cuota</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tipo Factor</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Impuestos Trasladados</th>
                                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tipo</th>
                             </tr>
                         </thead>
                         <tbody class="bg-white divide-y divide-gray-200">
-                            <?php if (!empty($reportData)): ?>
-                                <?php foreach ($reportData as $row): ?>
-                                    <tr>
-                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                            <?php echo date('d/m/Y', strtotime($row['fecha'] ?? '')); ?>
-                                        </td>
-                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                            <?php echo htmlspecialchars($row['emisor_nombre'] ?? ''); ?>
-                                        </td>
-                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                            <?php echo htmlspecialchars($row['emisor_rfc'] ?? ''); ?>
-                                        </td>
-                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                            <?php echo htmlspecialchars($row['receptor_nombre'] ?? ''); ?>
-                                        </td>
-                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                            <?php echo htmlspecialchars($row['receptor_rfc'] ?? ''); ?>
-                                        </td>
-                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                            <?php echo htmlspecialchars($row['uuid'] ?? ''); ?>
-                                        </td>
-                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                            $<?php echo number_format($row['subtotal'] ?? 0, 2); ?>
-                                        </td>
-                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                            $<?php echo number_format($row['total'] ?? 0, 2); ?>
-                                        </td>
-                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                            <?php echo (($row['tasa_o_cuota'] ?? 0) * 100) . '%'; ?>
-                                        </td>
-                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                            <?php echo htmlspecialchars($row['tipo_factor'] ?? ''); ?>
-                                        </td>
-                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                            $<?php echo number_format($row['total_impuestos_trasladados'] ?? 0, 2); ?>
-                                        </td>
-                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                            <?php 
-                                            $tipos = [
-                                                'I' => 'Ingreso',
-                                                'E' => 'Egreso',
-                                                'P' => 'Pago'
-                                            ];
-                                            $tipoComprobante = $row['tipo_comprobante'] ?? '';
-                                            echo htmlspecialchars($tipos[$tipoComprobante] ?? $tipoComprobante); 
-                                            ?>
-                                        </td>
-                                    </tr>
-                                <?php endforeach; ?>
-                            <?php else: ?>
+                            <?php
+                            // Consulta para obtener los detalles de las facturas
+                            $query = "
+                                SELECT 
+                                    cx.fecha,
+                                    cx.uuid,
+                                    cx.emisor_nombre,
+                                    cx.emisor_rfc,
+                                    cx.receptor_nombre,
+                                    cx.receptor_rfc,
+                                    cx.subtotal,
+                                    f.total_iva,
+                                    cx.total,
+                                    cx.tipo_comprobante
+                                FROM client_xmls cx
+                                JOIN facturas f ON cx.uuid = f.uuid
+                                WHERE cx.client_id = :client_id
+                                AND cx.fecha BETWEEN :start_date AND :end_date
+                                ORDER BY cx.fecha DESC
+                            ";
+
+                            $stmt = $db->prepare($query);
+                            $stmt->execute([
+                                ':client_id' => $filters['client_id'] ?? null,
+                                ':start_date' => $filters['start_date'] . ' 00:00:00',
+                                ':end_date' => $filters['end_date'] . ' 23:59:59'
+                            ]);
+                            $facturas = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+                            if (!empty($facturas)): 
+                                foreach ($facturas as $factura): 
+                            ?>
                                 <tr>
-                                    <td colspan="12" class="px-6 py-4 text-center text-sm text-gray-500">
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                        <?php echo date('d/m/Y', strtotime($factura['fecha'])); ?>
+                                    </td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                        <?php echo htmlspecialchars($factura['uuid']); ?>
+                                    </td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                        <?php echo htmlspecialchars($factura['emisor_nombre']); ?>
+                                    </td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                        <?php echo htmlspecialchars($factura['emisor_rfc']); ?>
+                                    </td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                        <?php echo htmlspecialchars($factura['receptor_nombre']); ?>
+                                    </td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                        <?php echo htmlspecialchars($factura['receptor_rfc']); ?>
+                                    </td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                        $<?php echo number_format($factura['subtotal'], 2); ?>
+                                    </td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                        $<?php echo number_format($factura['total_iva'], 2); ?>
+                                    </td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                        $<?php echo number_format($factura['total'], 2); ?>
+                                    </td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                        <?php 
+                                        $tipos = [
+                                            'I' => 'Ingreso',
+                                            'E' => 'Egreso',
+                                            'P' => 'Pago',
+                                            'N' => 'Nómina',
+                                            'T' => 'Traslado'
+                                        ];
+                                        echo htmlspecialchars($tipos[$factura['tipo_comprobante']] ?? $factura['tipo_comprobante']); 
+                                        ?>
+                                    </td>
+                                </tr>
+                            <?php 
+                                endforeach; 
+                            else: 
+                            ?>
+                                <tr>
+                                    <td colspan="10" class="px-6 py-4 text-center text-sm text-gray-500">
                                         No se encontraron resultados
                                     </td>
                                 </tr>
