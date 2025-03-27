@@ -16,20 +16,9 @@ class Report {
                     cx.total,
                     cx.subtotal,
                     COALESCE(f.total_iva, 0) as impuesto,
-                    COALESCE(
-                        (
-                            SELECT GROUP_CONCAT(
-                                DISTINCT CASE 
-                                    WHEN iv.tasa IS NULL THEN '0%'
-                                    ELSE CONCAT(CAST(iv.tasa * 100 AS DECIMAL(5,1)), '%')
-                                END
-                            )
-                            FROM ivas_factura iv 
-                            JOIN facturas ff ON iv.factura_id = ff.id 
-                            WHERE ff.uuid = cx.uuid
-                        ), 
-                        '0%'
-                    ) as tasa_o_cuota,
+                    GROUP_CONCAT(iv.base) as bases,
+                    GROUP_CONCAT(iv.tasa) as tasas,
+                    GROUP_CONCAT(iv.importe) as importes,
                     'Tasa' as tipo_factor,
                     COALESCE(f.total_iva, 0) as total_impuestos_trasladados,
                     cx.emisor_rfc,
@@ -40,6 +29,7 @@ class Report {
                 FROM client_xmls cx
                 JOIN clients c ON cx.client_id = c.id
                 LEFT JOIN facturas f ON cx.uuid = f.uuid
+                LEFT JOIN ivas_factura iv ON f.id = iv.factura_id
                 WHERE 1=1
             ";
             
@@ -63,7 +53,7 @@ class Report {
                 $params = array_merge($params, $types);
             }
             
-            $query .= " ORDER BY cx.fecha DESC";
+            $query .= " GROUP BY cx.uuid ORDER BY cx.fecha DESC";
             
             error_log("Query de reporte: " . $query);
             error_log("Parámetros: " . print_r($params, true));

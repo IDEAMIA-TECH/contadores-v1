@@ -128,9 +128,10 @@
                                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Receptor</th>
                                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">RFC Receptor</th>
                                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Subtotal</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">IVA</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Base</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tasa</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Importe IVA</th>
                                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tasas IVA</th>
                                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tipo</th>
                             </tr>
                         </thead>
@@ -161,20 +162,29 @@
                                     <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                                         $<?php echo number_format($row['subtotal'] ?? 0, 2); ?>
                                     </td>
-                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                        $<?php echo number_format($row['impuesto'] ?? 0, 2); ?>
+                                    <td class="px-6 py-4 text-sm text-gray-900">
+                                        <?php 
+                                        $bases = explode(',', $row['bases'] ?? '');
+                                        foreach ($bases as $base): ?>
+                                            <div class="mb-1">$<?php echo number_format((float)$base, 2); ?></div>
+                                        <?php endforeach; ?>
+                                    </td>
+                                    <td class="px-6 py-4 text-sm text-gray-900">
+                                        <?php 
+                                        $tasas = explode(',', $row['tasas'] ?? '');
+                                        foreach ($tasas as $tasa): ?>
+                                            <div class="mb-1"><?php echo number_format((float)$tasa * 100, 1); ?>%</div>
+                                        <?php endforeach; ?>
+                                    </td>
+                                    <td class="px-6 py-4 text-sm text-gray-900">
+                                        <?php 
+                                        $importes = explode(',', $row['importes'] ?? '');
+                                        foreach ($importes as $importe): ?>
+                                            <div class="mb-1">$<?php echo number_format((float)$importe, 2); ?></div>
+                                        <?php endforeach; ?>
                                     </td>
                                     <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                                         $<?php echo number_format($row['total'] ?? 0, 2); ?>
-                                    </td>
-                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                        <?php 
-                                        if (!empty($row['tasa_o_cuota'])) {
-                                            echo htmlspecialchars($row['tasa_o_cuota']);
-                                        } else {
-                                            echo '0%';
-                                        }
-                                        ?>
                                     </td>
                                     <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                                         <?php 
