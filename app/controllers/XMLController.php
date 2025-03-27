@@ -47,71 +47,85 @@ class XMLController {
 
     public function processXMLImpuestos($xml, $facturaId) {
         try {
-            // Log inicial para verificar que la función se está ejecutando
             $this->log("\n\n=== NUEVO PROCESAMIENTO DE XML ===");
             $this->log("Iniciando procesamiento para Factura ID: " . $facturaId);
             
-            // Verificar que el XML es válido
             if (!$xml) {
                 $this->log("ERROR: XML no válido");
                 return false;
             }
 
-            // Obtener y loguear el XML completo para debug
-            $this->log("XML Completo:");
-            $this->log($xml->asXML());
+            // Convertir el XML a string para buscar la posición específica
+            $xmlString = $xml->asXML();
             
-            // Obtener la sección de impuestos
-            $impuestos = $xml->xpath('//cfdi:Impuestos')[0] ?? null;
+            // Buscar la posición del cierre de Conceptos
+            $conceptosEndPos = strpos($xmlString, '</cfdi:Conceptos>');
+            if ($conceptosEndPos === false) {
+                $this->log("No se encontró el cierre de la sección Conceptos");
+                return false;
+            }
+
+            // Buscar la sección de Impuestos después de Conceptos
+            $impuestosStartPos = strpos($xmlString, '<cfdi:Impuestos', $conceptosEndPos);
+            $impuestosEndPos = strpos($xmlString, '</cfdi:Impuestos>', $impuestosStartPos);
             
-            if ($impuestos) {
-                $this->log("\nSección de Impuestos encontrada:");
-                $this->log($impuestos->asXML());
+            if ($impuestosStartPos === false || $impuestosEndPos === false) {
+                $this->log("No se encontró la sección de Impuestos después de Conceptos");
+                return false;
+            }
+
+            // Extraer la sección de Impuestos relevante
+            $impuestosSection = substr($xmlString, $impuestosStartPos, 
+                $impuestosEndPos - $impuestosStartPos + strlen('</cfdi:Impuestos>'));
+            
+            $this->log("Sección de Impuestos encontrada:");
+            $this->log($impuestosSection);
+
+            // Crear un nuevo XML con solo la sección de impuestos
+            $impuestosXml = new SimpleXMLElement($impuestosSection);
+            
+            // Obtener los traslados
+            $traslados = $impuestosXml->xpath('//cfdi:Traslado');
+            $this->log("\nNúmero de traslados encontrados: " . count($traslados));
+
+            // Eliminar registros existentes para esta factura
+            $deleteQuery = "DELETE FROM ivas_factura WHERE factura_id = ?";
+            $stmt = $this->db->prepare($deleteQuery);
+            $stmt->execute([$facturaId]);
+            
+            foreach ($traslados as $index => $traslado) {
+                $attrs = $traslado->attributes();
                 
-                // Obtener el total de impuestos trasladados
-                $attrs = $impuestos->attributes();
-                $totalTrasladados = isset($attrs['TotalImpuestosTrasladados']) ? 
-                    (string)$attrs['TotalImpuestosTrasladados'] : 'No especificado';
-                $this->log("Total Impuestos Trasladados: " . $totalTrasladados);
-                
-                // Obtener los traslados
-                $traslados = $impuestos->xpath('./cfdi:Traslados/cfdi:Traslado');
-                $this->log("\nNúmero de traslados encontrados: " . count($traslados));
-                
-                foreach ($traslados as $index => $traslado) {
-                    $this->log("\n--- Traslado #" . ($index + 1) . " ---");
-                    $this->log("XML del traslado:");
-                    $this->log($traslado->asXML());
-                    
-                    $attrs = $traslado->attributes();
-                    
-                    // Loguear todos los atributos encontrados
-                    $this->log("Atributos encontrados:");
-                    foreach ($attrs as $name => $value) {
-                        $this->log("$name => $value");
-                    }
-                    
-                    if (isset($attrs['Base']) && isset($attrs['Importe']) && isset($attrs['TasaOCuota'])) {
-                        $base = (float)$attrs['Base'];
-                        $importe = (float)$attrs['Importe'];
-                        $tasaOCuota = (float)$attrs['TasaOCuota'];
-                        
-                        try {
-                            $query = "INSERT INTO ivas_factura (factura_id, base, importe, tasa) 
-                                    VALUES (?, ?, ?, ?)";
-                            $stmt = $this->db->prepare($query);
-                            $stmt->execute([$facturaId, $base, $importe, $tasaOCuota]);
-                            
-                            $this->log("✓ Registro insertado correctamente");
-                        } catch (Exception $e) {
-                            $this->log("ERROR en inserción: " . $e->getMessage());
-                        }
-                    } else {
-                        $this->log("⚠ Faltan atributos requeridos en este traslado");
-                    }
+                $this->log("\n--- Traslado #" . ($index + 1) . " ---");
+                $this->log("Atributos encontrados:");
+                foreach ($attrs as $name => $value) {
+                    $this->log("$name => $value");
                 }
-            } else {
-                $this->log("❌ No se encontró la sección de Impuestos en el XML");
+                
+                if (isset($attrs['Base']) && isset($attrs['TasaOCuota']) && isset($attrs['Importe'])) {
+                    $base = (float)$attrs['Base'];
+                    $tasaOCuota = (float)$attrs['TasaOCuota'];
+                    $importe = (float)$attrs['Importe'];
+                    
+                    $this->log("Procesando valores:");
+                    $this->log("Base: $base");
+                    $this->log("TasaOCuota: $tasaOCuota");
+                    $this->log("Importe: $importe");
+
+                    try {
+                        $query = "INSERT INTO ivas_factura (factura_id, base, tasa, importe) 
+                                 VALUES (?, ?, ?, ?)";
+                        $stmt = $this->db->prepare($query);
+                        $stmt->execute([$facturaId, $base, $tasaOCuota, $importe]);
+                        
+                        $this->log("✓ Registro insertado correctamente");
+                    } catch (Exception $e) {
+                        $this->log("ERROR en inserción: " . $e->getMessage());
+                        throw $e;
+                    }
+                } else {
+                    $this->log("⚠ Faltan atributos requeridos en este traslado");
+                }
             }
             
             $this->log("=== FIN DEL PROCESAMIENTO ===\n");
