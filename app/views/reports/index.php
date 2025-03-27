@@ -154,6 +154,7 @@
                         <thead class="bg-gray-50">
                             <tr>
                                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Fecha</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Cliente</th>
                                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">UUID</th>
                                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Emisor</th>
                                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">RFC Emisor</th>
@@ -162,69 +163,51 @@
                                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Subtotal</th>
                                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">IVA</th>
                                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tasas IVA</th>
                                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tipo</th>
                             </tr>
                         </thead>
                         <tbody class="bg-white divide-y divide-gray-200">
-                            <?php
-                            // Consulta para obtener los detalles de las facturas
-                            $query = "
-                                SELECT 
-                                    cx.fecha,
-                                    cx.uuid,
-                                    cx.emisor_nombre,
-                                    cx.emisor_rfc,
-                                    cx.receptor_nombre,
-                                    cx.receptor_rfc,
-                                    cx.subtotal,
-                                    f.total_iva,
-                                    cx.total,
-                                    cx.tipo_comprobante
-                                FROM client_xmls cx
-                                JOIN facturas f ON cx.uuid = f.uuid
-                                WHERE cx.client_id = :client_id
-                                AND cx.fecha BETWEEN :start_date AND :end_date
-                                ORDER BY cx.fecha DESC
-                            ";
-
-                            $stmt = $db->prepare($query);
-                            $stmt->execute([
-                                ':client_id' => $filters['client_id'] ?? null,
-                                ':start_date' => $filters['start_date'] . ' 00:00:00',
-                                ':end_date' => $filters['end_date'] . ' 23:59:59'
-                            ]);
-                            $facturas = $stmt->fetchAll(PDO::FETCH_ASSOC);
-
-                            if (!empty($facturas)): 
-                                foreach ($facturas as $factura): 
-                            ?>
+                            <?php foreach ($reportData as $row): ?>
                                 <tr>
                                     <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                        <?php echo date('d/m/Y', strtotime($factura['fecha'])); ?>
+                                        <?php echo date('d/m/Y', strtotime($row['fecha'])); ?>
                                     </td>
                                     <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                        <?php echo htmlspecialchars($factura['uuid']); ?>
+                                        <?php echo htmlspecialchars($row['cliente']); ?>
                                     </td>
                                     <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                        <?php echo htmlspecialchars($factura['emisor_nombre']); ?>
+                                        <?php echo htmlspecialchars($row['uuid']); ?>
                                     </td>
                                     <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                        <?php echo htmlspecialchars($factura['emisor_rfc']); ?>
+                                        <?php echo htmlspecialchars($row['emisor_nombre']); ?>
                                     </td>
                                     <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                        <?php echo htmlspecialchars($factura['receptor_nombre']); ?>
+                                        <?php echo htmlspecialchars($row['emisor_rfc']); ?>
                                     </td>
                                     <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                        <?php echo htmlspecialchars($factura['receptor_rfc']); ?>
+                                        <?php echo htmlspecialchars($row['receptor_nombre']); ?>
                                     </td>
                                     <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                        $<?php echo number_format($factura['subtotal'], 2); ?>
+                                        <?php echo htmlspecialchars($row['receptor_rfc']); ?>
                                     </td>
                                     <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                        $<?php echo number_format($factura['total_iva'], 2); ?>
+                                        $<?php echo number_format($row['subtotal'], 2); ?>
                                     </td>
                                     <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                        $<?php echo number_format($factura['total'], 2); ?>
+                                        $<?php echo number_format($row['total_iva'], 2); ?>
+                                    </td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                        $<?php echo number_format($row['total'], 2); ?>
+                                    </td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                        <?php 
+                                        $tasas = explode(',', $row['tasas_iva']);
+                                        $tasasFormateadas = array_map(function($tasa) {
+                                            return number_format($tasa * 100, 0) . '%';
+                                        }, $tasas);
+                                        echo implode(', ', $tasasFormateadas);
+                                        ?>
                                     </td>
                                     <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                                         <?php 
@@ -235,20 +218,11 @@
                                             'N' => 'Nómina',
                                             'T' => 'Traslado'
                                         ];
-                                        echo htmlspecialchars($tipos[$factura['tipo_comprobante']] ?? $factura['tipo_comprobante']); 
+                                        echo htmlspecialchars($tipos[$row['tipo_comprobante']] ?? $row['tipo_comprobante']); 
                                         ?>
                                     </td>
                                 </tr>
-                            <?php 
-                                endforeach; 
-                            else: 
-                            ?>
-                                <tr>
-                                    <td colspan="10" class="px-6 py-4 text-center text-sm text-gray-500">
-                                        No se encontraron resultados
-                                    </td>
-                                </tr>
-                            <?php endif; ?>
+                            <?php endforeach; ?>
                         </tbody>
                     </table>
                 </div>
