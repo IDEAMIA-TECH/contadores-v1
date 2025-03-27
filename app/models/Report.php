@@ -15,16 +15,23 @@ class Report {
                     cx.uuid,
                     cx.total,
                     cx.subtotal,
-                    f.total_iva as impuesto,
+                    COALESCE(f.total_iva, 0) as impuesto,
                     COALESCE(
-                        (SELECT GROUP_CONCAT(DISTINCT CONCAT(iv.tasa * 100, '%'))
-                        FROM ivas_factura iv 
-                        JOIN facturas ff ON iv.factura_id = ff.id 
-                        WHERE ff.uuid = cx.uuid
-                        ), '0%'
+                        (
+                            SELECT GROUP_CONCAT(
+                                DISTINCT CASE 
+                                    WHEN iv.tasa IS NULL THEN '0%'
+                                    ELSE CONCAT(CAST(iv.tasa * 100 AS DECIMAL(5,1)), '%')
+                                END
+                            )
+                            FROM ivas_factura iv 
+                            JOIN facturas ff ON iv.factura_id = ff.id 
+                            WHERE ff.uuid = cx.uuid
+                        ), 
+                        '0%'
                     ) as tasa_o_cuota,
                     'Tasa' as tipo_factor,
-                    f.total_iva as total_impuestos_trasladados,
+                    COALESCE(f.total_iva, 0) as total_impuestos_trasladados,
                     cx.emisor_rfc,
                     cx.emisor_nombre,
                     cx.receptor_rfc,
@@ -66,6 +73,15 @@ class Report {
             
             $results = $stmt->fetchAll(PDO::FETCH_ASSOC);
             error_log("Resultados encontrados: " . count($results));
+            
+            // Asegurar que todos los campos numéricos sean 0 si son null
+            foreach ($results as &$row) {
+                $row['subtotal'] = $row['subtotal'] ?? 0;
+                $row['total'] = $row['total'] ?? 0;
+                $row['impuesto'] = $row['impuesto'] ?? 0;
+                $row['total_impuestos_trasladados'] = $row['total_impuestos_trasladados'] ?? 0;
+                $row['tasa_o_cuota'] = $row['tasa_o_cuota'] ?? '0%';
+            }
             
             return $results;
             

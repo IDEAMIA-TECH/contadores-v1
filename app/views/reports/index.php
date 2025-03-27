@@ -159,21 +159,21 @@
                                         <?php echo htmlspecialchars($row['receptor_rfc']); ?>
                                     </td>
                                     <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                        $<?php echo number_format($row['subtotal'], 2); ?>
+                                        $<?php echo number_format($row['subtotal'] ?? 0, 2); ?>
                                     </td>
                                     <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                        $<?php echo number_format($row['total_iva'], 2); ?>
+                                        $<?php echo number_format($row['impuesto'] ?? 0, 2); ?>
                                     </td>
                                     <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                        $<?php echo number_format($row['total'], 2); ?>
+                                        $<?php echo number_format($row['total'] ?? 0, 2); ?>
                                     </td>
                                     <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                                         <?php 
-                                        $tasas = explode(',', $row['tasas_iva']);
-                                        $tasasFormateadas = array_map(function($tasa) {
-                                            return number_format($tasa * 100, 0) . '%';
-                                        }, $tasas);
-                                        echo implode(', ', $tasasFormateadas);
+                                        if (!empty($row['tasa_o_cuota'])) {
+                                            echo htmlspecialchars($row['tasa_o_cuota']);
+                                        } else {
+                                            echo '0%';
+                                        }
                                         ?>
                                     </td>
                                     <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
