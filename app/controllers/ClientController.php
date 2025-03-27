@@ -285,11 +285,27 @@ class ClientController {
                     foreach ($batch as $index => $fileName) {
                         if ($batchErrors[$index] === UPLOAD_ERR_OK) {
                             try {
-                                $xmlContent = file_get_contents($batchTmp[$index]);
+                                // Guardar el archivo XML
+                                $uploadDir = ROOT_PATH . '/uploads/xml/';
+                                if (!is_dir($uploadDir)) {
+                                    mkdir($uploadDir, 0755, true);
+                                }
                                 
-                                // Procesar el XML
-                                $this->processXmlContent($xmlContent, $clientId);
-                                $filesProcessed++;
+                                // Generar nombre único para el archivo
+                                $safeFileName = uniqid('xml_') . '_' . preg_replace('/[^a-zA-Z0-9.]/', '_', $fileName);
+                                $xmlPath = 'xml/' . $safeFileName;
+                                $fullPath = $uploadDir . $safeFileName;
+                                
+                                // Mover el archivo a la ubicación permanente
+                                if (move_uploaded_file($batchTmp[$index], $fullPath)) {
+                                    $xmlContent = file_get_contents($fullPath);
+                                    
+                                    // Procesar el XML pasando también la ruta del archivo
+                                    $this->processXmlContent($xmlContent, $clientId, $xmlPath);
+                                    $filesProcessed++;
+                                } else {
+                                    throw new Exception("Error al mover el archivo {$fileName}");
+                                }
                                 
                                 // Liberar memoria
                                 unset($xmlContent);
@@ -1004,7 +1020,7 @@ class ClientController {
         exit;
     }
 
-    public function processXmlContent($xmlContent, $clientId) {
+    public function processXmlContent($xmlContent, $clientId, $xmlPath) {
         try {
             $xml = new SimpleXMLElement($xmlContent);
             $xml->registerXPathNamespace('cfdi', 'http://www.sat.gob.mx/cfd/4');
@@ -1061,11 +1077,28 @@ class ClientController {
                 ");
 
                 $stmtXml->execute([
-                    $clientId, $xmlPath, $uuid, $serie, $folio, $fecha, $fechaTimbrado,
-                    $subtotal, $total, $tipoComprobante, $formaPago, $metodoPago,
-                    $moneda, $lugarExpedicion, $emisorRfc, $emisorNombre,
-                    $emisorRegimenFiscal, $receptorRfc, $receptorNombre,
-                    $receptorRegimenFiscal, $receptorDomicilioFiscal, $receptorUsoCfdi
+                    $clientId, 
+                    $xmlPath,  // Ahora xmlPath está definido
+                    $uuid, 
+                    $serie, 
+                    $folio, 
+                    $fecha, 
+                    $fechaTimbrado,
+                    $subtotal, 
+                    $total, 
+                    $tipoComprobante, 
+                    $formaPago, 
+                    $metodoPago,
+                    $moneda, 
+                    $lugarExpedicion, 
+                    $emisorRfc, 
+                    $emisorNombre,
+                    $emisorRegimenFiscal, 
+                    $receptorRfc, 
+                    $receptorNombre,
+                    $receptorRegimenFiscal, 
+                    $receptorDomicilioFiscal, 
+                    $receptorUsoCfdi
                 ]);
 
                 // 2. Insertar en facturas
