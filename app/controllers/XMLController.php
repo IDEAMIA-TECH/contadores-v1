@@ -12,7 +12,7 @@ class XMLController {
     public function processXMLImpuestos($xml, $facturaId) {
         try {
             // Definir archivo de log
-            $logFile = __DIR__ . '/../../logs/xml_process.log';
+            $logFile = __DIR__ . '/../logs/xml_process.log';
             
             // Función helper para logging
             $logMessage = function($message) use ($logFile) {
