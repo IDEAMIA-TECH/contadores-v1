@@ -133,7 +133,48 @@
             handleFileSelection(newFiles);
         }
 
-        function handleFileSelection(newFiles) {
+        // Agregar función para validar la estructura del XML
+        async function validateXMLStructure(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    const xmlContent = e.target.result;
+                    
+                    // Buscar la posición del tag de cierre de Conceptos
+                    const conceptosEndPos = xmlContent.indexOf('</cfdi:Conceptos>');
+                    if (conceptosEndPos === -1) {
+                        reject('No se encontró la sección de Conceptos en el XML');
+                        return;
+                    }
+
+                    // Buscar la sección de Impuestos después de Conceptos
+                    const impuestosStartPos = xmlContent.indexOf('<cfdi:Impuestos', conceptosEndPos);
+                    const impuestosEndPos = xmlContent.indexOf('</cfdi:Impuestos>', impuestosStartPos);
+                    
+                    if (impuestosStartPos === -1 || impuestosEndPos === -1) {
+                        reject('No se encontró la sección de Impuestos después de Conceptos');
+                        return;
+                    }
+
+                    // Extraer la sección de Impuestos
+                    const impuestosSection = xmlContent.substring(impuestosStartPos, impuestosEndPos + '</cfdi:Impuestos>'.length);
+                    
+                    // Verificar si contiene la información necesaria
+                    if (!impuestosSection.includes('TotalImpuestosTrasladados') || 
+                        !impuestosSection.includes('<cfdi:Traslados>')) {
+                        reject('La sección de Impuestos no contiene la información requerida');
+                        return;
+                    }
+
+                    resolve(true);
+                };
+                reader.onerror = () => reject('Error al leer el archivo XML');
+                reader.readAsText(file);
+            });
+        }
+
+        // Modificar la función handleFileSelection para incluir la validación
+        async function handleFileSelection(newFiles) {
             // Filtrar solo archivos XML
             const xmlFiles = newFiles.filter(file => file.name.toLowerCase().endsWith('.xml'));
             
@@ -146,6 +187,16 @@
             // Validar tamaño de archivos
             if (!validateFiles(xmlFiles)) {
                 return;
+            }
+
+            // Validar estructura de cada XML
+            for (const file of xmlFiles) {
+                try {
+                    await validateXMLStructure(file);
+                } catch (error) {
+                    alert(`Error en el archivo ${file.name}: ${error}`);
+                    return;
+                }
             }
 
             // Agregar nuevos archivos
@@ -186,7 +237,7 @@
             }
         });
 
-        // Manejar envío del formulario
+        // Modificar el envío del formulario para incluir la validación adicional
         form.addEventListener('submit', async function(e) {
             e.preventDefault();
             
@@ -196,19 +247,22 @@
             }
 
             const formData = new FormData();
-            
-            // Obtener el token CSRF y client_id
             const csrfToken = document.getElementById('csrf_token').value;
             const clientId = document.getElementById('client_id').value;
             
-            // Agregar los datos al FormData
             formData.append('csrf_token', csrfToken);
             formData.append('client_id', clientId);
             
-            // Agregar los archivos
-            files.forEach(file => {
-                formData.append('xml_files[]', file);
-            });
+            // Validar cada archivo antes de enviarlo
+            for (const file of files) {
+                try {
+                    await validateXMLStructure(file);
+                    formData.append('xml_files[]', file);
+                } catch (error) {
+                    alert(`Error en el archivo ${file.name}: ${error}`);
+                    return;
+                }
+            }
 
             const submitBtn = document.getElementById('submit-btn');
             const progressContainer = document.getElementById('progress-container');
