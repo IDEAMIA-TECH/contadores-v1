@@ -140,26 +140,21 @@
                 reader.onload = function(e) {
                     const xmlContent = e.target.result;
                     
-                    console.log('=== Procesando archivo:', file.name, '===');
-                    
                     // Buscar la posición del tag de cierre de Conceptos
                     const conceptosEndPos = xmlContent.indexOf('</cfdi:Conceptos>');
                     if (conceptosEndPos === -1) {
-                        console.error('No se encontró el tag </cfdi:Conceptos>');
                         reject('No se encontró la sección de Conceptos en el XML');
                         return;
                     }
                     
                     // Extraer todo el contenido después de </cfdi:Conceptos>
                     const contentAfterConceptos = xmlContent.substring(conceptosEndPos);
-                    console.log('Contenido después de </cfdi:Conceptos>:', contentAfterConceptos);
 
                     // Buscar la sección de Impuestos después de Conceptos
                     const impuestosStartPos = contentAfterConceptos.indexOf('<cfdi:Impuestos');
                     const impuestosEndPos = contentAfterConceptos.indexOf('</cfdi:Impuestos>');
                     
                     if (impuestosStartPos === -1 || impuestosEndPos === -1) {
-                        console.error('No se encontró la sección de Impuestos completa');
                         reject('No se encontró la sección de Impuestos después de Conceptos');
                         return;
                     }
@@ -170,38 +165,36 @@
                         impuestosEndPos + '</cfdi:Impuestos>'.length
                     );
                     
-                    console.log('=== Sección de Impuestos encontrada ===');
-                    console.log(impuestosSection);
-                    
-                    // Verificar si contiene la información necesaria
-                    if (!impuestosSection.includes('TotalImpuestosTrasladados') || 
-                        !impuestosSection.includes('<cfdi:Traslados>')) {
-                        console.error('Faltan elementos requeridos en la sección de Impuestos');
-                        reject('La sección de Impuestos no contiene la información requerida');
-                        return;
-                    }
-
-                    // Extraer información específica
-                    const totalMatch = impuestosSection.match(/TotalImpuestosTrasladados="([^"]+)"/);
+                    // Extraer información específica de los traslados
+                    const trasladosData = [];
                     const trasladosMatch = impuestosSection.match(/<cfdi:Traslado[^>]+>/g);
 
-                    console.log('=== Detalles encontrados ===');
-                    console.log('Total Impuestos Trasladados:', totalMatch ? totalMatch[1] : 'No encontrado');
-                    console.log('Traslados encontrados:', trasladosMatch || 'Ninguno');
-
                     if (trasladosMatch) {
-                        trasladosMatch.forEach((traslado, index) => {
-                            console.log(`Traslado #${index + 1}:`, traslado);
+                        trasladosMatch.forEach(traslado => {
+                            // Extraer los atributos de cada traslado
+                            const base = traslado.match(/Base="([^"]+)"/)?.[1];
+                            const tasaOCuota = traslado.match(/TasaOCuota="([^"]+)"/)?.[1];
+                            const importe = traslado.match(/Importe="([^"]+)"/)?.[1];
+
+                            if (base && tasaOCuota && importe) {
+                                trasladosData.push({
+                                    base: parseFloat(base),
+                                    tasa: parseFloat(tasaOCuota),
+                                    importe: parseFloat(importe)
+                                });
+                            }
                         });
                     }
 
-                    console.log('=== Fin del procesamiento ===');
-                    resolve(true);
+                    console.log('Traslados encontrados:', trasladosData);
+
+                    // Resolver con los datos extraídos
+                    resolve({
+                        fileName: file.name,
+                        traslados: trasladosData
+                    });
                 };
-                reader.onerror = () => {
-                    console.error('Error al leer el archivo XML');
-                    reject('Error al leer el archivo XML');
-                };
+                reader.onerror = () => reject('Error al leer el archivo XML');
                 reader.readAsText(file);
             });
         }
@@ -286,22 +279,14 @@
             formData.append('csrf_token', csrfToken);
             formData.append('client_id', clientId);
             
-            // Validar cada archivo antes de enviarlo
-            for (const file of files) {
-                try {
-                    await validateXMLStructure(file);
-                    formData.append('xml_files[]', file);
-                } catch (error) {
-                    alert(`Error en el archivo ${file.name}: ${error}`);
-                    return;
-                }
-            }
-
-            const submitBtn = document.getElementById('submit-btn');
-            const progressContainer = document.getElementById('progress-container');
-            const progressBar = document.getElementById('progress-bar');
-
+            // Procesar cada archivo y extraer los datos de impuestos
             try {
+                for (const file of files) {
+                    const xmlData = await validateXMLStructure(file);
+                    formData.append('xml_files[]', file);
+                    formData.append(`traslados_${file.name}`, JSON.stringify(xmlData.traslados));
+                }
+
                 submitBtn.disabled = true;
                 progressContainer.classList.remove('hidden');
 
@@ -323,7 +308,7 @@
                 }
             } catch (error) {
                 console.error('Error:', error);
-                alert('Error al subir los archivos: ' + error.message);
+                alert('Error al procesar los archivos: ' + error.message);
             } finally {
                 submitBtn.disabled = false;
                 progressContainer.classList.add('hidden');
