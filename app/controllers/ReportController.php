@@ -125,20 +125,28 @@ class ReportController {
 
         $query = "
             SELECT 
+                c.business_name as cliente,
                 cx.fecha,
-                cx.emisor_nombre,
-                cx.emisor_rfc,
-                cx.nombre_receptor as receptor_nombre,
-                cx.rfc_receptor as receptor_rfc,
                 cx.uuid,
-                cx.subtotal,
                 cx.total,
-                cxt.tasa_o_cuota,
-                cxt.tipo_factor,
-                cxt.total_impuestos_trasladados,
+                cx.subtotal,
+                f.total_iva,
+                (
+                    SELECT GROUP_CONCAT(CONCAT(tasa * 100, '%'))
+                    FROM ivas_factura iv 
+                    JOIN facturas ff ON iv.factura_id = ff.id 
+                    WHERE ff.uuid = cx.uuid
+                ) as tasas_iva,
+                'Tasa' as tipo_factor,
+                f.total_iva as total_impuestos_trasladados,
+                cx.emisor_rfc,
+                cx.emisor_nombre,
+                cx.receptor_rfc,
+                cx.receptor_nombre,
                 cx.tipo_comprobante
             FROM client_xmls cx
-            LEFT JOIN client_xml_taxes cxt ON cx.id = cxt.xml_id
+            JOIN clients c ON cx.client_id = c.id
+            LEFT JOIN facturas f ON cx.uuid = f.uuid
             WHERE cx.fecha BETWEEN :start_date AND :end_date
         ";
 
@@ -154,12 +162,32 @@ class ReportController {
 
         if (!empty($params['type'])) {
             $types = (array)$params['type'];
-            $query .= " AND cx.tipo_comprobante IN (" . implode(',', array_fill(0, count($types), '?')) . ")";
+            $placeholders = str_repeat('?,', count($types) - 1) . '?';
+            $query .= " AND cx.tipo_comprobante IN ($placeholders)";
             $parameters = array_merge($parameters, $types);
         }
 
-        $stmt = $this->db->prepare($query);
-        $stmt->execute($parameters);
-        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+        $query .= " ORDER BY cx.fecha DESC";
+
+        error_log("Query de reporte: " . $query);
+        error_log("Parámetros: " . print_r($parameters, true));
+
+        try {
+            $stmt = $this->db->prepare($query);
+            $stmt->execute($parameters);
+            $results = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            error_log("Resultados encontrados: " . count($results));
+            return $results;
+        } catch (PDOException $e) {
+            error_log("Error en getReportData: " . $e->getMessage());
+            throw new Exception("Error al obtener los datos del reporte");
+        }
+    }
+
+    // Método auxiliar para formatear las tasas de IVA
+    private function formatTasasIva($tasasString) {
+        if (empty($tasasString)) return '0%';
+        $tasas = explode(',', $tasasString);
+        return implode(', ', array_unique($tasas));
     }
 } 
