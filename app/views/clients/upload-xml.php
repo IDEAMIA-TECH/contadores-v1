@@ -150,46 +150,46 @@
                         return;
                     }
                     
-                    // Extraer todo el contenido después de </cfdi:Conceptos>
+                    // Extraer solo la sección después de </cfdi:Conceptos>
                     const contentAfterConceptos = xmlContent.substring(conceptosEndPos);
 
-                    // Buscar la sección de Impuestos después de Conceptos
-                    const impuestosStartPos = contentAfterConceptos.indexOf('<cfdi:Impuestos');
-                    const impuestosEndPos = contentAfterConceptos.indexOf('</cfdi:Impuestos>');
+                    // Buscar específicamente la sección de Impuestos que viene después de Conceptos
+                    const impuestosMatch = contentAfterConceptos.match(/<cfdi:Impuestos[^>]*TotalImpuestosTrasladados="[^"]*">([\s\S]*?)<\/cfdi:Impuestos>/);
                     
-                    if (impuestosStartPos === -1 || impuestosEndPos === -1) {
+                    if (!impuestosMatch) {
                         reject('No se encontró la sección de Impuestos después de Conceptos');
                         return;
                     }
 
-                    // Extraer la sección de Impuestos
-                    const impuestosSection = contentAfterConceptos.substring(
-                        impuestosStartPos, 
-                        impuestosEndPos + '</cfdi:Impuestos>'.length
-                    );
-                    
-                    // Extraer información específica de los traslados
+                    const impuestosSection = impuestosMatch[0];
+                    console.log('Sección de Impuestos encontrada:', impuestosSection);
+
+                    // Extraer solo los traslados dentro de esta sección
                     const trasladosData = [];
-                    const trasladosMatch = impuestosSection.match(/<cfdi:Traslado[^>]+>/g);
+                    const trasladosRegex = /<cfdi:Traslado\s+([^>]+)>/g;
+                    let trasladoMatch;
 
-                    if (trasladosMatch) {
-                        trasladosMatch.forEach(traslado => {
-                            // Extraer los atributos de cada traslado
-                            const base = traslado.match(/Base="([^"]+)"/)?.[1];
-                            const tasaOCuota = traslado.match(/TasaOCuota="([^"]+)"/)?.[1];
-                            const importe = traslado.match(/Importe="([^"]+)"/)?.[1];
+                    while ((trasladoMatch = trasladosRegex.exec(impuestosSection)) !== null) {
+                        const atributosStr = trasladoMatch[1];
+                        
+                        // Extraer los atributos usando expresiones regulares
+                        const base = atributosStr.match(/Base="([^"]+)"/)?.[1];
+                        const tasaOCuota = atributosStr.match(/TasaOCuota="([^"]+)"/)?.[1];
+                        const importe = atributosStr.match(/Importe="([^"]+)"/)?.[1];
 
-                            if (base && tasaOCuota && importe) {
-                                trasladosData.push({
-                                    base: parseFloat(base),
-                                    tasa: parseFloat(tasaOCuota),
-                                    importe: parseFloat(importe)
-                                });
-                            }
-                        });
+                        if (base && tasaOCuota && importe) {
+                            const traslado = {
+                                base: parseFloat(base),
+                                tasa: parseFloat(tasaOCuota),
+                                importe: parseFloat(importe)
+                            };
+                            trasladosData.push(traslado);
+                            console.log('Traslado procesado:', traslado);
+                        }
                     }
 
-                    console.log('Traslados encontrados:', trasladosData);
+                    console.log('Total de traslados encontrados:', trasladosData.length);
+                    console.log('Datos de traslados:', trasladosData);
 
                     // Resolver con los datos extraídos
                     resolve({
@@ -276,19 +276,19 @@
             }
 
             const formData = new FormData();
-            const csrfToken = document.getElementById('csrf_token').value;
-            const clientId = document.getElementById('client_id').value;
-            
-            formData.append('csrf_token', csrfToken);
-            formData.append('client_id', clientId);
+            formData.append('csrf_token', document.getElementById('csrf_token').value);
+            formData.append('client_id', document.getElementById('client_id').value);
             
             try {
                 submitBtn.disabled = true;
                 if (progressContainer) progressContainer.classList.remove('hidden');
                 
-                // Procesar cada archivo y extraer los datos de impuestos
+                // Procesar cada archivo
                 for (const file of files) {
                     const xmlData = await validateXMLStructure(file);
+                    console.log('Enviando datos para', file.name, ':', xmlData.traslados);
+                    
+                    // Enviar el archivo y sus traslados
                     formData.append('xml_files[]', file);
                     formData.append(`traslados_${file.name}`, JSON.stringify(xmlData.traslados));
                 }
