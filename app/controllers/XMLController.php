@@ -140,14 +140,50 @@ class XMLController {
 
     public function processXML($xmlContent, $clientId) {
         try {
-            // ... código existente ...
-
-            // Después de insertar en la tabla facturas y obtener el facturaId
-            $this->processXMLImpuestos($xml, $facturaId);
-
-            // ... resto del código ...
+            // Obtener los traslados enviados desde el frontend
+            if (isset($_POST['traslados_' . basename($xmlContent)])) {
+                $trasladosJson = $_POST['traslados_' . basename($xmlContent)];
+                $traslados = json_decode($trasladosJson, true);
+                
+                $this->log("Traslados recibidos del frontend:");
+                $this->log(print_r($traslados, true));
+                
+                // Procesar el XML para obtener otros datos necesarios
+                $xml = new SimpleXMLElement($xmlContent);
+                
+                // Aquí procesas e insertas en la tabla facturas
+                // ... código existente para insertar en facturas ...
+                
+                // Después de obtener el facturaId, procesar los traslados
+                if (!empty($traslados)) {
+                    // Eliminar registros existentes
+                    $deleteQuery = "DELETE FROM ivas_factura WHERE factura_id = ?";
+                    $stmt = $this->db->prepare($deleteQuery);
+                    $stmt->execute([$facturaId]);
+                    
+                    // Insertar los nuevos traslados
+                    foreach ($traslados as $traslado) {
+                        $query = "INSERT INTO ivas_factura (factura_id, base, tasa, importe) 
+                                 VALUES (?, ?, ?, ?)";
+                        $stmt = $this->db->prepare($query);
+                        $stmt->execute([
+                            $facturaId,
+                            $traslado['base'],
+                            $traslado['tasa'],
+                            $traslado['importe']
+                        ]);
+                        
+                        $this->log("Insertado traslado: " . print_r($traslado, true));
+                    }
+                }
+                
+                return true;
+            } else {
+                $this->log("No se encontraron traslados en los datos POST");
+                return false;
+            }
         } catch (Exception $e) {
-            error_log("Error procesando XML: " . $e->getMessage());
+            $this->log("Error procesando XML: " . $e->getMessage());
             throw new Exception("Error al procesar el XML");
         }
     }

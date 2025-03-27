@@ -153,45 +153,45 @@
                     // Extraer solo la sección después de </cfdi:Conceptos>
                     const contentAfterConceptos = xmlContent.substring(conceptosEndPos);
 
-                    // Buscar específicamente la sección de Impuestos que viene después de Conceptos
-                    const impuestosMatch = contentAfterConceptos.match(/<cfdi:Impuestos[^>]*TotalImpuestosTrasladados="[^"]*">([\s\S]*?)<\/cfdi:Impuestos>/);
+                    // Buscar la sección de Impuestos después de Conceptos
+                    const impuestosStartPos = contentAfterConceptos.indexOf('<cfdi:Impuestos');
+                    const impuestosEndPos = contentAfterConceptos.indexOf('</cfdi:Impuestos>', impuestosStartPos);
                     
-                    if (!impuestosMatch) {
+                    if (impuestosStartPos === -1 || impuestosEndPos === -1) {
                         reject('No se encontró la sección de Impuestos después de Conceptos');
                         return;
                     }
 
-                    const impuestosSection = impuestosMatch[0];
+                    // Extraer la sección de Impuestos
+                    const impuestosSection = contentAfterConceptos.substring(
+                        impuestosStartPos, 
+                        impuestosEndPos + '</cfdi:Impuestos>'.length
+                    );
+
                     console.log('Sección de Impuestos encontrada:', impuestosSection);
 
-                    // Extraer solo los traslados dentro de esta sección
+                    // Extraer los traslados
                     const trasladosData = [];
-                    const trasladosRegex = /<cfdi:Traslado\s+([^>]+)>/g;
-                    let trasladoMatch;
+                    const parser = new DOMParser();
+                    const xmlDoc = parser.parseFromString(impuestosSection, "text/xml");
+                    const traslados = xmlDoc.getElementsByTagName('cfdi:Traslado');
 
-                    while ((trasladoMatch = trasladosRegex.exec(impuestosSection)) !== null) {
-                        const atributosStr = trasladoMatch[1];
-                        
-                        // Extraer los atributos usando expresiones regulares
-                        const base = atributosStr.match(/Base="([^"]+)"/)?.[1];
-                        const tasaOCuota = atributosStr.match(/TasaOCuota="([^"]+)"/)?.[1];
-                        const importe = atributosStr.match(/Importe="([^"]+)"/)?.[1];
+                    for (let traslado of traslados) {
+                        const base = traslado.getAttribute('Base');
+                        const tasaOCuota = traslado.getAttribute('TasaOCuota');
+                        const importe = traslado.getAttribute('Importe');
 
                         if (base && tasaOCuota && importe) {
-                            const traslado = {
+                            trasladosData.push({
                                 base: parseFloat(base),
                                 tasa: parseFloat(tasaOCuota),
                                 importe: parseFloat(importe)
-                            };
-                            trasladosData.push(traslado);
-                            console.log('Traslado procesado:', traslado);
+                            });
                         }
                     }
 
-                    console.log('Total de traslados encontrados:', trasladosData.length);
-                    console.log('Datos de traslados:', trasladosData);
+                    console.log('Traslados procesados:', trasladosData);
 
-                    // Resolver con los datos extraídos
                     resolve({
                         fileName: file.name,
                         traslados: trasladosData
@@ -285,18 +285,21 @@
                 
                 // Procesar cada archivo
                 for (const file of files) {
-                    const xmlData = await validateXMLStructure(file);
-                    console.log('Enviando datos para', file.name, ':', xmlData.traslados);
-                    
-                    // Enviar el archivo y sus traslados
-                    formData.append('xml_files[]', file);
-                    formData.append(`traslados_${file.name}`, JSON.stringify(xmlData.traslados));
+                    try {
+                        const xmlData = await validateXMLStructure(file);
+                        console.log('Enviando datos para', file.name, ':', xmlData.traslados);
+                        
+                        formData.append('xml_files[]', file);
+                        formData.append(`traslados_${file.name}`, JSON.stringify(xmlData.traslados));
+                    } catch (error) {
+                        console.error('Error procesando archivo:', file.name, error);
+                        throw error;
+                    }
                 }
 
                 const response = await fetch(form.action, {
                     method: 'POST',
-                    body: formData,
-                    credentials: 'same-origin'
+                    body: formData
                 });
 
                 const result = await response.json();
@@ -307,7 +310,7 @@
                         window.location.href = result.redirect_url;
                     }
                 } else {
-                    alert(result.message || 'Error al procesar los archivos');
+                    throw new Error(result.message || 'Error al procesar los archivos');
                 }
             } catch (error) {
                 console.error('Error:', error);
